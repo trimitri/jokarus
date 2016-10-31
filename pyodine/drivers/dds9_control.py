@@ -5,7 +5,7 @@ logger = logging.getLogger('pyodine.drivers.dds9_control')
 
 
 class Dds9Setting:
-    """A complete set of state variables to control DDS9.
+    """A complete set of state variables specific to DDS9.
 
     Those objects can be sent to and received from the device.
     """
@@ -31,7 +31,9 @@ class Dds9Control:
         self._port = None  # OS-specific ID of serial port
 
         self._open_connection()
-        self.ping()  # ensure proper device connection
+        self._state = self.get_state()
+        if not self.ping():  # ensure proper device connection
+            raise ConnectionError("Unexpected DDS9m behaviour.")
         logger.info("Connection to DDS9m established.")
 
     def __del__(self):
@@ -41,27 +43,53 @@ class Dds9Control:
     # public methods
 
     def get_state(self) -> Dds9Setting:
-        logger.error('Method get_state() not yet implemented.')
+        """Queries the device for its internal state."""
+        self._send_command('QUE')
+        response = self._read_response()
+        return self._parse_query_result(response)
 
     def pause(self) -> None:
-        logger.error('Method pause() not yet implemented.')
+        """Temporarily sets all outputs to zero voltage."""
+        logger.warning('Method pause() not yet implemented.')
 
     def resume(self) -> None:
-        logger.error('Method resume() not yet implemented.')
+        """Resume frequence generation with previously used values."""
+        logger.warning('Method resume() not yet implemented.')
 
     def set_frequency(self, freq: float, channel: int=-1) -> None:
-        logger.error('Method set_frequency() not yet implemented.')
+        """Set frequency for one or all channels.
+
+        If function is called without "channel", all channels are set.
+        """
+        logger.warning('Method set_frequency() not yet implemented.')
 
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
-        logger.error('Method set_amplitude() not yet implemented.')
+        """Set amplitude for one or all channels.
+
+        If function is called without "channel", all channels are set.
+        """
+        logger.warning('Method set_amplitude() not yet implemented.')
 
     def set_phase(self, phase: float, channel: int=-1) -> None:
-        logger.error('Method set_phase() not yet implemented.')
+        """Set phase for one or all channels.
 
-    def ping(self) -> None:
-        logger.error('Method ping() is not yet implemented.')
+        If function is called without "channel", all channels are set.
+        """
+        logger.warning('Method set_phase() not yet implemented.')
+
+    def ping(self) -> bool:
+        is_consistent = self._state != self.get_state()
+        if is_consistent:
+            return True
+        else:
+            logger.error('DDS9 was not in expected state!')
+            return False
 
     # private methods
+
+    def _close_connection(self) -> None:
+        self._port.close()
+        logger.info("Closed serial port " + self._port.name)
 
     def _send_command(self, command: str='') -> None:
         """Prepare a command string and send it to the device."""
@@ -92,6 +120,6 @@ class Dds9Control:
         self._port.timeout = self._settings['timeout']
         logger.info("Opened serial port " + self._port.name)
 
-    def _close_connection(self) -> None:
-        self._port.close()
-        logger.info("Closed serial port " + self._port.name)
+    def _parse_query_result(self, result: str) -> Dds9Setting:
+        lines = [l for l in result.splitlines() if len(l) in [22, 48]]
+        print(lines)
