@@ -9,7 +9,29 @@ class Dds9Setting:
 
     Those objects can be sent to and received from the device.
     """
-    pass
+    def __init__(self,
+                 frequencies: list, phases: list, amplitudes: list) -> None:
+        self.freqs = frequencies
+        self.phases = phases
+        self.ampls = amplitudes
+        if not self.validate():
+            logger.warning("Invalid settings object, defaulting to all-zero.")
+            self.freqs, self.phases, self.ampls = [4*[0] for x in range(3)]
+
+    def validate(self) -> bool:
+
+        # All lists are exactly four elements long.
+        if [len(i) for i in [self.freqs, self.phases, self.ampls]] == 3*[4]:
+
+            # All lists contain only integers.
+            if all(
+                    all(type(x) is int and x >= 0 for x in quantity)
+                    for quantity in [self.freqs, self.phases, self.ampls]):
+                return True
+            logger.debug("Settings constituents are not positive integers.")
+        else:
+            logger.debug("Settings constituents have to have four items each.")
+        return False
 
 
 class Dds9Control:
@@ -121,5 +143,13 @@ class Dds9Control:
         logger.info("Opened serial port " + self._port.name)
 
     def _parse_query_result(self, result: str) -> Dds9Setting:
-        lines = [l for l in result.splitlines() if len(l) in [22, 48]]
-        print(lines)
+        relevant_lines = [l for l in result.splitlines() if len(l) == 48]
+        channels = [l.split() for l in relevant_lines]
+
+        # Data was grouped into channels before, now we sort by physical
+        # quantity first and then by channel:
+        params = list(zip(*channels))  # transpose
+        frequencies = [int(f, 16) for f in params[0]]
+        phases = [int(f, 16) for f in params[1]]
+        amplitudes = [int(f, 16) for f in params[2]]
+        return Dds9Setting(frequencies, phases, amplitudes)
