@@ -35,11 +35,11 @@ class Dds9Setting:
             logger.debug("Settings constituents must have four items each.")
         return False
 
-    def is_nonzero(self) -> bool:
+    def is_zero(self) -> bool:
         """Check, if settings object represents a non-trivial device state."""
         is_zero = all([all([x == 0 for x in quantity]) for quantity in
                        (self.freqs, self.phases, self.ampls)])
-        return not is_zero
+        return is_zero
 
 
 class Dds9Control:
@@ -66,7 +66,7 @@ class Dds9Control:
         self._port = None  # Connection has not been opened yet.
 
         self._open_connection()
-        self._state = self.get_state()
+        self._state = self._update_state()
         if not self.ping():  # ensure proper device connection
             raise ConnectionError("Unexpected DDS9m behaviour.")
         logger.info("Connection to DDS9m established.")
@@ -78,10 +78,7 @@ class Dds9Control:
     # public methods
 
     def get_state(self) -> Dds9Setting:
-        """Queries the device for its internal state."""
-        self._send_command('QUE')
-        response = self._read_response()
-        return self._parse_query_result(response)
+        return self._state
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
@@ -113,14 +110,20 @@ class Dds9Control:
         logger.warning('Method set_phase() not yet implemented.')
 
     def ping(self) -> bool:
-        is_consistent = self._state != self.get_state()
-        if is_consistent:
-            return True
-        else:
-            logger.error('DDS9 was not in expected state!')
-            return False
+        """Device is accessible and in non-zero state."""
+        self._update_state()
+        return not self._state.is_zero()
 
     # private methods
+
+    def _update_state(self) -> None:
+        """Queries the device for its internal state and updates _state."""
+        self._send_command('QUE')
+        response = self._read_response()
+        state = self._parse_query_result(response)
+        self._state = state
+        if state.is_zero():
+            logger.warning("Device was in zero state.")
 
     def _close_connection(self) -> None:
         self._port.close()
