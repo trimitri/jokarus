@@ -46,4 +46,13 @@ def test_check_device_sanity():
 
 def test_check_device_memory():
     """Device stays in a state specified by user."""
-    assert False
+    device = Dds9Control(live_port)
+    device.set_frequency(100)
+    device.set_frequency(1000, 0)
+    device.set_phase(90)
+    device.set_phase(180, 1)
+    device.set_amplitude(.5)
+    device.set_amplitude(1, 2)
+    assert device.get_frequencies() == [1000, 100, 100, 100]
+    assert device.get_phases() == [90, 180, 90, 90]
+    assert device.get_amplitudes() == [.5, .5, 1., .5]

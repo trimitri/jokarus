@@ -49,7 +49,7 @@ class Dds9Control:
     # settings from this, see __init__ below.
     default_settings = {
             'baudrate': 19200,
-            'timeout': 3,
+            'timeout': 1,
             'port': '/dev/ttyUSB0'
             }
 
@@ -77,8 +77,14 @@ class Dds9Control:
 
     # public methods
 
-    def get_state(self) -> Dds9Setting:
-        return self._state
+    def get_frequencies(self) -> list:
+        return [0, 0, 0, 0]
+
+    def get_phases(self) -> list:
+        return [0, 0, 0, 0]
+
+    def get_amplitudes(self) -> list:
+        return [0, 0, 0, 0]
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
@@ -96,11 +102,22 @@ class Dds9Control:
         logger.warning('Method set_frequency() not yet implemented.')
 
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
-        """Set amplitude for one or all channels.
+        """Set amplitude for one or all channels to a float in [0, 1].
 
         If function is called without "channel", all channels are set.
         """
-        logger.warning('Method set_amplitude() not yet implemented.')
+        encoded_value = int(float(ampl) * 1023)
+        if encoded_value > 1023:
+            encoded_value = 1023
+        if encoded_value < 0:
+            encoded_value = 0
+        if channel in range(0, 3):
+            command_string = 'V' + str(channel) + ' ' + str(encoded_value)
+            self._send_command(command_string)
+        else:
+            for channel in range(0, 3):
+                command_string = 'V' + str(channel) + ' ' + str(encoded_value)
+                self._send_command(command_string)
 
     def set_phase(self, phase: float, channel: int=-1) -> None:
         """Set phase for one or all channels.
