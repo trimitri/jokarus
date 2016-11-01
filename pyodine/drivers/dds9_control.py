@@ -1,5 +1,6 @@
-import logging
-import serial
+import logging  # DEBUG, INFO, WARN, ERROR etc.
+import serial  # serial port communication
+import pytest  # simple unit testing
 
 logger = logging.getLogger('pyodine.drivers.dds9_control')
 
@@ -19,6 +20,7 @@ class Dds9Setting:
             self.freqs, self.phases, self.ampls = [4*[0] for x in range(3)]
 
     def validate(self) -> bool:
+        """Makes sure that instance has proper format and resets it if not."""
 
         # All lists are exactly four elements long.
         if [len(i) for i in [self.freqs, self.phases, self.ampls]] == 3*[4]:
@@ -28,10 +30,16 @@ class Dds9Setting:
                     all(type(x) is int and x >= 0 for x in quantity)
                     for quantity in [self.freqs, self.phases, self.ampls]):
                 return True
-            logger.debug("Settings constituents are not positive integers.")
+            logger.debug("Settings constituents must be positive integers.")
         else:
-            logger.debug("Settings constituents have to have four items each.")
+            logger.debug("Settings constituents must have four items each.")
         return False
+
+    def is_nonzero(self) -> bool:
+        """Check, if settings object represents a non-trivial device state."""
+        is_zero = all([all([x == 0 for x in quantity]) for quantity in
+                       (self.freqs, self.phases, self.ampls)])
+        return not is_zero
 
 
 class Dds9Control:
@@ -45,12 +53,17 @@ class Dds9Control:
             'port': '/dev/ttyUSB0'
             }
 
-    def __init__(self):
+    def __init__(self, port: str=None):
         """This is the class' constructor."""
 
         # Store settings as an instance variable.
         self._settings = self.default_settings
-        self._port = None  # OS-specific ID of serial port
+
+        # Overwrite default port setting if port is given by caller.
+        if type(port) is str and len(port) > 0:
+            self._settings['port'] = port
+
+        self._port = None  # Connection has not been opened yet.
 
         self._open_connection()
         self._state = self.get_state()
@@ -142,8 +155,14 @@ class Dds9Control:
         self._port.timeout = self._settings['timeout']
         logger.info("Opened serial port " + self._port.name)
 
-    def _parse_query_result(self, result: str) -> Dds9Setting:
+    @staticmethod
+    def _parse_query_result(result: str) -> Dds9Setting:
         relevant_lines = [l for l in result.splitlines() if len(l) == 48]
+
+        # Replace with dummy data if illegal string was passed.
+        if len(relevant_lines) != 4:
+            logger.error("Too few valid lines in QUE response.")
+            relevant_lines = ['0 0 0 0 0 0 0' for i in range(4)]
         channels = [l.split() for l in relevant_lines]
 
         # Data was grouped into channels before, now we sort by physical
@@ -153,3 +172,9 @@ class Dds9Control:
         phases = [int(f, 16) for f in params[1]]
         amplitudes = [int(f, 16) for f in params[2]]
         return Dds9Setting(frequencies, phases, amplitudes)
+
+"""In the production enviroment, this module is not supposed to be run. Instead
+it will always just be imported.  However, if the module is run nevertheless,
+it will act as a test suite testing itself: """
+if __name__ == '__main__':
+    pytest.main(args=['-x', '..'])  # Run Pytest test suite on pyodine dir.
