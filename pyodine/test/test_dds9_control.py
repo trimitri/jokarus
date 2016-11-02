@@ -48,22 +48,32 @@ def test_check_device_sanity(dds9):
     assert dds9.ping() is True
 
 
+def test_set_phase(dds9: Dds9Control):
+    """Device accepts and saves phase settings."""
+    dds9.reset()
+    dds9.set_phase(111)
+    dds9.set_phase(99, 1)
+    dds9.set_phase(0, 2)
+    expected = [111, 99, 0, 111]
+    actual = dds9.get_phases()
+    diff = [expected[i] - actual[i] for i in range(4)]
+    assert max(diff) < 1
+
+
+def test_set_amplitudes(dds9: Dds9Control):
+    """Device accepts and saves amplitude settings."""
+    dds9.reset()
+    dds9.set_amplitude(.777)  # set all channels
+    dds9.set_amplitude(1, 1)  # reset some
+    dds9.set_amplitude(0, 2)
+    expected = [.777, 1, 0, .777]
+    actual = dds9.get_amplitudes()
+    diff = [expected[i] - actual[i] for i in range(4)]
+    assert max(diff) < 0.01
+
+
 def test_set_frequency(dds9):
     """Device accepts and saves frequency settings."""
     dds9.set_frequency(100)
     dds9.set_frequency(1000, 0)
     assert dds9.get_frequencies() == [1000, 100, 100, 100]
-
-
-def test_set_phase(dds9):
-    """Device accepts and saves phase settings."""
-    dds9.set_phase(90)
-    dds9.set_phase(180, 1)
-    assert dds9.get_phases() == [90, 180, 90, 90]
-
-
-def test_set_amplitudes(dds9):
-    """Device accepts and saves amplitude settings."""
-    dds9.set_amplitude(.5)
-    dds9.set_amplitude(1, 2)
-    assert dds9.get_amplitudes() == [.5, .5, 1., .5]

@@ -1,6 +1,7 @@
 import logging  # DEBUG, INFO, WARN, ERROR etc.
-import serial  # serial port communication
 import pytest  # simple unit testing
+import serial  # serial port communication
+import time  # sometimes we need to wait for the device
 
 logger = logging.getLogger('pyodine.drivers.dds9_control')
 
@@ -86,10 +87,6 @@ class Dds9Control:
             raise ConnectionError("Unexpected DDS9m behaviour.")
         logger.info("Connection to DDS9m established.")
 
-    def __del__(self):
-        """Close the serial connection"""
-        self._close_connection()
-
     # public methods
 
     def pause(self) -> None:
@@ -106,6 +103,7 @@ class Dds9Control:
         If function is called without "channel", all channels are set.
         """
         logger.warning('Method set_frequency() not yet implemented.')
+        self._update_state()
 
     def get_frequencies(self) -> list:
         return [.1 * f for f in self._state.freqs]
@@ -124,11 +122,12 @@ class Dds9Control:
             encoded_value = 1023
         if encoded_value < 0:
             encoded_value = 0
-        if channel in range(0, 3):
+        if channel in range(4):
             set_channel(channel, encoded_value)
         else:
-            for channel in range(0, 3):
+            for channel in range(4):
                 set_channel(channel, encoded_value)
+        self._update_state()
 
     def get_amplitudes(self) -> list:
         """Returns a list of relative amplitudes for all channels.
@@ -153,11 +152,12 @@ class Dds9Control:
             logger.warning("set_phase: Only channels 0-3 may be specified. "
                            "Setting all channels.")
 
-        if channel in range(0, 3):
+        if channel in range(4):
             set_channel(channel, encoded_value)
         else:
-            for channel in range(0, 3):
+            for channel in range(4):
                 set_channel(channel, encoded_value)
+        self._update_state()
 
     def get_phases(self) -> list:
         return [p*360/16384 for p in self._state.phases]
@@ -168,42 +168,44 @@ class Dds9Control:
         return not self._state.is_zero()
 
     def reset(self) -> None:
-        """Reset DDS9 to saved state. Equivalent to cycling power."""
+        """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""
         self._send_command('R')
+
+        # If we don't let DDS9 rest after a reset, it gives all garbled values.
+        time.sleep(0.5)
 
     # private methods
 
     def _update_state(self) -> None:
         """Queries the device for its internal state and updates _state."""
-        self._send_command('QUE')
-        response = self._read_response()
+        response = self._send_command('QUE')
         state = self._parse_query_result(response)
         self._state = state
         if state.is_zero():
             logger.warning("Device was in zero state.")
 
-    def _close_connection(self) -> None:
-        self._port.close()
-        logger.info("Closed serial port " + self._port.name)
-
-    def _send_command(self, command: str='') -> None:
+    def _send_command(self, command: str='') -> str:
         """Prepare a command string and send it to the device."""
+
+        def read_response() -> str:
+            """Gets response from device through serial connection."""
+            # recommended way of reading response, as of pySerial developer
+            data = self._port.read(1)
+            data += self._port.read(self._port.inWaiting())
+            self._port.reset_output_buffer()
+
+            # decode byte string to Unicode
+            return data.decode(encoding='utf-8', errors='ignore')
 
         # We need to prepend a newline to make sure DDS9 takes commands well.
         command_string = '\n' + command + '\n'
 
         # convert the query string to bytecode and send it through the port.
         self._port.write(command_string.encode())
-
-    def _read_response(self) -> str:
-        """Gets response from device through serial connection.
-
-        Usually one would have to send a request first...
-        """
-        # recommended way of reading response, as of pySerial developer
-        data = self._port.read(1)
-        data += self._port.read(self._port.inWaiting())
-        return data.decode()  # decode byte string to Unicode
+        response = read_response()
+        logging.debug("sent: " + command + ", got: ")
+        logging.debug(response)
+        return response
 
     def _open_connection(self, port: str=None) -> None:
         """Opens the device connection for reading and writing."""
@@ -213,10 +215,14 @@ class Dds9Control:
         self._port = serial.Serial(port)
         self._port.baudrate = self._settings['baudrate']
         self._port.timeout = self._settings['timeout']
-        logger.info("Opened serial port " + self._port.name)
+        logger.info("Connected to serial port " + self._port.name)
 
     @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
+        """Parse DDS9's answer on the "QUE" question.
+
+        This will create a new Dds9Setting object and return it.
+        """
         relevant_lines = [l for l in result.splitlines() if len(l) == 48]
 
         # Replace with dummy data if illegal string was passed.
