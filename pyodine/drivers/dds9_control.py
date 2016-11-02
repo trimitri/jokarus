@@ -66,7 +66,22 @@ class Dds9Control:
         self._port = None  # Connection has not been opened yet.
 
         self._open_connection()
+
+        # Immediately execute any sent command, instead of waiting for an
+        # explicit "Execute commands!" command.
+        self._send_command('I a')
+
+        # Send an "Execute commands!" command, in case the setting above wasn't
+        # set before.
+        self._send_command('I p')
+
+        # Use full scale output voltage, as opposed to other possible
+        # settings (half, quarter, eighth).
+        self._send_command('Vs 1')
+
+        # Save actual device state into class instance variable.
         self._state = self._update_state()
+
         if not self.ping():  # ensure proper device connection
             raise ConnectionError("Unexpected DDS9m behaviour.")
         logger.info("Connection to DDS9m established.")
@@ -76,15 +91,6 @@ class Dds9Control:
         self._close_connection()
 
     # public methods
-
-    def get_frequencies(self) -> list:
-        return [0, 0, 0, 0]
-
-    def get_phases(self) -> list:
-        return [0, 0, 0, 0]
-
-    def get_amplitudes(self) -> list:
-        return [0, 0, 0, 0]
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
@@ -101,35 +107,69 @@ class Dds9Control:
         """
         logger.warning('Method set_frequency() not yet implemented.')
 
+    def get_frequencies(self) -> list:
+        return [.1 * f for f in self._state.freqs]
+
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
         """Set amplitude for one or all channels to a float in [0, 1].
 
         If function is called without "channel", all channels are set.
         """
+        def set_channel(channel, encoded_value):
+            command_string = 'V' + str(channel) + ' ' + str(encoded_value)
+            self._send_command(command_string)
+
         encoded_value = int(float(ampl) * 1023)
         if encoded_value > 1023:
             encoded_value = 1023
         if encoded_value < 0:
             encoded_value = 0
         if channel in range(0, 3):
-            command_string = 'V' + str(channel) + ' ' + str(encoded_value)
-            self._send_command(command_string)
+            set_channel(channel, encoded_value)
         else:
             for channel in range(0, 3):
-                command_string = 'V' + str(channel) + ' ' + str(encoded_value)
-                self._send_command(command_string)
+                set_channel(channel, encoded_value)
+
+    def get_amplitudes(self) -> list:
+        """Returns a list of relative amplitudes for all channels.
+
+        The amplitudes are returned as a list of floats in [0,1].
+        """
+        return [a/1023. for a in self._state.ampls]
 
     def set_phase(self, phase: float, channel: int=-1) -> None:
-        """Set phase for one or all channels.
+        """Set phase in degrees <360 for one or all channels.
 
         If function is called without "channel", all channels are set.
         """
-        logger.warning('Method set_phase() not yet implemented.')
+        def set_channel(channel, encoded_value):
+            command_string = 'P' + str(channel) + ' ' + str(encoded_value)
+            self._send_command(command_string)
+
+        # Note that the modulo automatically shifts any float into legal range.
+        encoded_value = int(float(phase % 360) * 16383/360)
+
+        if channel > 3:
+            logger.warning("set_phase: Only channels 0-3 may be specified. "
+                           "Setting all channels.")
+
+        if channel in range(0, 3):
+            set_channel(channel, encoded_value)
+        else:
+            for channel in range(0, 3):
+                set_channel(channel, encoded_value)
+
+    def get_phases(self) -> list:
+        return [p*360/16384 for p in self._state.phases]
 
     def ping(self) -> bool:
         """Device is accessible and in non-zero state."""
         self._update_state()
         return not self._state.is_zero()
+
+    def reset(self) -> None:
+        """Reset DDS9 to saved state. Equivalent to cycling power."""
+        self._send_command('R')
 
     # private methods
 
@@ -175,7 +215,7 @@ class Dds9Control:
         self._port.timeout = self._settings['timeout']
         logger.info("Opened serial port " + self._port.name)
 
-    @staticmethod
+    @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
         relevant_lines = [l for l in result.splitlines() if len(l) == 48]
 

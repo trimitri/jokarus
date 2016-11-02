@@ -2,9 +2,14 @@ import pytest
 import serial
 from pyodine.drivers.dds9_control import Dds9Control
 
-wrong_port = '/dev/tty0'  # port must not be used by python
-dead_port = '/dev/ttyUSB3'  # port is accessible, but no device connected
+wrong_port = '/dev/tty0'    # port must not be accessible (ConnectionError)
+dead_port = '/dev/ttyUSB3'  # must be accessible, but no device is connected
 live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
+
+
+@pytest.fixture  # Only open connection once for multiple tests.
+def dds9():
+    return Dds9Control(live_port)
 
 
 def test_parse_query_result_on_valid_string():
@@ -38,21 +43,27 @@ def test_connect_to_dead_device():
         assert device.ping() is False
 
 
-def test_check_device_sanity():
+def test_check_device_sanity(dds9):
     """Connection to device is established and device is in non-zero state."""
-    device = Dds9Control(live_port)
-    assert device.ping() is True
+    assert dds9.ping() is True
 
 
-def test_check_device_memory():
-    """Device stays in a state specified by user."""
-    device = Dds9Control(live_port)
-    device.set_frequency(100)
-    device.set_frequency(1000, 0)
-    device.set_phase(90)
-    device.set_phase(180, 1)
-    device.set_amplitude(.5)
-    device.set_amplitude(1, 2)
-    assert device.get_frequencies() == [1000, 100, 100, 100]
-    assert device.get_phases() == [90, 180, 90, 90]
-    assert device.get_amplitudes() == [.5, .5, 1., .5]
+def test_set_frequency(dds9):
+    """Device accepts and saves frequency settings."""
+    dds9.set_frequency(100)
+    dds9.set_frequency(1000, 0)
+    assert dds9.get_frequencies() == [1000, 100, 100, 100]
+
+
+def test_set_phase(dds9):
+    """Device accepts and saves phase settings."""
+    dds9.set_phase(90)
+    dds9.set_phase(180, 1)
+    assert dds9.get_phases() == [90, 180, 90, 90]
+
+
+def test_set_amplitudes(dds9):
+    """Device accepts and saves amplitude settings."""
+    dds9.set_amplitude(.5)
+    dds9.set_amplitude(1, 2)
+    assert dds9.get_amplitudes() == [.5, .5, 1., .5]
