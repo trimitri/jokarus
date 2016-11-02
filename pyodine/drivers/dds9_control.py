@@ -89,27 +89,41 @@ class Dds9Control:
 
     # public methods
 
-    def pause(self) -> None:
-        """Temporarily sets all outputs to zero voltage."""
-        logger.warning('Method pause() not yet implemented.')
-
-    def resume(self) -> None:
-        """Resume frequence generation with previously used values."""
-        logger.warning('Method resume() not yet implemented.')
-
     def set_frequency(self, freq: float, channel: int=-1) -> None:
-        """Set frequency for one or all channels.
+        """Set frequency in MHz for one or all channels.
 
         If function is called without "channel", all channels are set.
         """
-        logger.warning('Method set_frequency() not yet implemented.')
+        def set_channel(channel, encoded_value):
+            command_string = 'F' + str(channel) + ' ' + str(encoded_value)
+            self._send_command(command_string)
+
+        try:
+            freq = float(freq)
+        except (ValueError, TypeError):
+            logger.error("Could not parse given frequency. Resetting to 0 Hz.")
+            freq = 0.0
+        if freq > 171:
+            logger.warning("Capping requested frequency to 171 MHz.")
+            freq = 171.0
+
+        encoded_value = '{0:.7f}'.format(freq)
+
+        if channel in range(4):
+            set_channel(channel, encoded_value)
+        else:
+            for channel in range(4):
+                set_channel(channel, encoded_value)
         self._update_state()
 
     def get_frequencies(self) -> list:
-        return [.1 * f for f in self._state.freqs]
+        """Returns the frequency of each channel in MHz."""
+
+        # The frequency is returned in units of 0.1Hz, but requested in MHz.
+        return [1e-7 * f for f in self._state.freqs]
 
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
-        """Set amplitude for one or all channels to a float in [0, 1].
+        """Set amplitude (float in [0, 1]) for one or all channels.
 
         If function is called without "channel", all channels are set.
         """
@@ -166,6 +180,14 @@ class Dds9Control:
         """Device is accessible and in non-zero state."""
         self._update_state()
         return not self._state.is_zero()
+
+    def pause(self) -> None:
+        """Temporarily sets all outputs to zero voltage."""
+        logger.warning('Method pause() not yet implemented.')
+
+    def resume(self) -> None:
+        """Resume frequence generation with previously used values."""
+        logger.warning('Method resume() not yet implemented.')
 
     def reset(self) -> None:
         """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""

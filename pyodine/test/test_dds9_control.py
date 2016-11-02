@@ -48,6 +48,14 @@ def test_check_device_sanity(dds9):
     assert dds9.ping() is True
 
 
+def test_recognize_illegal_command(dds9: Dds9Control):
+    response = dds9._send_command('pyodine')
+
+    # Check if this gives us the "bad phase" error, as "p" actually starts a
+    # set phase command.
+    assert response.find('?4') > 0
+
+
 def test_set_phase(dds9: Dds9Control):
     """Device accepts and saves phase settings."""
     dds9.reset()
@@ -74,6 +82,13 @@ def test_set_amplitudes(dds9: Dds9Control):
 
 def test_set_frequency(dds9):
     """Device accepts and saves frequency settings."""
-    dds9.set_frequency(100)
-    dds9.set_frequency(1000, 0)
-    assert dds9.get_frequencies() == [1000, 100, 100, 100]
+    dds9.reset()
+    dds9.set_frequency(123)
+    dds9.set_frequency(0.007, 1)
+    dds9.set_frequency(1000, 2)  # will be capped to 171 MHz!
+    expected = [123, 7e-3, 171, 123]
+    actual = dds9.get_frequencies()
+    diff = [expected[i] - actual[i] for i in range(4)]
+
+    # Internally, the chip works with 0.1Hz steps:
+    assert max(diff) < 1e-8
