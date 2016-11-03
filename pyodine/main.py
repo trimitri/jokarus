@@ -3,7 +3,13 @@
 It launches the lab control software and sets up the Pyodine server.
 (not yet ;)
 """
-# import logging
-from drivers.dds9_control import Dds9Control
+import logging
+import drivers.dds9_control
 
-dds = Dds9Control()
+logging.basicConfig(level=logging.INFO)
+
+dds = drivers.dds9_control.Dds9Control()
+
+print(dds.get_frequencies())
+print(dds.get_amplitudes())
+print(dds.get_phases())

@@ -84,6 +84,13 @@ class Dds9Control:
         # settings (half, quarter, eighth).
         self._send_command('Vs 1')
 
+        # Disable echoing of received commands to allow for faster operation.
+        self._send_command('E d')
+
+        # Re-align phase setting after each command. This way we are able to
+        # set absolute phase offsets reliably.
+        self._send_command('M a')
+
         # Save actual device state into class instance variable.
         self._state = self._update_state()
 
@@ -200,11 +207,22 @@ class Dds9Control:
         else:
             logger.error("Can't resume as there is no saved state.")
 
-    def use_external_frequency_reference(self) -> None:
+    def switch_to_external_frequency_reference(self) -> None:
         print(self._send_command('C E'))
+        time.sleep(0.2)
 
-    def use_internal_frequency_reference(self) -> None:
+    def switch_to_internal_frequency_reference(self) -> None:
         print(self._send_command('C I'))
+        time.sleep(0.2)
+
+    def save(self) -> None:
+        """Save current device configuration to EEPROM.
+
+        The new device state will then be the default state when powering up.
+        Use this with caution, as it "consumes" EEPROM writes.
+        """
+        self._send_command('S')
+        time.sleep(.5)
 
     def reset(self) -> None:
         """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""
@@ -212,6 +230,14 @@ class Dds9Control:
 
         # If we don't let DDS9 rest after a reset, it gives all garbled values.
         time.sleep(0.5)
+
+    def reset_to_factory_default(self) -> None:
+        """Deletes ALL device config and restores to factory default.
+
+        Use this only when necessary, as it will write to EEPROM.
+        """
+        self._send_command('CLR')
+        time.sleep(2)  # Allow some generous 2 secs to recover.
 
     # private methods
 

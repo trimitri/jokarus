@@ -50,10 +50,11 @@ def test_check_device_sanity(dds9):
 
 
 def test_recognize_illegal_command(dds9: Dds9Control):
-    response = dds9._send_command('pyodine')
+    response = dds9._send_command('python')
 
     # Check if this gives us the "bad phase" error, as "p" actually starts a
     # set phase command.
+    print(response)
     assert response.find('?4') > 0
 
 
@@ -109,5 +110,5 @@ def test_pause_resume(dds9: Dds9Control):
 
 
 def test_switch_reference_source(dds9: Dds9Control):
-    dds9.use_external_frequency_reference()
-    dds9.use_internal_frequency_reference()
+    dds9.switch_to_external_frequency_reference()
+    dds9.switch_to_internal_frequency_reference()
