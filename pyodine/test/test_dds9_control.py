@@ -90,6 +90,8 @@ def test_set_frequency(dds9):
     dds9.set_frequency(1000, 2)  # will be capped to 171 MHz!
     expected = [123, 7e-3, 171, 123]
     actual = dds9.get_frequencies()
+    print(expected)
+    print(actual)
     diff = [expected[i] - actual[i] for i in range(4)]
 
     # Internally, the chip works with 0.1Hz steps:
@@ -112,3 +114,21 @@ def test_pause_resume(dds9: Dds9Control):
 def test_switch_reference_source(dds9: Dds9Control):
     dds9.switch_to_external_frequency_reference()
     dds9.switch_to_internal_frequency_reference()
+
+
+def test_set_frequency_on_external_clock(dds9):
+    """Device accepts and saves frequency settings."""
+    dds9.reset()
+    dds9.switch_to_external_frequency_reference()
+    dds9.set_frequency(123)
+    dds9.set_frequency(0.007, 1)
+    dds9.set_frequency(1000, 2)  # will be capped to 171 MHz!
+    expected = [123, 7e-3, 171, 123]
+    actual = dds9.get_frequencies()
+    print(dds9._clock_mult)
+    print(expected)
+    print(actual)
+    diff = [expected[i] - actual[i] for i in range(4)]
+
+    # Internally, the chip works with 0.1Hz steps:
+    assert max(diff) < 1e-8

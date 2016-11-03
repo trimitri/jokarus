@@ -51,7 +51,8 @@ class Dds9Control:
     default_settings = {
             'baudrate': 19200,
             'timeout': 1,
-            'port': '/dev/ttyUSB0'
+            'port': '/dev/ttyUSB0',
+            'ext_clock': 100
             }
 
     def __init__(self, port: str=None):
@@ -67,6 +68,15 @@ class Dds9Control:
 
         self._port = None  # Connection has not been opened yet.
         self._paused_amplitudes = None  # Will be set by pause().
+
+        # Set frequency multiplicators to use when reading and writing the
+        # frequency registers of the microcontroller. The multiplicator to use
+        # when on the internal clock source is just one. But when switching to
+        # an external clock source, the rate of internal div. by external clock
+        # needs to be used.
+        self._clock_mult = None  # will be set the switch_... commands.
+        self._clock_mult_int = 1
+        self._clock_mult_ext = 2**32 * 1e-7 / self._settings['ext_clock']
 
         # Initialize device.
 
@@ -90,6 +100,8 @@ class Dds9Control:
         # Re-align phase setting after each command. This way we are able to
         # set absolute phase offsets reliably.
         self._send_command('M a')
+
+        self.switch_to_internal_frequency_reference()
 
         # Save actual device state into class instance variable.
         self._state = self._update_state()
@@ -120,7 +132,7 @@ class Dds9Control:
             logger.warning("Capping requested frequency to 171 MHz.")
             freq = 171.0
 
-        encoded_value = '{0:.7f}'.format(freq)
+        encoded_value = '{0:.7f}'.format(freq * self._clock_mult)
 
         if channel in range(4):
             set_channel(channel, encoded_value)
@@ -133,7 +145,7 @@ class Dds9Control:
         """Returns the frequency of each channel in MHz."""
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
-        return [1e-7 * f for f in self._state.freqs]
+        return [f / self._clock_mult * 1e-7 for f in self._state.freqs]
 
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
         """Set amplitude (float in [0, 1]) for one or all channels.
@@ -208,11 +220,17 @@ class Dds9Control:
             logger.error("Can't resume as there is no saved state.")
 
     def switch_to_external_frequency_reference(self) -> None:
-        print(self._send_command('C E'))
+        self._send_command('Kp 01')
+        time.sleep(0.2)
+        self._send_command('C E')
+        self._clock_mult = self._clock_mult_ext
         time.sleep(0.2)
 
     def switch_to_internal_frequency_reference(self) -> None:
-        print(self._send_command('C I'))
+        self._send_command('Kp 0f')  # Reset clock multiplier to default (15)
+        time.sleep(0.2)
+        self._send_command('C I')
+        self._clock_mult = self._clock_mult_int
         time.sleep(0.2)
 
     def save(self) -> None:
@@ -225,11 +243,21 @@ class Dds9Control:
         time.sleep(.5)
 
     def reset(self) -> None:
-        """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""
+        """Reset DDS9 to state saved in ROM and switch to int. clock source.
+
+        Except for the clock source constraint, this is equivalent to cycling
+        power.
+        We need to set the clock source, as there is no way to find out if the
+        device is in internal or external mode after a reset; and internal mode
+        is always the safe bet.  If we didn't know the clock source, we also
+        wouldn't now the clock multiplier and hence wouldn't be able to set or
+        read correct frequency values.
+        """
         self._send_command('R')
 
         # If we don't let DDS9 rest after a reset, it gives all garbled values.
         time.sleep(0.5)
+        self.switch_to_internal_frequency_reference()  # See docstring above.
 
     def reset_to_factory_default(self) -> None:
         """Deletes ALL device config and restores to factory default.
