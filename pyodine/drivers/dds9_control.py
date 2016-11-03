@@ -57,7 +57,8 @@ class Dds9Control:
     def __init__(self, port: str=None):
         """This is the class' constructor."""
 
-        # Store settings as an instance variable.
+        # Set up instance variables.
+
         self._settings = self.default_settings
 
         # Overwrite default port setting if port is given by caller.
@@ -65,6 +66,9 @@ class Dds9Control:
             self._settings['port'] = port
 
         self._port = None  # Connection has not been opened yet.
+        self._paused_amplitudes = None  # Will be set by pause().
+
+        # Initialize device.
 
         self._open_connection()
 
@@ -82,6 +86,8 @@ class Dds9Control:
 
         # Save actual device state into class instance variable.
         self._state = self._update_state()
+
+        # Conduct a basic health test.
 
         if not self.ping():  # ensure proper device connection
             raise ConnectionError("Unexpected DDS9m behaviour.")
@@ -183,11 +189,16 @@ class Dds9Control:
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
-        logger.warning('Method pause() not yet implemented.')
+        self._paused_amplitudes = self.get_amplitudes()
+        self.set_amplitude(0)
 
     def resume(self) -> None:
-        """Resume frequence generation with previously used values."""
-        logger.warning('Method resume() not yet implemented.')
+        """Resume frequency generation with previously used amplitudes."""
+        if type(self._paused_amplitudes) is list:
+            for channel in range(4):
+                self.set_amplitude(self._paused_amplitudes[channel], channel)
+        else:
+            logger.error("Can't resume as there is no saved state.")
 
     def reset(self) -> None:
         """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""
