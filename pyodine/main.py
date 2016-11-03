@@ -6,6 +6,4 @@ It launches the lab control software and sets up the Pyodine server.
 # import logging
 from drivers.dds9_control import Dds9Control
 
-
 dds = Dds9Control()
-print(dds.get_phases())

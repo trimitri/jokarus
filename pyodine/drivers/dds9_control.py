@@ -200,6 +200,12 @@ class Dds9Control:
         else:
             logger.error("Can't resume as there is no saved state.")
 
+    def use_external_frequency_reference(self) -> None:
+        print(self._send_command('C E'))
+
+    def use_internal_frequency_reference(self) -> None:
+        print(self._send_command('C I'))
+
     def reset(self) -> None:
         """Reset DDS9 to state saved in ROM. Equivalent to cycling power."""
         self._send_command('R')

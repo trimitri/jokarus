@@ -106,3 +106,8 @@ def test_pause_resume(dds9: Dds9Control):
     assert max([abs(dds9.get_amplitudes()[i] - .5) for i in range(4)]) < .01
     dds9.resume()
     assert dds9.get_amplitudes() == 4*[1]
+
+
+def test_switch_reference_source(dds9: Dds9Control):
+    dds9.use_external_frequency_reference()
+    dds9.use_internal_frequency_reference()
