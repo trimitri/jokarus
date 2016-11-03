@@ -9,17 +9,18 @@ live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
 
 @pytest.fixture  # Only open connection once for multiple tests.
 def dds9():
+    """Provides the serial connection to the actual DDS9 device."""
     return Dds9Control(live_port)
 
 
-def test_parse_query_result_on_valid_string():
+def test__parse_query_result_on_valid_string():
     valid_input = 4*'59682F00 0000 029C 0000 00000000 00000000 000301\r\n'
     settings_object = Dds9Control._parse_query_result(valid_input)
     assert settings_object.validate() is True
     assert settings_object.is_zero() is False
 
 
-def test_parse_query_result_on_invalid_string():
+def test__parse_query_result_on_invalid_string():
     invalid_input = 4*'59682F00 0000 029C 0000 00000000 00000000\r\n'
     settings_object = Dds9Control._parse_query_result(invalid_input)
     assert settings_object.validate() is True
@@ -92,3 +93,16 @@ def test_set_frequency(dds9):
 
     # Internally, the chip works with 0.1Hz steps:
     assert max(diff) < 1e-8
+
+
+def test_pause_resume(dds9: Dds9Control):
+    dds9.reset()
+    assert dds9.ping() is True
+    dds9.set_amplitude(1)
+    assert dds9.get_amplitudes() == 4*[1]
+    dds9.pause()
+    assert dds9.get_amplitudes() == 4*[0]
+    dds9.set_amplitude(.5)
+    assert max([abs(dds9.get_amplitudes()[i] - .5) for i in range(4)]) < .01
+    dds9.resume()
+    assert dds9.get_amplitudes() == 4*[1]
