@@ -1,3 +1,4 @@
+import os
 import pytest
 import serial
 from pyodine.drivers.dds9_control import Dds9Control
@@ -5,6 +6,14 @@ from pyodine.drivers.dds9_control import Dds9Control
 wrong_port = '/dev/tty0'    # port must not be accessible (ConnectionError)
 dead_port = '/dev/ttyUSB3'  # must be accessible, but no device is connected
 live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
+
+
+# Most tests can only be performed when there is a live DDS9m device available.
+# We create a marker here to skip those tests automatically if there is no
+# device connected.
+is_dds9_connected = False   # For now, just manually hard-code this value!
+needs_live_device = pytest.mark.skipif(
+        not is_dds9_connected, reason="No actual DDS9 is plugged in.")
 
 
 @pytest.fixture  # Only open connection once for multiple tests.
@@ -37,6 +46,8 @@ def test_connect_to_dead_port():
         Dds9Control(wrong_port)
 
 
+@pytest.mark.skipif(not os.path.exists(dead_port),
+                    reason="Inaccessible port specified.")
 def test_connect_to_dead_device():
     """The port can be opened, but DDS9 doesn't respond."""
     with pytest.raises(ConnectionError):
@@ -44,11 +55,13 @@ def test_connect_to_dead_device():
         assert device.ping() is False
 
 
+@needs_live_device
 def test_check_device_sanity(dds9):
     """Connection to device is established and device is in non-zero state."""
     assert dds9.ping() is True
 
 
+@needs_live_device
 def test_recognize_illegal_command(dds9: Dds9Control):
     response = dds9._send_command('python')
 
@@ -58,6 +71,7 @@ def test_recognize_illegal_command(dds9: Dds9Control):
     assert response.find('?4') > 0
 
 
+@needs_live_device
 def test_set_phase(dds9: Dds9Control):
     """Device accepts and saves phase settings."""
     dds9.reset()
@@ -70,6 +84,7 @@ def test_set_phase(dds9: Dds9Control):
     assert max(diff) < 1
 
 
+@needs_live_device
 def test_set_amplitudes(dds9: Dds9Control):
     """Device accepts and saves amplitude settings."""
     dds9.reset()
@@ -82,6 +97,7 @@ def test_set_amplitudes(dds9: Dds9Control):
     assert max(diff) < 0.01
 
 
+@needs_live_device
 def test_set_frequency(dds9):
     """Device accepts and saves frequency settings."""
     dds9.reset()
@@ -98,6 +114,7 @@ def test_set_frequency(dds9):
     assert max(diff) < 1e-8
 
 
+@needs_live_device
 def test_pause_resume(dds9: Dds9Control):
     dds9.reset()
     assert dds9.ping() is True
@@ -111,11 +128,13 @@ def test_pause_resume(dds9: Dds9Control):
     assert dds9.get_amplitudes() == 4*[1]
 
 
+@needs_live_device
 def test_switch_reference_source(dds9: Dds9Control):
     dds9.switch_to_external_frequency_reference()
     dds9.switch_to_internal_frequency_reference()
 
 
+@needs_live_device
 def test_set_frequency_on_external_clock(dds9):
     """Device accepts and saves frequency settings."""
     dds9.reset()
