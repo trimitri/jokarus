@@ -52,7 +52,15 @@ class Dds9Setting:
 
 
 class Dds9Control:
-    """A stateful controller for the DDS9m frequency generator."""
+    """A stateful controller for the DDS9m frequency generator.
+
+    Caution: Setting this controller up on a running device may change some of
+    its parameters. See __init__ constructor below for details.
+
+    Raises a ConnectionError when no working connection to the device could be
+    set up. In this case it would be advisable to del() the instance (in order
+    to free the serial port) and then try again.
+    """
 
     # This is a class variable; instances must derive their own set of settings
     # from this, see __init__ below.
@@ -66,7 +74,14 @@ class Dds9Control:
         # clock.  See manual for details.
         'max_freq_value': 171.1,
         'port': '/dev/ttyUSB0',  # Hard-code this to your needs.
-        'ext_clock': 400  # 100MHz actual clock * 4 for K_p multiplier chip
+        'ext_clock': 400,  # 100MHz actual clock * 4 for K_p multiplier chip
+
+        # We set the chip's reference clock multiplier to 4, to achieve 400MHz
+        # reference clock in conjunction with the connected 100MHz external
+        # clock.
+        # This is a hex value of 04, shifted by a hex 80 to set an internal
+        # gain bit. See manual for details.
+        'ext_clock_multiplier_setting': '84'
         }
 
     def __init__(self, port: str=None):
@@ -75,17 +90,20 @@ class Dds9Control:
         Depending on the device state, calling this constructor may actually
         change the running device's parameters. Most notably, the reference
         clock is set to the internal quartz and phases may re-align.
+
+        Raises a ConnectionError when no working connection to the device could
+        be set up. In this case it would be advisable to del() the instance and
+        retry.
         """
 
         # Set up instance variables.
 
         self._settings = self.default_settings
 
-        # Overwrite default port setting if port is given by caller.
+        # Overwrite default port setting in case port was given by caller.
         if type(port) is str and len(port) > 0:
             self._settings['port'] = port
 
-        self._port = None  # Connection has not been opened yet.
         self._paused_amplitudes = None  # Will be set by pause().
 
         # Set frequency multiplicators to use when reading and writing the
@@ -99,14 +117,15 @@ class Dds9Control:
 
         # Initialize device.
 
-        self._open_connection()
+        self._port = None        # Connection has not been opened yet.
+        self._open_connection()  # Open it. Sets above variable.
 
         # Immediately execute any sent command, instead of waiting for an
         # explicit "Execute commands!" command.
         self._send_command('I a')
 
-        # Send an "Execute commands!" command, in case the setting above wasn't
-        # set before.
+        # Send an "Execute commands!" command now, in case the setting above
+        # wasn't set before.
         self._send_command('I p')
 
         # Use full scale output voltage, as opposed to other possible
@@ -120,6 +139,12 @@ class Dds9Control:
         # set absolute phase offsets reliably.
         self._send_command('M a')
 
+        # Unfortunately, I didn't find a way to get information about which
+        # clock source is currently in use from the device. We thus need to set
+        # a clock source to have that information.
+        # The internal source is preferred for stability reasons. As far as
+        # this driver is concerned, ext. clock source would work here just as
+        # well.
         self.switch_to_internal_frequency_reference()
 
         # Save actual device state into class instance variable.
@@ -137,6 +162,9 @@ class Dds9Control:
         """Set frequency in MHz for one or all channels.
 
         If the method is called without "channel", all channels are set.
+        When running on external reference clock, this may only set the
+        correct frequency values if the external clock frequency is set
+        correctly; check by calling .get_settings()['ext_clock'].
         """
         def set_channel(channel, encoded_value):
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
@@ -181,7 +209,7 @@ class Dds9Control:
     def set_amplitude(self, ampl: float, channel: int=-1) -> None:
         """Set amplitude (float in [0, 1]) for one or all channels.
 
-        If function is called without "channel", all channels are set.
+        If argument "channel" is omitted, all channels are set.
         """
         def set_channel(channel, encoded_value):
             command_string = 'V' + str(channel) + ' ' + str(encoded_value)
@@ -189,9 +217,15 @@ class Dds9Control:
 
         encoded_value = int(float(ampl) * 1023)
         if encoded_value > 1023:
+            logger.warning("Amplitude capped to 1")
             encoded_value = 1023
         if encoded_value < 0:
+            logger.warning("Can't set amplitude < 0, resetting to 0.")
             encoded_value = 0
+
+        if channel > 3:
+            logger.warning("set_amplitude: Only channels 0-3 may be specified."
+                           " Setting all channels.")
         if channel in range(4):
             set_channel(channel, encoded_value)
         else:
@@ -209,19 +243,22 @@ class Dds9Control:
     def set_phase(self, phase: float, channel: int=-1) -> None:
         """Set phase in degrees <360 for one or all channels.
 
-        If function is called without "channel", all channels are set.
+        If argument "channel" is omitted, all channels are set.
         """
         def set_channel(channel, encoded_value):
             command_string = 'P' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
 
         # Note that the modulo automatically shifts any float into legal range.
-        encoded_value = int(float(phase % 360) * 16383/360)
+        try:
+            encoded_value = int(float(phase % 360) * 16383/360)
+        except (ValueError, TypeError):
+            logger.error("Invalid phase value received. Setting phase to 0.")
+            encoded_value = 0
 
         if channel > 3:
             logger.warning("set_phase: Only channels 0-3 may be specified. "
                            "Setting all channels.")
-
         if channel in range(4):
             set_channel(channel, encoded_value)
         else:
@@ -252,16 +289,19 @@ class Dds9Control:
             for channel in range(4):
                 self.set_amplitude(self._paused_amplitudes[channel], channel)
         else:
-            logger.error("Can't resume as there is no saved state.")
+            logger.error("Can't resume as we didn't pause() before.")
 
     def switch_to_external_frequency_reference(self) -> None:
-        self._send_command('Kp 84')
+        """Base generated frequencies on external clock source."""
+        self._send_command('Kp '
+                           + self._settings['ext_clock_multiplier_setting'])
         time.sleep(0.2)
         self._send_command('C E')
         self._clock_mult = self._clock_mult_ext
         time.sleep(0.2)
 
     def switch_to_internal_frequency_reference(self) -> None:
+        """Base generated frequencies on internal clock source."""
         self._send_command('Kp 0f')  # Reset clock multiplier to default (15)
         time.sleep(0.2)
         self._send_command('C I')
@@ -281,12 +321,11 @@ class Dds9Control:
         """Reset DDS9 to state saved in ROM and switch to int. clock source.
 
         Except for the clock source constraint, this is equivalent to cycling
-        power.
-        We need to set the clock source, as there is no way to find out if the
-        device is in internal or external mode after a reset; and internal mode
-        is always the safe bet.  If we didn't know the clock source, we also
-        wouldn't now the clock multiplier and hence wouldn't be able to set or
-        read correct frequency values.
+        power.  We need to set the clock source, as there is no way to find out
+        if the device is in internal or external mode after a reset; and
+        internal mode is always the safe bet.  If we didn't know the clock
+        source, we also wouldn't know the clock multiplier and hence wouldn't
+        be able to set or read correct frequency values.
         """
         self._send_command('R')
 
@@ -317,6 +356,7 @@ class Dds9Control:
 
         def read_response() -> str:
             """Gets response from device through serial connection."""
+
             # recommended way of reading response, as of pySerial developer
             data = self._port.read(1)
             data += self._port.read(self._port.inWaiting())
@@ -335,11 +375,9 @@ class Dds9Control:
         logging.debug(response)
         return response
 
-    def _open_connection(self, port: str=None) -> None:
+    def _open_connection(self) -> None:
         """Opens the device connection for reading and writing."""
-
-        port = port or self._settings['port']  # default argument value
-
+        port = self._settings['port']
         self._port = serial.Serial(port)
         self._port.baudrate = self._settings['baudrate']
         self._port.timeout = self._settings['timeout']

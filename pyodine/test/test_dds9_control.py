@@ -146,10 +146,16 @@ def test_pause_resume(dds9: Dds9Control):
 
 @needs_live_device
 def test_switch_reference_source(dds9: Dds9Control):
-    """Switching the frequency reference clock throws no errors."""
+    """Switching the frequency reference clock throws no errors.
+
+    It also must not alter the set up frequency values.
+    """
     dds9.reset()
+    freq1 = dds9.get_frequencies()
     dds9.switch_to_external_frequency_reference()
+    freq2 = dds9.get_frequencies()
     dds9.switch_to_internal_frequency_reference()
+    assert max([abs(freq1[i] - freq2[i]) for i in range(4)]) < 1e-6
 
 
 @needs_live_device
@@ -190,6 +196,7 @@ def test_get_settings(dds9: Dds9Control):
     assert float(settings['timeout']) >= 0 and float(settings['timeout']) < 100
     assert type(settings['port']) is str and len(settings['port']) > 0
     assert float(settings['ext_clock']) > 0
+    assert len(settings['ext_clock_multiplier_setting']) == 2
 
     # Make sure settings can't be modified.
     settings['max_freq_value'] = -1
