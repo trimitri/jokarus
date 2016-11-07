@@ -155,7 +155,9 @@ def test_switch_reference_source(dds9: Dds9Control):
     dds9.switch_to_external_frequency_reference()
     freq2 = dds9.get_frequencies()
     dds9.switch_to_internal_frequency_reference()
+    freq3 = dds9.get_frequencies()
     assert max([abs(freq1[i] - freq2[i]) for i in range(4)]) < 1e-6
+    assert max([abs(freq1[i] - freq3[i]) for i in range(4)]) < 1e-6
 
 
 @needs_live_device

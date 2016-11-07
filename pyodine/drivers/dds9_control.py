@@ -139,16 +139,17 @@ class Dds9Control:
         # set absolute phase offsets reliably.
         self._send_command('M a')
 
+        # Save actual device state into class instance variable.
+        self._state = None
+        self._update_state()
+
         # Unfortunately, I didn't find a way to get information about which
         # clock source is currently in use from the device. We thus need to set
         # a clock source to have that information.
         # The internal source is preferred for stability reasons. As far as
         # this driver is concerned, ext. clock source would work here just as
         # well.
-        self.switch_to_internal_frequency_reference()
-
-        # Save actual device state into class instance variable.
-        self._state = self._update_state()
+        self.switch_to_internal_frequency_reference(adjust_frequencies=False)
 
         # Conduct a basic health test.
 
@@ -291,8 +292,19 @@ class Dds9Control:
         else:
             logger.error("Can't resume as we didn't pause() before.")
 
-    def switch_to_external_frequency_reference(self) -> None:
-        """Base generated frequencies on external clock source."""
+    def switch_to_external_frequency_reference(
+            self, adjust_frequencies: bool=True) -> None:
+        """Base generated frequencies on external clock source.
+
+        As the internal frequency calculations will be changed by that, we need
+        to adjust the internally set frequency values to keep the output
+        frequency constant. For very high frequencies this may lead to capping,
+        in which case the output frequencies will change. Set
+        adjust_frequencies to False if you want to disable that behaviour
+        altogether.
+        """
+        if adjust_frequencies:
+            former_freqs = self.get_frequencies()
         self._send_command('Kp '
                            + self._settings['ext_clock_multiplier_setting'])
         time.sleep(0.2)
@@ -300,13 +312,36 @@ class Dds9Control:
         self._clock_mult = self._clock_mult_ext
         time.sleep(0.2)
 
-    def switch_to_internal_frequency_reference(self) -> None:
-        """Base generated frequencies on internal clock source."""
+        if adjust_frequencies:
+            # Reset previous frequencies, taking the new clock multiplier into
+            # account.
+            for i in range(4):
+                self.set_frequency(former_freqs[i], i)
+
+    def switch_to_internal_frequency_reference(
+            self, adjust_frequencies: bool=True) -> None:
+        """Base generated frequencies on internal clock source.
+
+        As the internal frequency calculations will be changed by that, we need
+        to adjust the internally set frequency values to keep the output
+        frequency constant. For very high frequencies this may lead to capping,
+        in which case the output frequencies will change. Set
+        adjust_frequencies to False if you want to disable that behaviour
+        altogether.
+        """
+        if adjust_frequencies:
+            former_freqs = self.get_frequencies()
         self._send_command('Kp 0f')  # Reset clock multiplier to default (15)
         time.sleep(0.2)
         self._send_command('C I')
         self._clock_mult = self._clock_mult_int
         time.sleep(0.2)
+
+        if adjust_frequencies:
+            # Reset previous frequencies, taking the new clock multiplier into
+            # account.
+            for i in range(4):
+                self.set_frequency(former_freqs[i], i)
 
     def save(self) -> None:
         """Save current device configuration to EEPROM.
@@ -331,7 +366,11 @@ class Dds9Control:
 
         # If we don't let DDS9 rest after a reset, it gives all garbled values.
         time.sleep(0.5)
-        self.switch_to_internal_frequency_reference()  # See docstring above.
+
+        # See docstring above.
+        self.switch_to_internal_frequency_reference(adjust_frequencies=False)
+
+        self._update_state()
 
     def reset_to_factory_default(self) -> None:
         """Deletes ALL device config and restores to factory default.
