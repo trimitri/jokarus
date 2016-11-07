@@ -105,6 +105,7 @@ class Dds9Control:
             self._settings['port'] = port
 
         self._paused_amplitudes = None  # Will be set by pause().
+        self._runs_on_ext = None  # The external clock reference is in use.
 
         # Set frequency multiplicators to use when reading and writing the
         # frequency registers of the microcontroller. The multiplicator to use
@@ -149,7 +150,7 @@ class Dds9Control:
         # The internal source is preferred for stability reasons. As far as
         # this driver is concerned, ext. clock source would work here just as
         # well.
-        self.switch_to_internal_frequency_reference(adjust_frequencies=False)
+        self.switch_to_external_frequency_reference(adjust_frequencies=False)
 
         # Conduct a basic health test.
 
@@ -203,6 +204,8 @@ class Dds9Control:
         correct frequency values, if the external clock frequency is set
         correctly; check by calling .get_settings().
         """
+        print(self._state.freqs)
+        print(self._clock_mult)
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
         return [f / self._clock_mult * 1e-7 for f in self._state.freqs]
@@ -303,20 +306,26 @@ class Dds9Control:
         adjust_frequencies to False if you want to disable that behaviour
         altogether.
         """
-        if adjust_frequencies:
-            former_freqs = self.get_frequencies()
-        self._send_command('Kp '
-                           + self._settings['ext_clock_multiplier_setting'])
-        time.sleep(0.2)
-        self._send_command('C E')
-        self._clock_mult = self._clock_mult_ext
-        time.sleep(0.2)
+        if self._runs_on_ext is False or self._runs_on_ext is None:
+            if adjust_frequencies:
+                former_freqs = self.get_frequencies()
+                print(former_freqs)
+            self._send_command(
+                    'Kp ' + self._settings['ext_clock_multiplier_setting'])
+            time.sleep(0.2)
+            self._send_command('C E')
+            self._clock_mult = self._clock_mult_ext
+            time.sleep(0.2)
 
-        if adjust_frequencies:
-            # Reset previous frequencies, taking the new clock multiplier into
-            # account.
-            for i in range(4):
-                self.set_frequency(former_freqs[i], i)
+            if adjust_frequencies:
+                # Reset previous frequencies, taking the new clock multiplier
+                # into account.
+                for i in range(4):
+                    self.set_frequency(former_freqs[i], i)
+            self._runs_on_ext = True
+        else:
+            logger.info("Already set to use ext. clock reference. "
+                        "Doing nothing.")
 
     def switch_to_internal_frequency_reference(
             self, adjust_frequencies: bool=True) -> None:
@@ -329,19 +338,25 @@ class Dds9Control:
         adjust_frequencies to False if you want to disable that behaviour
         altogether.
         """
-        if adjust_frequencies:
-            former_freqs = self.get_frequencies()
-        self._send_command('Kp 0f')  # Reset clock multiplier to default (15)
-        time.sleep(0.2)
-        self._send_command('C I')
-        self._clock_mult = self._clock_mult_int
-        time.sleep(0.2)
+        if self._runs_on_ext is True or self._runs_on_ext is None:
+            if adjust_frequencies:
+                former_freqs = self.get_frequencies()
 
-        if adjust_frequencies:
-            # Reset previous frequencies, taking the new clock multiplier into
-            # account.
-            for i in range(4):
-                self.set_frequency(former_freqs[i], i)
+            # Reset clock multiplier to default value (0f hex. == 15 dec.)
+            self._send_command('Kp 0f')
+            time.sleep(0.2)
+            self._send_command('C I')
+            self._clock_mult = self._clock_mult_int
+            time.sleep(0.2)
+
+            if adjust_frequencies:
+                # Reset previous frequencies, taking the new clock multiplier
+                # into account.
+                for i in range(4):
+                    self.set_frequency(former_freqs[i], i)
+        else:
+            logger.info("Already set to use int. clock reference. "
+                        "Doing nothing.")
 
     def save(self) -> None:
         """Save current device configuration to EEPROM.

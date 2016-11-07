@@ -9,7 +9,4 @@ import drivers.dds9_control
 logging.basicConfig(level=logging.INFO)
 
 dds = drivers.dds9_control.Dds9Control()
-
-print(dds.get_frequencies())
-print(dds.get_amplitudes())
-print(dds.get_phases())
+del(dds)
