@@ -46,13 +46,14 @@ class Dds9Setting:
 class Dds9Control:
     """A stateful controller for the DDS9m frequency generator."""
 
-    # This is a class variable; instances must derive their own set of
-    # settings from this, see __init__ below.
+    # This is a class variable; instances must derive their own set of settings
+    # from this, see __init__ below.
     default_settings = {
             'baudrate': 19200,
             'timeout': 1,
+            'max_freq_value': 171.1,
             'port': '/dev/ttyUSB0',
-            'ext_clock': 100
+            'ext_clock': 400  # 100MHz actual clock * 4 for K_p multiplier chip
             }
 
     def __init__(self, port: str=None):
@@ -128,11 +129,18 @@ class Dds9Control:
         except (ValueError, TypeError):
             logger.error("Could not parse given frequency. Resetting to 0 Hz.")
             freq = 0.0
-        if freq > 171:
-            logger.warning("Capping requested frequency to 171 MHz.")
-            freq = 171.0
 
-        encoded_value = '{0:.7f}'.format(freq * self._clock_mult)
+        scaled_freq = freq * self._clock_mult
+
+        # The internal freq. generation chip only stores freq. values up to 171
+        # MHz.
+        max_value = self._settings['max_freq_value']
+        if scaled_freq > max_value:
+            logger.warning("Capping requested frequency to {}"
+                           "MHz.".format(max_value/self._clock_mult))
+            scaled_freq = max_value
+
+        encoded_value = '{0:.7f}'.format(scaled_freq)
 
         if channel in range(4):
             set_channel(channel, encoded_value)
@@ -220,7 +228,7 @@ class Dds9Control:
             logger.error("Can't resume as there is no saved state.")
 
     def switch_to_external_frequency_reference(self) -> None:
-        self._send_command('Kp 01')
+        self._send_command('Kp 84')
         time.sleep(0.2)
         self._send_command('C E')
         self._clock_mult = self._clock_mult_ext

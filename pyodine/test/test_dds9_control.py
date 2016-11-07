@@ -11,7 +11,7 @@ live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
 # Most tests can only be performed when there is a live DDS9m device available.
 # We create a marker here to skip those tests automatically if there is no
 # device connected.
-is_dds9_connected = False   # For now, just manually hard-code this value!
+is_dds9_connected = True   # For now, just manually hard-code this value!
 needs_live_device = pytest.mark.skipif(
         not is_dds9_connected, reason="No actual DDS9 is plugged in.")
 
@@ -141,8 +141,13 @@ def test_set_frequency_on_external_clock(dds9: Dds9Control):
     dds9.switch_to_external_frequency_reference()
     dds9.set_frequency(123)
     dds9.set_frequency(0.007, 1)
-    dds9.set_frequency(1000, 2)  # will be capped to 171 MHz!
-    expected = [123, 7e-3, 171, 123]
+    dds9.set_frequency(1000, 2)  # will be capped!
+    cap_frequency = dds9._settings['max_freq_value'] / dds9._clock_mult
+
+    # The last channel is supposed to have the same frequency as the first one,
+    # as the very first set_ command acts on all channels.
+    expected = [123, 7e-3, cap_frequency, 123]
+
     actual = dds9.get_frequencies()
     print(dds9._clock_mult)
     print(expected)
