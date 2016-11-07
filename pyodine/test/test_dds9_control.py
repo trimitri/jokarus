@@ -56,7 +56,7 @@ def test_connect_to_dead_device():
 
 
 @needs_live_device
-def test_check_device_sanity(dds9):
+def test_check_device_sanity(dds9: Dds9Control):
     """Connection to device is established and device is in non-zero state."""
     assert dds9.ping() is True
 
@@ -98,7 +98,7 @@ def test_set_amplitudes(dds9: Dds9Control):
 
 
 @needs_live_device
-def test_set_frequency(dds9):
+def test_set_frequency(dds9: Dds9Control):
     """Device accepts and saves frequency settings."""
     dds9.reset()
     dds9.set_frequency(123)
@@ -135,7 +135,7 @@ def test_switch_reference_source(dds9: Dds9Control):
 
 
 @needs_live_device
-def test_set_frequency_on_external_clock(dds9):
+def test_set_frequency_on_external_clock(dds9: Dds9Control):
     """Device accepts and saves frequency settings."""
     dds9.reset()
     dds9.switch_to_external_frequency_reference()
