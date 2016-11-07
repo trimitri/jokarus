@@ -6,7 +6,9 @@ It launches the lab control software and sets up the Pyodine server.
 import logging
 import drivers.dds9_control
 
-logging.basicConfig(level=logging.INFO)
+# Only execute if run as main program (not on import).
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
 
-dds = drivers.dds9_control.Dds9Control()
-del(dds)
+    dds = drivers.dds9_control.Dds9Control()
+    del(dds)

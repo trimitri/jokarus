@@ -1,7 +1,24 @@
+"""This module provides a Python interface to the DDS9m frequency generator.
+
+It contains two classes of which Dds9Control is the main class, providing a
+stateful controller for all basic capabilities of the DDS9m circuit board.
+To set up a connection to a DDS9 locally connected via serial connection
+"/dev/ttyFooBar" one could do as follows:
+
+import drivers.dds9_control
+dds = drivers.dds9_control.Dds9Control("/dev/ttyFooBar")
+
+<do stuff with dds, e.g.:>
+dds.set_frequency(150)  # sets freq. of all channels to 150MHz
+
+del(dds)  # close connection, device keeps running
+"""
 import logging  # DEBUG, INFO, WARN, ERROR etc.
 import pytest  # simple unit testing
 import serial  # serial port communication
 import time  # sometimes we need to wait for the device
+
+__author__ = 'Franz Gutsch'
 
 logger = logging.getLogger('pyodine.drivers.dds9_control')
 
