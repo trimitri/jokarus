@@ -1,28 +1,41 @@
+"""This test script tests most functions of the DDS9m driver.
+
+It is not to be run manually but will instead be found and invoked
+automatically by the Pytest test suite.
+Obviously, mosts tests require a working DDS9 device connected to a accessible
+serial port. However, some basic tests can also be run in "offline" mode, which
+can be enabled below ("is_dds9_connected").
+"""
 import os
 import pytest
 import serial
 from pyodine.drivers.dds9_control import Dds9Control
 
+__author__ = 'Franz Gutsch'
+
 wrong_port = '/dev/tty0'    # port must not be accessible (ConnectionError)
 dead_port = '/dev/ttyUSB3'  # must be accessible, but no device is connected
 live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
-
 
 # Most tests can only be performed when there is a live DDS9m device available.
 # We create a marker here to skip those tests automatically if there is no
 # device connected.
 is_dds9_connected = True   # For now, just manually hard-code this value!
+
 needs_live_device = pytest.mark.skipif(
         not is_dds9_connected, reason="No actual DDS9 is plugged in.")
 
 
-@pytest.fixture  # Only open connection once for multiple tests.
+# Provide a fixture to avoid opening and closing the device connection for
+# every single test.
+@pytest.fixture
 def dds9():
     """Provides the serial connection to the actual DDS9 device."""
     return Dds9Control(live_port)
 
 
 def test__parse_query_result_on_valid_string():
+    """The (private) _parse... function works correctly on legal input."""
     valid_input = 4*'59682F00 0000 029C 0000 00000000 00000000 000301\r\n'
     settings_object = Dds9Control._parse_query_result(valid_input)
     assert settings_object.validate() is True
@@ -30,6 +43,7 @@ def test__parse_query_result_on_valid_string():
 
 
 def test__parse_query_result_on_invalid_string():
+    """The (private) _parse... function works correctly on illegal input."""
     invalid_input = 4*'59682F00 0000 029C 0000 00000000 00000000\r\n'
     settings_object = Dds9Control._parse_query_result(invalid_input)
     assert settings_object.validate() is True
@@ -63,6 +77,7 @@ def test_check_device_sanity(dds9: Dds9Control):
 
 @needs_live_device
 def test_recognize_illegal_command(dds9: Dds9Control):
+    """DDS9 can tell invalid and valid commands apart."""
     response = dds9._send_command('python')
 
     # Check if this gives us the "bad phase" error, as "p" actually starts a
@@ -116,6 +131,7 @@ def test_set_frequency(dds9: Dds9Control):
 
 @needs_live_device
 def test_pause_resume(dds9: Dds9Control):
+    """The pause and resume methods act on the amplitude as expected."""
     dds9.reset()
     assert dds9.ping() is True
     dds9.set_amplitude(1)
@@ -130,13 +146,15 @@ def test_pause_resume(dds9: Dds9Control):
 
 @needs_live_device
 def test_switch_reference_source(dds9: Dds9Control):
+    """Switching the frequency reference clock throws no errors."""
+    dds9.reset()
     dds9.switch_to_external_frequency_reference()
     dds9.switch_to_internal_frequency_reference()
 
 
 @needs_live_device
 def test_set_frequency_on_external_clock(dds9: Dds9Control):
-    """Device accepts and saves frequency settings."""
+    """Device accepts and applies frequency settings when on ext. clock."""
     dds9.reset()
     dds9.switch_to_external_frequency_reference()
     dds9.set_frequency(123)
@@ -156,3 +174,23 @@ def test_set_frequency_on_external_clock(dds9: Dds9Control):
 
     # Internally, the chip works with 0.1Hz steps:
     assert max(diff) < 1e-8
+
+
+@needs_live_device
+def test_get_settings(dds9: Dds9Control):
+    """Instance is fueled by a full set of valid settings.
+
+    Furthermore, settings cannot be modified from the outside.
+    """
+    settings = dds9.get_settings()
+
+    # Run basic sanity test on all setting's values.
+    assert float(settings['max_freq_value']) > 0
+    assert int(settings['baudrate']) % 10 == 0
+    assert float(settings['timeout']) >= 0 and float(settings['timeout']) < 100
+    assert type(settings['port']) is str and len(settings['port']) > 0
+    assert float(settings['ext_clock']) > 0
+
+    # Make sure settings can't be modified.
+    settings['max_freq_value'] = -1
+    assert dds9.get_settings()['max_freq_value'] != -1

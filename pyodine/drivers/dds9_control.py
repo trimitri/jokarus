@@ -7,12 +7,16 @@ logger = logging.getLogger('pyodine.drivers.dds9_control')
 
 
 class Dds9Setting:
-    """A complete set of state variables specific to DDS9.
+    """A bunch of state variables received from DDS9.
 
-    Those objects can be sent to and received from the device.
+    This object consolidates most of the info that the device returns when
+    asked for its internal state. As there is only one type of query command
+    available for the DDS9 ("QUE"), this is the only way actual internal state
+    variables will be saved.
     """
     def __init__(self,
                  frequencies: list, phases: list, amplitudes: list) -> None:
+        """Fill new instance with data and call validate() on it."""
         self.freqs = frequencies
         self.phases = phases
         self.ampls = amplitudes
@@ -21,7 +25,11 @@ class Dds9Setting:
             self.freqs, self.phases, self.ampls = [4*[0] for x in range(3)]
 
     def validate(self) -> bool:
-        """Makes sure that instance has proper format and resets it if not."""
+        """Check for complete and proper instance variables.
+
+        If this happens to detect an invalid state, the instance is reset to a
+        recognizable and valid "zero state".
+        """
 
         # All lists are exactly four elements long.
         if [len(i) for i in [self.freqs, self.phases, self.ampls]] == 3*[4]:
@@ -37,7 +45,7 @@ class Dds9Setting:
         return False
 
     def is_zero(self) -> bool:
-        """Check, if settings object represents a non-trivial device state."""
+        """Check, if settings object represents an invalid device state."""
         is_zero = all([all([x == 0 for x in quantity]) for quantity in
                        (self.freqs, self.phases, self.ampls)])
         return is_zero
@@ -49,15 +57,25 @@ class Dds9Control:
     # This is a class variable; instances must derive their own set of settings
     # from this, see __init__ below.
     default_settings = {
-            'baudrate': 19200,
-            'timeout': 1,
-            'max_freq_value': 171.1,
-            'port': '/dev/ttyUSB0',
-            'ext_clock': 400  # 100MHz actual clock * 4 for K_p multiplier chip
-            }
+        'baudrate': 19200,  # as stated in the device manual for default value
+        'timeout': 1,       # If we have to wait, something went wrong.
+
+        # DDS9's internal circtuitry imposes a cap on the saved frequency's
+        # numeric value. This, however, does not have to match the actual
+        # highest output frequency, especially when using an external reference
+        # clock.  See manual for details.
+        'max_freq_value': 171.1,
+        'port': '/dev/ttyUSB0',  # Hard-code this to your needs.
+        'ext_clock': 400  # 100MHz actual clock * 4 for K_p multiplier chip
+        }
 
     def __init__(self, port: str=None):
-        """This is the class' constructor."""
+        """Set the device connection up and set some basic device parameters.
+
+        Depending on the device state, calling this constructor may actually
+        change the running device's parameters. Most notably, the reference
+        clock is set to the internal quartz and phases may re-align.
+        """
 
         # Set up instance variables.
 
@@ -118,7 +136,7 @@ class Dds9Control:
     def set_frequency(self, freq: float, channel: int=-1) -> None:
         """Set frequency in MHz for one or all channels.
 
-        If function is called without "channel", all channels are set.
+        If the method is called without "channel", all channels are set.
         """
         def set_channel(channel, encoded_value):
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
@@ -150,7 +168,12 @@ class Dds9Control:
         self._update_state()
 
     def get_frequencies(self) -> list:
-        """Returns the frequency of each channel in MHz."""
+        """Returns the frequency of each channel in MHz.
+
+        When running on external reference clock, this may only yield the
+        correct frequency values, if the external clock frequency is set
+        correctly; check by calling .get_settings().
+        """
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
         return [f / self._clock_mult * 1e-7 for f in self._state.freqs]
@@ -208,6 +231,10 @@ class Dds9Control:
 
     def get_phases(self) -> list:
         return [p*360/16384 for p in self._state.phases]
+
+    def get_settings(self) -> dict:
+        """Returns a copy of the internal "_settings" object."""
+        return self._settings.copy()  # Don't let the user change our settings.
 
     def ping(self) -> bool:
         """Device is accessible and in non-zero state."""
