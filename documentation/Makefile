@@ -6,6 +6,8 @@ SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build
+SOURCEDIR     = source
+PYTHONDIR     = ../pyodine
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -13,6 +15,9 @@ PAPEROPT_letter = -D latex_paper_size=letter
 ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
+
+# Run "apidoc" extension to autogenerate .rst files for all existing python modules
+APIDOC = sphinx-apidoc -f -e -o $(SOURCEDIR)/apidoc/ $(PYTHONDIR) 
 
 .PHONY: help
 help:
@@ -50,6 +55,7 @@ clean:
 
 .PHONY: html
 html:
+	$(APIDOC)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."

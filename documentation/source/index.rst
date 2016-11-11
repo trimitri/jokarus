@@ -4,13 +4,12 @@ Welcome to Pyodine's documentation!
 Contents:
 
 .. toctree::
+  :maxdepth: 2
 
-  autogen
+  Pyodine API <apidoc/modules>
+  hardware
 
 Ein Bisschen Text zum anschauen.
-Hier eine automatisch generierte Dokumentation zum DDS9-Treiber:
-
-:doc:`dds9`
 
 Indices and tables
 ==================
