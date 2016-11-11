@@ -19,6 +19,9 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 # Run "apidoc" extension to autogenerate .rst files for all existing python modules
 APIDOC = sphinx-apidoc -f -e -o $(SOURCEDIR)/apidoc/ $(PYTHONDIR) 
 
+# Upload generated documentation to Physik-Pool.
+UPLOADDOCTOPOOL = rsync -r --delete ./build/html/ gutsch@pool.physik.hu-berlin.de:public_html/
+
 .PHONY: help
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -57,6 +60,7 @@ clean:
 html:
 	$(APIDOC)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(UPLOADDOCTOPOOL)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 

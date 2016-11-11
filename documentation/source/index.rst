@@ -9,7 +9,7 @@ Contents:
   Pyodine API <apidoc/modules>
   hardware
 
-Ein Bisschen Text zum anschauen.
+Ein Bisschen Text zum anschauen. Hier muss natürlich noch richtiger Text hin. Lorem Ipsum.
 
 Indices and tables
 ==================
