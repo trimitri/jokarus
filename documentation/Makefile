@@ -17,10 +17,10 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) sou
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
 # Run "apidoc" extension to autogenerate .rst files for all existing python modules
-APIDOC = sphinx-apidoc -f -e -o $(SOURCEDIR)/apidoc/ $(PYTHONDIR) 
+APIDOC = sphinx-apidoc -f -e -o $(SOURCEDIR)/api/ $(PYTHONDIR) 
 
 # Upload generated documentation to Physik-Pool.
-UPLOADDOCTOPOOL = rsync -r --delete ./build/html/ gutsch@pool.physik.hu-berlin.de:public_html/
+UPLOADDOCTOPOOL = rsync -r --delete ./build/html/ gutsch@pool13.physik.hu-berlin.de:public_html/
 
 .PHONY: help
 help:
