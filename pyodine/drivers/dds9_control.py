@@ -361,7 +361,7 @@ class Dds9Control:
             self._send_command('Kp 0f')
             time.sleep(0.2)
             self._send_command('C I')
-            self._runs_on_ext = False;
+            self._runs_on_ext = False
             self._clock_mult = self._clock_mult_int
             time.sleep(0.2)
 
@@ -474,6 +474,7 @@ class Dds9Control:
         phases = [int(f, 16) for f in params[1]]
         amplitudes = [int(f, 16) for f in params[2]]
         return Dds9Setting(frequencies, phases, amplitudes)
+
 
 """In the production enviroment, this module is not supposed to be run. Instead
 it will always just be imported.  However, if the module is run nevertheless,
