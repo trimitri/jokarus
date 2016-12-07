@@ -221,8 +221,6 @@ class Dds9Control:
         correct frequency values, if the external clock frequency is set
         correctly; check by calling .get_settings().
         """
-        print(self._state.freqs)
-        print(self._clock_mult)
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
         return [f / self._clock_mult * 1e-7 for f in self._state.freqs]
@@ -363,6 +361,7 @@ class Dds9Control:
             self._send_command('Kp 0f')
             time.sleep(0.2)
             self._send_command('C I')
+            self._runs_on_ext = False;
             self._clock_mult = self._clock_mult_int
             time.sleep(0.2)
 
