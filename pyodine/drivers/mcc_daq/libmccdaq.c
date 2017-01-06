@@ -8,9 +8,9 @@
 #include "usb-1608G.h"
 #include "libmccdaq.h"
 
-int main() {
+static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 
-  static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
+libusb_device_handle * OpenConnection(void) {
 
   // Initialize libusb.
   int ret = libusb_init(NULL);
@@ -21,20 +21,17 @@ int main() {
 
   // Initialize USB connection.
   libusb_device_handle *device = NULL;
-  device = NULL;
+
   if ((device = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
     usbInit_1608G(device, 1);
   } else {
     printf("Failure, did not find a USB 1608G series device!\n");
-    return 0;
   }
 
-  // Build a lookup table of voltages vs. values based on previous calibration.
-  float table_AIN[NGAINS_1608G][2];
-  usbBuildGainTable_USB1608G(device, table_AIN);
-  float table_AO[NCHAN_AO_1608GX][2];
-  usbBuildGainTable_USB1608GX_2AO(device, table_AO);
+  return device;
+}
 
+void Sawtooth(libusb_device_handle *device, float out_cal[][2] ) {
   // Try some signal generation.
   int channel = 0;  // Device has two output channels.
 
@@ -53,7 +50,7 @@ int main() {
 
     // Apply calibration data.
     ramp[i] = (uint16_t)
-      ((float) voltage * table_AO[channel][0] + table_AO[channel][1]);
+      ((float) voltage * out_cal[channel][0] + out_cal[channel][1]);
     /* printf("foo%d: %f\n", i, voltage); */
   }
   usbAOutScanStop_USB1608GX_2AO(device);
@@ -62,7 +59,7 @@ int main() {
   usbAOutScanStart_USB1608GX_2AO(device, 0, 0, frequency,  AO_CHAN0);
   int flag = fcntl(fileno(stdin), F_GETFL);
   fcntl(0, F_SETFL, flag | O_NONBLOCK);
-  int transferred;
+  int transferred, ret;
   unsigned long int iteration_ctr = 0;
   do {
     ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
@@ -76,4 +73,18 @@ int main() {
   } while (!isalpha(getchar()));
   fcntl(fileno(stdin), F_SETFL, flag);
   usbAOutScanStop_USB1608GX_2AO(device);
+}
+
+void GenerateCalibrationTable(libusb_device_handle *device,
+    float input_calibration[NGAINS_1608G][2],
+    float output_calibration[NCHAN_AO_1608GX][2]) {
+
+  // Build a lookup table of voltages vs. values based on previous calibration.
+  float table_AIN[NGAINS_1608G][2];
+  usbBuildGainTable_USB1608G(device, table_AIN);
+  input_calibration = table_AIN;  // return filled table
+
+  float table_AO[NCHAN_AO_1608GX][2];
+  usbBuildGainTable_USB1608GX_2AO(device, table_AO);
+  output_calibration = table_AO;  // return filled table
 }

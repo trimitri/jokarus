@@ -1,4 +1,2 @@
-*.d
 *.o
-test-usb1608G
-libmccdaq
+*.elf

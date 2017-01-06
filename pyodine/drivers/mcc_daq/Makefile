@@ -1,21 +1,13 @@
-CC=clang --std=gnu11
-SRCS=usb-1608G.c
+CC=clang
+CFLAGS=--std=gnu11 -Weverything
 
 # RULES
 
-franztest: franztest.c libmccdaq.o
-	$(CC) -Weverything -I. -o $@ $@.c -L.
+franztest.elf: franztest.o libmccdaq.o
+	$(CC) $(CFLAGS) -o $@ $^ -lm -L/usr/local/lib -lhidapi-libusb -lusb-1.0 -lmccusb
 
-libmccdaq:	libmccdaq.c usb-1608G.o libmccusb.a
-	$(CC) -g -Weverything -I. -o $@ $@.c -L. -lmccusb  -lm -L/usr/local/lib -lhidapi-libusb -lusb-1.0 
-
-%.d: %.c
-	set -e; $(CC) -I. -M $(CPPFLAGS) $< \
-	| sed 's/\($*\)\.o[ :]*/\1.o $@ : /g' > $@; \
-	[ -s $@ ] || rm -f $@
-ifneq ($(MAKECMDGOALS),clean)
-include $(SRCS:.c=.d)
-endif
+%.o: %.c
+	$(CC) $(CFLAGS) -c $<
 
 clean:
-	rm *.o *.d libmccdaq
+	rm *.o *.elf
