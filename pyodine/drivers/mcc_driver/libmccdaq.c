@@ -6,6 +6,7 @@
 
 #include "pmd.h"
 #include "usb-1608G.h"
+#include "libmccdaq.h"
 
 int main() {
 

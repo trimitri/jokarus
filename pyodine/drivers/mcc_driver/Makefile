@@ -3,6 +3,9 @@ SRCS=usb-1608G.c
 
 # RULES
 
+franztest: franztest.c libmccdaq.o
+	$(CC) -Weverything -I. -o $@ $@.c -L.
+
 libmccdaq:	libmccdaq.c usb-1608G.o libmccusb.a
 	$(CC) -g -Weverything -I. -o $@ $@.c -L. -lmccusb  -lm -L/usr/local/lib -lhidapi-libusb -lusb-1.0 
 
