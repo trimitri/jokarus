@@ -31,12 +31,10 @@ libusb_device_handle * OpenConnection(void) {
   return device;
 }
 
-void Sawtooth(libusb_device_handle *device, float out_cal[][2] ) {
-  // Try some signal generation.
-  int channel = 0;  // Device has two output channels.
+void Sawtooth(libusb_device_handle *device) {
 
   unsigned int i;
-  double voltage;
+  double amplitude;
   uint16_t ramp[1024]; // holds 16 bit unsigned analog output data
   static const uint ramp_length = sizeof(ramp)/sizeof(uint16_t);
   printf("ramp_length: %d\n", ramp_length);
@@ -46,12 +44,9 @@ void Sawtooth(libusb_device_handle *device, float out_cal[][2] ) {
   for (i = 0; i < ramp_length; i ++) {
 
     // Calculate the desired amplitudes; [0, kMaxAmplitude]
-    voltage = (double) kMaxAmplitude / (ramp_length-1) * i;
+    amplitude = (double) kMaxAmplitude / (ramp_length-1) * i;
 
-    // Apply calibration data.
-    ramp[i] = (uint16_t)
-      ((float) voltage * out_cal[channel][0] + out_cal[channel][1]);
-    /* printf("foo%d: %f\n", i, voltage); */
+    ramp[i] = (uint16_t) amplitude;
   }
   usbAOutScanStop_USB1608GX_2AO(device);
 

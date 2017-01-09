@@ -6,7 +6,7 @@
 
 libusb_device_handle * OpenConnection(void);
 
-void Sawtooth(libusb_device_handle *device, float out_cal[][2]);
+void Sawtooth(libusb_device_handle *device);
 
 void GenerateCalibrationTable(libusb_device_handle *device,
     float input_calibration[NGAINS_1608G][2],
