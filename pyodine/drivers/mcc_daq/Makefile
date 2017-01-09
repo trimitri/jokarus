@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=--std=gnu11 -Weverything
+CFLAGS=--std=gnu11 -march=native -O3 -Weverything -pedantic 
 
 # RULES
 
