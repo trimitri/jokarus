@@ -14,7 +14,6 @@ dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 del(dds)  # close connection, device keeps running
 """
 import logging  # DEBUG, INFO, WARN, ERROR etc.
-import pytest  # simple unit testing
 import serial  # serial port communication
 import time  # sometimes we need to wait for the device
 
@@ -475,9 +474,3 @@ class Dds9Control:
         amplitudes = [int(f, 16) for f in params[2]]
         return Dds9Setting(frequencies, phases, amplitudes)
 
-
-"""In the production enviroment, this module is not supposed to be run. Instead
-it will always just be imported.  However, if the module is run nevertheless,
-it will act as a test suite testing itself: """
-if __name__ == '__main__':
-    pytest.main(args=['-x', '..'])  # Run Pytest test suite on pyodine dir.
