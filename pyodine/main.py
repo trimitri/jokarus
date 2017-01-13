@@ -9,12 +9,19 @@ local modules, absolute imports for global ones. This should be the pythonic
 way as discussed in PEP328.
 """
 import logging
-from .drivers import dds9_control
+import time
+# from .drivers import dds9_control
+from .drivers import menlo_stack
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('pyodine.main')
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Running Pyodine...")
 
-    dds = dds9_control.Dds9Control()
-    del(dds)
+    menlo = menlo_stack.MenloStack()
+    print("Doing other stuff")
+    while True:
+        time.sleep(2)
+        print("Still doing stuff")
