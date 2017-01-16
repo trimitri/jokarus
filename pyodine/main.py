@@ -21,6 +21,7 @@ if __name__ == '__main__':
     logger.info("Running Pyodine...")
 
     menlo = menlo_stack.MenloStack()
+    menlo.start_acquiring_data()
     print("Doing other stuff")
     while True:
         time.sleep(2)

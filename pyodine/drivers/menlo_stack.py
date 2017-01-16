@@ -56,8 +56,25 @@ class MenloStack:
     def __init__(self, url: str='ws://menlostack:8000'):
         """Establish a websocket connection with the Menlo stack controller.
         """
-        self.client = websockets.connect(url)
-        self._muc_times = []  # List of times received from MUC
+        self._ws = websockets.connect(url)
+
+        # Create buffers for saving received system parameters.
+
+        # Laser drivers
+        self._diode_temps = []     # laser diode temperature
+        self._tec_currents = []    # Peltier currents
+        self._diode_currents = []  # laser diode current
+        self._laser_drv_ok = []    # "OK" flag of the laser driver
+
+        # Embedded System
+        self._muc_times = []       # MUC system time
+
+        # Setup concurrent execution
+
+        listener = self._listen_to_socket()
+        self._loop = asyncio.BaseEventLoop()
+        self._loop.set_debug(True)  # Enable asyncio debug mode. TODO disable
+        self._loop.create_task(listener)
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
         pass
@@ -81,6 +98,12 @@ class MenloStack:
 
     def laser_is_temp_ok(self, unit: int=1) -> bool:
         pass
+
+    def start_acquiring_data(self) -> None:
+        self._loop.run_forever()
+
+    def stop_acquiring_data(self) -> None:
+        self._loop.stop()
 
     # Lockbox Control
 
@@ -128,6 +151,13 @@ class MenloStack:
                 self.add_to_rotating_log(self._muc_times, (value, time.time()))
         else:
             logger.warning("Unknown MUC service ID {}".format(service))
+
+    # asyncio
+
+    async def _listen_to_socket(self) -> None:
+        while True:
+            message = await self._ws.recv()
+            self._parse_reply(message)
 
     ##################
     # Static Methods #
