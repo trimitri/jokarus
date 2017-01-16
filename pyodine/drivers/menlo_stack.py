@@ -53,7 +53,7 @@ class MenloStack:
 
     # Laser Diode Driver Control.
 
-    def __init__(self, url: str='ws://menlostack:8000'):
+    def __init__(self, url: str="ws://menlostack:8000"):
         """Establish a websocket connection with the Menlo stack controller.
         """
         self._ws = websockets.connect(url)
@@ -72,7 +72,7 @@ class MenloStack:
         # Setup concurrent execution
 
         listener = self._listen_to_socket()
-        self._loop = asyncio.BaseEventLoop()
+        self._loop = asyncio.get_event_loop()
         self._loop.set_debug(True)  # Enable asyncio debug mode. TODO disable
         self._loop.create_task(listener)
 
@@ -158,6 +158,10 @@ class MenloStack:
         while True:
             message = await self._ws.recv()
             self._parse_reply(message)
+
+    @staticmethod
+    async def _mock_reply():
+        pass  # TODO
 
     ##################
     # Static Methods #
