@@ -72,9 +72,9 @@ class MenloStack:
         # Setup concurrent execution
 
         listener = self._listen_to_socket()
-        self._loop = asyncio.get_event_loop()
-        self._loop.set_debug(True)  # Enable asyncio debug mode. TODO disable
-        self._loop.create_task(listener)
+        loop = asyncio.get_event_loop()
+        loop.set_debug(True)  # Enable asyncio debug mode. TODO disable
+        loop.ensure_future(listener)
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
         pass
