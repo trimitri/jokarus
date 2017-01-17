@@ -10,21 +10,33 @@ way as discussed in PEP328.
 """
 import logging
 import asyncio
-import time
 # from .drivers import dds9_control
-# from .drivers import menlo_stack
+from .drivers import menlo_stack
 
 
 async def foocoro():
     while True:
         print("Doing foo")
-        await asyncio.sleep(1)
+        await asyncio.sleep(1.57)
 
 
 async def barcoro():
     while True:
         print("Doing bar")
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.87)
+
+
+async def main():
+    logger.info("Running Pyodine...")
+    asyncio.ensure_future(foocoro())
+    asyncio.ensure_future(barcoro())
+
+    menlo_stack.MenloStack()
+
+    print("Doing other stuff")
+    while True:
+        await asyncio.sleep(2)
+        print("Still doing stuff")
 
 
 # Only execute if run as main program (not on import). This also holds when the
@@ -32,17 +44,11 @@ async def barcoro():
 if __name__ == '__main__':
     logger = logging.getLogger('pyodine.main')
     logging.basicConfig(level=logging.DEBUG)
-    logger.info("Running Pyodine...")
-
-    # menlo = menlo_stack.MenloStack()
-    # menlo.start_acquiring_data()
 
     loop = asyncio.get_event_loop()
-    asyncio.ensure_future(foocoro())
-    asyncio.ensure_future(barcoro())
-    loop.run_forever()
+    loop.set_debug(True)
 
-    print("Doing other stuff")
-    while True:
-        time.sleep(2)
-        print("Still doing stuff")
+    # Schedule main program for running.
+    asyncio.ensure_future(main())
+
+    loop.run_forever()

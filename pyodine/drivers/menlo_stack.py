@@ -70,11 +70,7 @@ class MenloStack:
         self._muc_times = []       # MUC system time
 
         # Setup concurrent execution
-
-        listener = self._listen_to_socket()
-        loop = asyncio.get_event_loop()
-        loop.set_debug(True)  # Enable asyncio debug mode. TODO disable
-        loop.ensure_future(listener)
+        asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
         pass
@@ -98,12 +94,6 @@ class MenloStack:
 
     def laser_is_temp_ok(self, unit: int=1) -> bool:
         pass
-
-    def start_acquiring_data(self) -> None:
-        self._loop.run_forever()
-
-    def stop_acquiring_data(self) -> None:
-        self._loop.stop()
 
     # Lockbox Control
 
@@ -156,8 +146,10 @@ class MenloStack:
 
     async def _listen_to_socket(self) -> None:
         while True:
-            message = await self._ws.recv()
-            self._parse_reply(message)
+            # message = await self._ws.recv()
+            # self._parse_reply(message)
+            await asyncio.sleep(2.3)
+            logger.debug("Doing stuff in MenloStack.")
 
     @staticmethod
     async def _mock_reply():
