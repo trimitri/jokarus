@@ -69,7 +69,8 @@ class MenloStack:
         # Embedded System
         self._muc_times = []       # MUC system time
 
-        # Setup concurrent execution
+        # Schedule background tasks to run in central asyncio event loop.
+
         asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
@@ -112,7 +113,7 @@ class MenloStack:
     def _parse_reply(self, received_string: str) -> tuple:
         logger.debug("Parsing reply " + received_string)
         parts = received_string.split(":")
-        return parts[0], parts[1], parts[2]  # node, service, value
+        return(int(parts[0]), int(parts[1]), parts[2])  # node, service, value
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
         if node in LASER_NODES:
@@ -142,18 +143,25 @@ class MenloStack:
         else:
             logger.warning("Unknown MUC service ID {}".format(service))
 
-    # asyncio
-
     async def _listen_to_socket(self) -> None:
         while True:
             # message = await self._ws.recv()
-            # self._parse_reply(message)
+            message = await self._mock_reply()
+            self._store_reply(*self._parse_reply(message))
             await asyncio.sleep(2.3)
-            logger.debug("Doing stuff in MenloStack.")
 
+    # TODO remove this.
     @staticmethod
-    async def _mock_reply():
-        pass  # TODO
+    async def _mock_reply() -> str:
+        await asyncio.sleep(.2)  # Simulate websocket wait.
+        replies = ["5:288:0", "3:274:1488", "3:275:-12", "5:272:-29",
+                   "5:274:-39", "5:275:-56", "5:274:-65",
+                   "255:1:1481101784.216184", "4:288:0", "4:272:-2",
+                   "5:272:-427", "4:274:1488", "4:275:0", "5:272:-34",
+                   "6:288:0", "6:272:-9", "6:274:1490",
+                   "255:1:1481101784.716533"]
+        import random
+        return replies[random.randint(0, len(replies) - 1)]
 
     ##################
     # Static Methods #
