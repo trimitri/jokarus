@@ -9,7 +9,7 @@ import asyncio     # A native python module needed for websockets.
 import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
-ROTATE_N = 10  # Keep log of received values smaller than this.
+ROTATE_N = 5  # Keep log of received values smaller than this.
 
 # Constants specific to the published Menlo interface.
 
@@ -48,7 +48,6 @@ class MenloStack:
     def __init__(self, url: str="ws://menlostack:8000"):
         """Establish a websocket connection with the Menlo stack controller.
         """
-        self._ws = websockets.connect(url)
 
         # Create one buffer for each receiving service of each connected module
         # using nested dict comprehensions.
@@ -80,6 +79,10 @@ class MenloStack:
 
         # Schedule background tasks to run in central asyncio event loop.
 
+        asyncio.ensure_future(self._init_async(url))
+
+    async def _init_async(self, url: str) -> None:
+        self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
@@ -115,12 +118,6 @@ class MenloStack:
     def _send_string(self, message: str) -> None:
         pass
 
-    @staticmethod
-    def _parse_reply(received_string: str) -> tuple:
-        LOGGER.debug("Parsing reply '%s'", received_string)
-        parts = received_string.split(":")
-        return(int(parts[0]), int(parts[1]), parts[2])  # node, service, value
-
     def _store_reply(self, node: int, service: int, value: str) -> None:
         buffer = None
         try:
@@ -128,7 +125,7 @@ class MenloStack:
         except KeyError:
             pass
         if isinstance(buffer, list):
-            self.add_to_rotating_log(buffer, value)
+            self._rotate_log(self._buffers[node][service], value)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),
@@ -136,8 +133,8 @@ class MenloStack:
 
     async def _listen_to_socket(self) -> None:
         while True:
-            # message = await self._ws.recv()
-            message = await self._mock_reply()
+            message = await self._connection.recv()
+            # message = await self._mock_reply()
             self._store_reply(*self._parse_reply(message))
 
     @staticmethod
@@ -152,26 +149,18 @@ class MenloStack:
         import random
         return replies[random.randint(0, len(replies) - 1)]
 
-    ##################
-    # Static Methods #
-    ##################
+    @staticmethod
+    def _parse_reply(received_string: str) -> tuple:
+        LOGGER.debug("Parsing reply '%s'", received_string)
+        parts = received_string.split(":")
+        return(int(parts[0]), int(parts[1]), parts[2])  # node, service, value
 
     @staticmethod
-    def add_to_rotating_log(log_list: list, value) -> None:
+    def _rotate_log(log_list: list, value) -> None:
         log_list.insert(0, (value, time.time()))
 
-        # Shave of some elements if list gets too long.
-        if len(log_list) > ROTATE_N:
-            log_list = log_list[0:ROTATE_N-1]
-
-        print(log_list)
-
-
-if __name__ == '__main__':
-
-    async def hello_menlo() -> None:
-        async with websockets.connect('ws://menlostack:8000') as sckt:
-            while True:
-                print(await sckt.recv())
-
-    asyncio.get_event_loop().run_until_complete(hello_menlo())
+        # Shave of some elements in case the list got too long. Be careful to
+        # not use any statement here that creates a new list. Such as
+        #     list = list[0:foo_end]
+        # which does NOT work!
+        del(log_list[ROTATE_N:])
