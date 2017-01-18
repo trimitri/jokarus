@@ -50,10 +50,9 @@ class MenloStack:
         """
         self._ws = websockets.connect(url)
 
-        # Create one buffer for each receiving service of each laser driver
-        # using a nested double dict comprehension.
-        # Then do the same for the lockboxes.
-        # The finished dicts will look as follows:
+        # Create one buffer for each receiving service of each connected module
+        # using nested dict comprehensions.
+        # The finished dict will look as follows:
         #   {
         #      node_id1: {svc_id1: [], svc_id2: [], etc.},
         #      node_id2: {svc_id1: [], svc_id2: [], etc.},
@@ -61,14 +60,23 @@ class MenloStack:
         #   }
         # Each of the contained empty lists will eventually hold received data
         # in tuples: [(value1, time1), (value2, time2), etc.]
-        self._laser_buffers = {
+
+        # First, create a tree of buffers for each module.
+        laser_buffers = {
             node_id: {svc_id: [] for svc_id in LASER_SVC_GET}
             for node_id in LASER_NODES}
-        self._lockbox_buffers = {
+        lockbox_buffers = {
             node_id: {svc_id: [] for svc_id in LOCKBOX_SVC_GET}
             for node_id in LOCKBOX_NODES}
-        self._adc_buffers = {svc_id: [] for svc_id in ADC_SVC_GET}
-        self._muc_buffers = {svc_id: [] for svc_id in MUC_SVC_GET}
+        adc_buffers = {ADC_NODE: {svc_id: [] for svc_id in ADC_SVC_GET}}
+        muc_buffers = {MUC_NODE: {svc_id: [] for svc_id in MUC_SVC_GET}}
+
+        # Merge dictionaries into one, as "node" is a unique key.
+        self._buffers = {}
+        self._buffers.update(laser_buffers)
+        self._buffers.update(lockbox_buffers)
+        self._buffers.update(adc_buffers)
+        self._buffers.update(muc_buffers)
 
         # Schedule background tasks to run in central asyncio event loop.
 
@@ -97,8 +105,6 @@ class MenloStack:
     def laser_is_temp_ok(self, unit: int=1) -> bool:
         pass
 
-    # Lockbox Control
-
     def lockbox_enable(self, enable: bool=True, unit: int=1) -> None:
         pass
 
@@ -116,43 +122,17 @@ class MenloStack:
         return(int(parts[0]), int(parts[1]), parts[2])  # node, service, value
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
-        if node in LASER_NODES:
-            unit = LASER_NODES.index(node)
-            self._store_laser_param(unit, service, value)
-
-        elif node in LOCKBOX_NODES:
-            unit = LOCKBOX_NODES.index(node)
-            self._store_lockbox_param(unit, service, value)
-
-        elif node == ADC_NODE:
-            self._store_adc_param(service, value)
-
-        elif node == MUC_NODE:
-            self._store_muc_param(service, value)
-
+        buffer = None
+        try:
+            buffer = self._buffers[node][service]
+        except KeyError:
+            pass
+        if isinstance(buffer, list):
+            self.add_to_rotating_log(buffer, value)
         else:
-            LOGGER.warning("Unknown node ID.")
-
-    def _store_laser_param(self, unit: int, service: int, value: str) -> None:
-        LOGGER.debug("Storing Laser %s param %s as %s.", unit, service, value)
-        if service in LASER_SVC_GET:
-            pass  # TODO
-        else:
-            LOGGER.error("Unknown laser controller service id (%s).", service)
-
-    def _store_lockbox_param(self,
-                             unit: int, service: int, value: str) -> None:
-        LOGGER.debug("Storing Lockbox %s param %s as %s.", unit, service,
-                     value)
-        # TODO
-
-    def _store_adc_param(self, service: int, value: str) -> None:
-        LOGGER.debug("Storing ADC param %s as %s.", service, value)
-        # TODO
-
-    def _store_muc_param(self, service, value) -> None:
-        LOGGER.debug("Storing MUC param %s as %s.", service, value)
-        # TODO
+            LOGGER.warning(("Combination of node id %s and service id %s "
+                            "doesn't resolve into a documented quantity."),
+                           node, service)
 
     async def _listen_to_socket(self) -> None:
         while True:
@@ -178,11 +158,13 @@ class MenloStack:
 
     @staticmethod
     def add_to_rotating_log(log_list: list, value) -> None:
-        log_list.insert(0, value)
+        log_list.insert(0, (value, time.time()))
 
         # Shave of some elements if list gets too long.
         if len(log_list) > ROTATE_N:
             log_list = log_list[0:ROTATE_N-1]
+
+        print(log_list)
 
 
 if __name__ == '__main__':
