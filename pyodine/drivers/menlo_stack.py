@@ -9,7 +9,7 @@ import asyncio     # A native python module needed for websockets.
 import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
-ROTATE_N = 5  # Keep log of received values smaller than this.
+ROTATE_N = 16  # Keep log of received values smaller than this.
 
 # Constants specific to the published Menlo interface.
 
@@ -144,7 +144,7 @@ class MenloStack:
         while True:
             message = await self._connection.recv()
             # message = await self._mock_reply()
-            self._store_reply(*self._parse_reply(message))
+            self._parse_reply(message)
 
     @staticmethod
     async def _mock_reply() -> str:
@@ -158,11 +158,16 @@ class MenloStack:
         import random
         return replies[random.randint(0, len(replies) - 1)]
 
-    @staticmethod
-    def _parse_reply(received_string: str) -> tuple:
+    def _parse_reply(self, received_string: str) -> None:
         LOGGER.debug("Parsing reply '%s'", received_string)
-        parts = received_string.split(":")
-        return(int(parts[0]), int(parts[1]), parts[2])  # node, service, value
+
+        # Some responses contain a packed set of single values. Those are
+        # concatenated using the '@' token.
+        responses = received_string.split('@')
+
+        for resp in responses:
+            parts = resp.split(":")
+            self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     @staticmethod
     def _rotate_log(log_list: list, value) -> None:

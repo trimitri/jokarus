@@ -30,10 +30,10 @@ async def main():
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
     logger = logging.getLogger('pyodine.main')
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     loop = asyncio.get_event_loop()
-    loop.set_debug(True)
+    # loop.set_debug(True)
 
     # Schedule main program for running and start central event loop.
     loop.run_until_complete(main())
