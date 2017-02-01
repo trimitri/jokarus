@@ -6,7 +6,7 @@ exposed by the Menlo Electronics control computer.
 import logging     # DEBUG, INFO, WARN, ERROR etc.
 import time        # To keep track of when replies came in.
 import asyncio     # A native python module needed for websockets.
-import websockets
+# import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
 ROTATE_N = 5  # Keep log of received values smaller than this.
@@ -82,7 +82,7 @@ class MenloStack:
         asyncio.ensure_future(self._init_async(url))
 
     async def _init_async(self, url: str) -> None:
-        self._connection = await websockets.connect(url)
+        # self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
@@ -92,9 +92,18 @@ class MenloStack:
         """Sets the laser diode current setpoint."""
         pass
 
-    def laser_get_current(self, unit: int=1) -> float:
+    def get_laser_current(self, unit: int=1) -> float:
         """Gets the actual laser diode current."""
-        pass
+
+        # Do a reverse dictionary lookup to get the service ID.
+        try:
+            service_index = list(LASER_SVC_GET.values()).index('diode_current')
+        except ValueError:
+            LOGGER.error("Service 'diode_current' not specified.")
+            return None
+        service_id = list(LASER_SVC_GET.keys())[service_index]
+        buffer = self._buffers[LASER_NODES[unit-1]][service_id]
+        return self._get_latest_entry(buffer)[0]
 
     def laser_set_temperature(self, temp: float, unit: int=1) -> None:
         pass
@@ -133,8 +142,8 @@ class MenloStack:
 
     async def _listen_to_socket(self) -> None:
         while True:
-            message = await self._connection.recv()
-            # message = await self._mock_reply()
+            # message = await self._connection.recv()
+            message = await self._mock_reply()
             self._store_reply(*self._parse_reply(message))
 
     @staticmethod
@@ -164,3 +173,11 @@ class MenloStack:
         #     list = list[0:foo_end]
         # which does NOT work!
         del(log_list[ROTATE_N:])
+
+    @staticmethod
+    def _get_latest_entry(buffer: list) -> tuple:
+        if len(buffer) > 0:
+            return buffer[0]
+        else:
+            LOGGER.warning('Returning "None", as the given buffer is empty.')
+            return (None, None)

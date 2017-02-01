@@ -17,11 +17,12 @@ from .drivers import menlo_stack
 async def main():
     logger.info("Running Pyodine...")
 
-    menlo_stack.MenloStack()
+    menlo = menlo_stack.MenloStack()
 
     logger.debug("Doing other stuff")
     while True:
         await asyncio.sleep(2)
+        print(menlo.get_laser_current())
         print("Still doing stuff")
 
 
