@@ -178,6 +178,7 @@ class MenloStack:
         #     list = list[0:foo_end]
         # which does NOT work!
         del(log_list[ROTATE_N:])
+        print(len(log_list))
 
     @staticmethod
     def _get_latest_entry(buffer: list) -> tuple:
