@@ -6,7 +6,7 @@ exposed by the Menlo Electronics control computer.
 import logging     # DEBUG, INFO, WARN, ERROR etc.
 import time        # To keep track of when replies came in.
 import asyncio     # A native python module needed for websockets.
-# import websockets
+import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
 ROTATE_N = 5  # Keep log of received values smaller than this.
@@ -82,7 +82,7 @@ class MenloStack:
         asyncio.ensure_future(self._init_async(url))
 
     async def _init_async(self, url: str) -> None:
-        # self._connection = await websockets.connect(url)
+        self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
@@ -142,8 +142,8 @@ class MenloStack:
 
     async def _listen_to_socket(self) -> None:
         while True:
-            # message = await self._connection.recv()
-            message = await self._mock_reply()
+            message = await self._connection.recv()
+            # message = await self._mock_reply()
             self._store_reply(*self._parse_reply(message))
 
     @staticmethod

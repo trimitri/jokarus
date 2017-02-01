@@ -10,6 +10,7 @@ way as discussed in PEP328.
 """
 import logging
 import asyncio
+
 # from .drivers import dds9_control
 from .drivers import menlo_stack
 
@@ -19,7 +20,6 @@ async def main():
 
     menlo = menlo_stack.MenloStack()
 
-    logger.debug("Doing other stuff")
     while True:
         await asyncio.sleep(2)
         print(menlo.get_laser_current())
