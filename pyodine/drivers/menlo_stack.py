@@ -148,7 +148,7 @@ class MenloStack:
 
     @staticmethod
     async def _mock_reply() -> str:
-        await asyncio.sleep(.2)  # Simulate websocket wait.
+        await asyncio.sleep(.002)  # Simulate websocket wait.
         replies = ["5:288:0", "3:274:1488", "3:275:-12", "5:272:-29",
                    "5:274:-39", "5:275:-56", "5:274:-65",
                    "255:1:1481101784.216184", "4:288:0", "4:272:-2",
@@ -176,9 +176,9 @@ class MenloStack:
         # Shave of some elements in case the list got too long. Be careful to
         # not use any statement here that creates a new list. Such as
         #     list = list[0:foo_end]
-        # which does NOT work!
+        # which does NOT work, as it doesn't modify the passed-by-reference
+        # list.
         del(log_list[ROTATE_N:])
-        print(len(log_list))
 
     @staticmethod
     def _get_latest_entry(buffer: list) -> tuple:

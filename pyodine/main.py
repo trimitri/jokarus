@@ -22,8 +22,7 @@ async def main():
 
     while True:
         await asyncio.sleep(2)
-        print(menlo.get_laser_current())
-        print("Still doing stuff")
+        print("Still alive")
 
 
 # Only execute if run as main program (not on import). This also holds when the
