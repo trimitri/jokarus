@@ -36,29 +36,18 @@ libusb_device_handle * OpenConnection(void) {
   return device;
 }
 
-void Sawtooth(libusb_device_handle *device) {
+void Triangle(libusb_device_handle *device) {
 
-  uint16_t ramp[1024];  // holds 16 bit unsigned analog output data
-  const uint ramp_length = sizeof(ramp)/sizeof(uint16_t);
-  printf("ramp_length: %d\n", ramp_length);
-
-
-  unsigned int i;
-  double amplitude;
-  for (i = 0; i < ramp_length; i ++) {
-
-    // Calculate the desired amplitudes; [0, kMaxAmplitude]
-    amplitude = (double) kMaxAmplitude / (ramp_length-1) * i;
-
-    ramp[i] = (uint16_t) amplitude;
-  }
+  // holds 16 bit unsigned analog output data
+  uint16_t ramp[LIBMCCDAQ_BULK_TRANSFER_SIZE];
+  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, ramp);
   usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
 
-  double frequency = (double) ramp_length * 500;
+  double frequency = 333.3333333 * LIBMCCDAQ_BULK_TRANSFER_SIZE;
   usbAOutScanStart_USB1608GX_2AO(device,
       0,  // total # of scans to perform -> 0: continuous mode
       0,  // # of scans per trigger in retrigger mode
-      frequency,  // pacer frequency, see comments in usb-1608G.c for details.
+      frequency,  // repetition rate, see comments in usb-1608G.c for details
       AO_CHAN0);
   int flag = fcntl(fileno(stdin), F_GETFL);
   fcntl(0, F_SETFL, flag | O_NONBLOCK);
@@ -85,24 +74,22 @@ void Sawtooth(libusb_device_handle *device) {
 void TriangleOnce(libusb_device_handle *device) {
   uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, amplitudes);
-  for (uint i = 0; i<LIBMCCDAQ_BULK_TRANSFER_SIZE; i++) {
-    printf("value: %d\n", amplitudes[i]);
-  }
 }
 
-static void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
+void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
 
   // We will generate a V-shaped pulse in two steps.
 
-  // The sweep-down part, from max amplitude to zero.
+  // The sweep-down part, from second-highest amplitude to zero.
   for (uint i = 0; i < length/2; i ++) {
-    double amplitude = (double) kMaxAmplitude * (1 - i/(length/2));
+    double amplitude = (double) kMaxAmplitude
+                       * (1 - (i + 1)/(length/2.0));  // 2.0 needed!
     amplitudes[i] = (uint16_t) amplitude;
   }
 
   // The sweep-up part goes back from zero to max amplitude.
   for (uint i = 0; i < length/2; i ++) {
-    double amplitude = (double) kMaxAmplitude * i/(length/2);
+    double amplitude = (double) kMaxAmplitude * (i + 1)/(length/2);
     amplitudes[length/2 + i] = (uint16_t) amplitude;
   }
 }

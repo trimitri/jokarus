@@ -6,9 +6,12 @@
 
 libusb_device_handle * OpenConnection(void);
 
-void Sawtooth(libusb_device_handle *device);
+void Triangle(libusb_device_handle *device);
 void TriangleOnce(libusb_device_handle *device);
-static void GenerateTriangleSignal(uint length, uint16_t *amplitudes);
+
+// Fills the array in amplitudes with a V-Shaped int series, starting with the
+// second-highest value, down to zero, ending with the highest value (2^16-1).
+void GenerateTriangleSignal(uint length, uint16_t *amplitudes);
 
 void GenerateCalibrationTable(libusb_device_handle *device,
     float input_calibration[NGAINS_1608G][2],
