@@ -15,6 +15,9 @@
 static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
+// Period time of generated signal in seconds.
+static const double kRampDuration = 3e-3;
+
 libusb_device_handle * OpenConnection(void) {
 
   // Initialize libusb.
@@ -74,6 +77,23 @@ void Triangle(libusb_device_handle *device) {
 void TriangleOnce(libusb_device_handle *device) {
   uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, amplitudes);
+
+  usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
+  double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
+  printf("rate: %f\n", rate);
+
+  usbAOutScanStart_USB1608GX_2AO(device,
+      0,  // total # of scans to perform -> 0: continuous mode
+      0,  // # of scans per trigger in retrigger mode
+      rate,  // repetition rate, see comments in usb-1608G.c for details
+      AO_CHAN0);
+  int transferred_byte_ct;
+  for (uint i = 0; i < 10; i++) {
+    int ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
+        (unsigned char *) amplitudes, sizeof(amplitudes),
+        &transferred_byte_ct, kUsbTimeout);
+    printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret);
+  }
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
