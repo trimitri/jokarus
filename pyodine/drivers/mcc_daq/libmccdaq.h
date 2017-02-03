@@ -7,6 +7,8 @@
 libusb_device_handle * OpenConnection(void);
 
 void Sawtooth(libusb_device_handle *device);
+void TriangleOnce(libusb_device_handle *device);
+static void GenerateTriangleSignal(uint length, uint16_t *amplitudes);
 
 void GenerateCalibrationTable(libusb_device_handle *device,
     float input_calibration[NGAINS_1608G][2],
