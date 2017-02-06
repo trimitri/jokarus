@@ -16,7 +16,7 @@ static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 // Period time of generated signal in seconds.
-static const double kRampDuration = 3e-3;
+static const double kRampDuration = 0.5;
 
 libusb_device_handle * OpenConnection(void) {
 
@@ -46,7 +46,7 @@ void Triangle(libusb_device_handle *device) {
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, ramp);
   usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
 
-  double frequency = 333.3333333 * LIBMCCDAQ_BULK_TRANSFER_SIZE;
+  double frequency = 3.333333333 * LIBMCCDAQ_BULK_TRANSFER_SIZE;
   usbAOutScanStart_USB1608GX_2AO(device,
       0,  // total # of scans to perform -> 0: continuous mode
       0,  // # of scans per trigger in retrigger mode
@@ -79,21 +79,32 @@ void TriangleOnce(libusb_device_handle *device) {
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, amplitudes);
 
   usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
+
+  // The device has an internal FIFO queue storing the values to be put out
+  // during an analog output scan. The output scan will start immediately after
+  // the ScanStart command is issued if and only if we "primed" the FIFO buffer
+  // first.
+  // To do this, we first make sure that the buffer is empty and then store a
+  // single period of data in it. This usually buys us enougth time to start
+  // filling up the FIFO after the scan started.
+  usbAOutScanClearFIFO_USB1608GX_2AO(device);
+  int transferred_byte_ct, ret;
+  ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
+      (unsigned char *) amplitudes, sizeof(amplitudes),
+      &transferred_byte_ct, kUsbTimeout);
+  printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret);
+
   double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
   printf("rate: %f\n", rate);
-
   usbAOutScanStart_USB1608GX_2AO(device,
       0,  // total # of scans to perform -> 0: continuous mode
       0,  // # of scans per trigger in retrigger mode
-      rate,  // repetition rate, see comments in usb-1608G.c for details
+      rate,  // sample rate, see comments in usb-1608G.c for details
       AO_CHAN0);
-  int transferred_byte_ct;
-  for (uint i = 0; i < 10; i++) {
-    int ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
-        (unsigned char *) amplitudes, sizeof(amplitudes),
-        &transferred_byte_ct, kUsbTimeout);
-    printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret);
-  }
+
+  // If we stopped the scan rightaway, the device would cease processing it's
+  // FIFO queue (see above) and not be able to output even a single period.
+  /* usbAOutScanStop_USB1608GX_2AO(device); */
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
