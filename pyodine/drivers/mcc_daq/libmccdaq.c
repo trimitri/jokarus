@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "pmd.h"
 #include "usb-1608G.h"
@@ -11,11 +12,11 @@
 // Max. count of 2-byte integers for an USB bulk transfer the bus can tolerate.
 #define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
 
-static const uint kUsbTimeout = 2000;  // USB connection timout in ms.
+static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 // Period time of generated signal in seconds.
-static const double kRampDuration = 1.0;
+static const double kRampDuration = 2.0;
 
 libusb_device_handle * OpenConnection(void) {
 
@@ -100,12 +101,27 @@ void TriangleOnce(libusb_device_handle *device) {
       LIBMCCDAQ_BULK_TRANSFER_SIZE,
       0,     // only relevant if using retrigger mode
       rate,  // sample rate, see comments in usb-1608G.c for details
-      AO_CHAN0);
+      AO_CHAN1);
 
   // If we stopped the scan here, the device would cease processing it's
   // FIFO queue (see above) immediately and not be able to output even a single
   // period.  But as we provided the exact number of desired samples in the
   // StartScan command, we don't need to explicitly stop the scan at all.
+
+
+  // TODO move this to a proper place. (Just testing simultaneous in-/output.
+  uint8_t channel = 11;
+  ScanList channel_conf[1];
+  channel_conf[0].channel = channel;
+  channel_conf[0].mode = SINGLE_ENDED;
+  channel_conf[0].range = BP_10V;
+  usbAInConfig_USB1608G(device, channel_conf);
+
+  for (int i = 0; i < 20; i++) {
+    uint16_t volts = usbAIn_USB1608G(device, channel);
+    printf("volts: %d\n", volts);
+    usleep(1E5);
+  }
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
