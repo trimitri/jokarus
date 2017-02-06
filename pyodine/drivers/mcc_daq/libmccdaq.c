@@ -20,6 +20,22 @@ static const double kRampDuration = 2.0;
 
 static libusb_device_handle *dev = NULL;
 
+// Configure the analog input channels to use single-ended detection and full
+// range.
+static void InitDevice() {
+
+  // Build an options set.
+  ScanList channel_conf[16];
+  for (uint8_t channel = 0; channel < 16; channel++) {
+    channel_conf[channel].mode = SINGLE_ENDED;
+    channel_conf[channel].range = BP_10V;
+    channel_conf[channel].channel = channel;
+  }
+
+  // Send it to the device.
+  usbAInConfig_USB1608G(dev, channel_conf);
+}
+
 libusb_device_handle * OpenConnection(void) {
 
   // Initialize libusb.
@@ -41,19 +57,6 @@ libusb_device_handle * OpenConnection(void) {
   return dev;
 }
 
-static void InitDevice() {
-
-  // Build an options set.
-  ScanList channel_conf[16];
-  for (uint8_t channel = 0; channel < 16; channel++) {
-    channel_conf[channel].mode = SINGLE_ENDED;
-    channel_conf[channel].range = BP_10V;
-    channel_conf[channel].channel = channel;
-  }
-
-  // Send it to the device.
-  usbAInConfig_USB1608G(dev, channel_conf);
-}
 
 void Triangle() {
 
@@ -126,8 +129,35 @@ void TriangleOnce() {
 
 
 
+}
+
+void SampleChannel(uint channel) {
+  uint8_t channels[] = {10, 11, 12};
+  uint sample_count = 5;
+  uint channel_count = sizeof(channels) / sizeof(uint8_t);
+  double rate = 100.;
+  usbAInScanStop_USB1608G(dev);
+  usbAInScanClearFIFO_USB1608G(dev);
+
+  uint16_t *rcv_data = malloc(sizeof(uint16_t) * channel_count * sample_count);
+  usbAInScanStart_USB1608G(dev, sample_count, 0, rate, 0x0);
+  int ret = usbAInScanRead_USB1608G(dev, (int) sample_count,
+                                   (int) channel_count, rcv_data, kUsbTimeout);
+  printf("Number bytes read = %d  (should be %lu)\n",
+         ret, sizeof(uint16_t) * channel_count * sample_count);
+  for (uint i = 0; i < sample_count; i++) {
+    for (uint j = 0; j < channel_count; j++) {
+      printf("%d\t", rcv_data[i * channel_count + j]);
+    }
+    printf("\n");
+  }
+
+
+  free(rcv_data);
+
+  // TODO remove
   for (int i = 0; i < 30; i++) {
-    uint16_t volts = usbAIn_USB1608G(dev, 11);
+    uint16_t volts = usbAIn_USB1608G(dev, (uint16_t) channel);
     printf("volts: %d\n", volts);
     usleep(1E5);
   }
@@ -151,9 +181,8 @@ void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
   }
 }
 
-void GenerateCalibrationTable(
-    float input_calibration[NGAINS_1608G][2],
-    float output_calibration[NCHAN_AO_1608GX][2]) {
+void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
+                              float output_calibration[NCHAN_AO_1608GX][2]) {
 
   // Build a lookup table of voltages vs. values based on previous calibration.
   float table_AIN[NGAINS_1608G][2];

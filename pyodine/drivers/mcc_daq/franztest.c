@@ -4,5 +4,6 @@
 int main() {
 
   OpenConnection();
-  TriangleOnce();
+  /* TriangleOnce(); */
+  SampleChannel(11);
 }

@@ -17,8 +17,6 @@ void GenerateTriangleSignal(uint length, uint16_t *amplitudes);
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
                               float output_calibration[NCHAN_AO_1608GX][2]);
 
-// Configure the analog input channels to use single-ended detection and full
-// range.
-static void InitDevice(void);
+void SampleChannel(uint channel);
 
 #endif
