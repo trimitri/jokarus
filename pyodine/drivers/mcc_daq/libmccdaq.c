@@ -8,15 +8,14 @@
 #include "usb-1608G.h"
 #include "libmccdaq.h"
 
-// Max. size (length of int array) of USB bulk transfers the bus can tolerate
-// without stuttering.
-#define LIBMCCDAQ_BULK_TRANSFER_SIZE 1024
+// Max. count of 2-byte integers for an USB bulk transfer the bus can tolerate.
+#define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
 
-static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
+static const uint kUsbTimeout = 2000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 // Period time of generated signal in seconds.
-static const double kRampDuration = 0.5;
+static const double kRampDuration = 1.0;
 
 libusb_device_handle * OpenConnection(void) {
 
@@ -97,14 +96,16 @@ void TriangleOnce(libusb_device_handle *device) {
   double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
   printf("rate: %f\n", rate);
   usbAOutScanStart_USB1608GX_2AO(device,
-      0,  // total # of scans to perform -> 0: continuous mode
-      0,  // # of scans per trigger in retrigger mode
+      // total # of samples to produce before stopping scan automatically
+      LIBMCCDAQ_BULK_TRANSFER_SIZE,
+      0,     // only relevant if using retrigger mode
       rate,  // sample rate, see comments in usb-1608G.c for details
       AO_CHAN0);
 
-  // If we stopped the scan rightaway, the device would cease processing it's
-  // FIFO queue (see above) and not be able to output even a single period.
-  /* usbAOutScanStop_USB1608GX_2AO(device); */
+  // If we stopped the scan here, the device would cease processing it's
+  // FIFO queue (see above) immediately and not be able to output even a single
+  // period.  But as we provided the exact number of desired samples in the
+  // StartScan command, we don't need to explicitly stop the scan at all.
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
