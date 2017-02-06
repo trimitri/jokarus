@@ -18,6 +18,8 @@ static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 // Period time of generated signal in seconds.
 static const double kRampDuration = 2.0;
 
+static libusb_device_handle *dev = NULL;
+
 libusb_device_handle * OpenConnection(void) {
 
   // Initialize libusb.
@@ -28,26 +30,40 @@ libusb_device_handle * OpenConnection(void) {
   }
 
   // Initialize USB connection.
-  libusb_device_handle *device = NULL;
-
-  if ((device = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
-    usbInit_1608G(device, 1);
+  if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
+    usbInit_1608G(dev, 1);
   } else {
     printf("Failure, did not find a USB 1608G series device!\n");
   }
 
-  return device;
+  InitDevice();
+
+  return dev;
 }
 
-void Triangle(libusb_device_handle *device) {
+static void InitDevice() {
+
+  // Build an options set.
+  ScanList channel_conf[16];
+  for (uint8_t channel = 0; channel < 16; channel++) {
+    channel_conf[channel].mode = SINGLE_ENDED;
+    channel_conf[channel].range = BP_10V;
+    channel_conf[channel].channel = channel;
+  }
+
+  // Send it to the device.
+  usbAInConfig_USB1608G(dev, channel_conf);
+}
+
+void Triangle() {
 
   // holds 16 bit unsigned analog output data
   uint16_t ramp[LIBMCCDAQ_BULK_TRANSFER_SIZE];
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, ramp);
-  usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
+  usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
 
   double frequency = 3.333333333 * LIBMCCDAQ_BULK_TRANSFER_SIZE;
-  usbAOutScanStart_USB1608GX_2AO(device,
+  usbAOutScanStart_USB1608GX_2AO(dev,
       0,  // total # of scans to perform -> 0: continuous mode
       0,  // # of scans per trigger in retrigger mode
       frequency,  // repetition rate, see comments in usb-1608G.c for details
@@ -59,7 +75,7 @@ void Triangle(libusb_device_handle *device) {
 
   // Send the same set of data points over and over again.
   do {
-    ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
+    ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
                                (unsigned char *) ramp, sizeof(ramp),
                                &transferred, kUsbTimeout);
     iteration_ctr++;
@@ -71,14 +87,14 @@ void Triangle(libusb_device_handle *device) {
   fcntl(fileno(stdin), F_SETFL, flag);
 
   // As we started the scan in continuous mode, we need to manually stop it.
-  usbAOutScanStop_USB1608GX_2AO(device);
+  usbAOutScanStop_USB1608GX_2AO(dev);
 }
 
-void TriangleOnce(libusb_device_handle *device) {
+void TriangleOnce() {
   uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
   GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, amplitudes);
 
-  usbAOutScanStop_USB1608GX_2AO(device);  // Stop any prev. running scan.
+  usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
 
   // The device has an internal FIFO queue storing the values to be put out
   // during an analog output scan. The output scan will start immediately after
@@ -87,16 +103,16 @@ void TriangleOnce(libusb_device_handle *device) {
   // To do this, we first make sure that the buffer is empty and then store a
   // single period of data in it. This usually buys us enougth time to start
   // filling up the FIFO after the scan started.
-  usbAOutScanClearFIFO_USB1608GX_2AO(device);
+  usbAOutScanClearFIFO_USB1608GX_2AO(dev);
   int transferred_byte_ct, ret;
-  ret = libusb_bulk_transfer(device, LIBUSB_ENDPOINT_OUT|2,
+  ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
       (unsigned char *) amplitudes, sizeof(amplitudes),
       &transferred_byte_ct, kUsbTimeout);
   printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret);
 
   double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
   printf("rate: %f\n", rate);
-  usbAOutScanStart_USB1608GX_2AO(device,
+  usbAOutScanStart_USB1608GX_2AO(dev,
       // total # of samples to produce before stopping scan automatically
       LIBMCCDAQ_BULK_TRANSFER_SIZE,
       0,     // only relevant if using retrigger mode
@@ -109,16 +125,9 @@ void TriangleOnce(libusb_device_handle *device) {
   // StartScan command, we don't need to explicitly stop the scan at all.
 
 
-  // TODO move this to a proper place. (Just testing simultaneous in-/output.
-  uint8_t channel = 11;
-  ScanList channel_conf[1];
-  channel_conf[0].channel = channel;
-  channel_conf[0].mode = SINGLE_ENDED;
-  channel_conf[0].range = BP_10V;
-  usbAInConfig_USB1608G(device, channel_conf);
 
-  for (int i = 0; i < 20; i++) {
-    uint16_t volts = usbAIn_USB1608G(device, channel);
+  for (int i = 0; i < 30; i++) {
+    uint16_t volts = usbAIn_USB1608G(dev, 11);
     printf("volts: %d\n", volts);
     usleep(1E5);
   }
@@ -142,16 +151,16 @@ void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
   }
 }
 
-void GenerateCalibrationTable(libusb_device_handle *device,
+void GenerateCalibrationTable(
     float input_calibration[NGAINS_1608G][2],
     float output_calibration[NCHAN_AO_1608GX][2]) {
 
   // Build a lookup table of voltages vs. values based on previous calibration.
   float table_AIN[NGAINS_1608G][2];
-  usbBuildGainTable_USB1608G(device, table_AIN);
+  usbBuildGainTable_USB1608G(dev, table_AIN);
   input_calibration = table_AIN;  // return filled table
 
   float table_AO[NCHAN_AO_1608GX][2];
-  usbBuildGainTable_USB1608GX_2AO(device, table_AO);
+  usbBuildGainTable_USB1608GX_2AO(dev, table_AO);
   output_calibration = table_AO;  // return filled table
 }

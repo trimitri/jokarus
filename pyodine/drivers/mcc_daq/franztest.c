@@ -3,6 +3,6 @@
 
 int main() {
 
-  libusb_device_handle *dev = OpenConnection();
-  TriangleOnce(dev);
+  OpenConnection();
+  TriangleOnce();
 }
