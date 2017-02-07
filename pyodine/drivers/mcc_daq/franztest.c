@@ -8,7 +8,7 @@ int main() {
   TriangleOnce();
   uint8_t channels[] = {10, 11, 12};
   uint n_channels = sizeof(channels);
-  uint n_samples = 100;
+  uint n_samples = 50;
   double frequency = 1E2;
 
   float * data = NULL;

@@ -57,7 +57,6 @@ libusb_device_handle * OpenConnection(void) {
   return dev;
 }
 
-
 void Triangle() {
 
   // holds 16 bit unsigned analog output data
@@ -137,9 +136,12 @@ float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, doub
   usbAInScanStop_USB1608G(dev);
   usbAInScanClearFIFO_USB1608G(dev);
 
-  // All those three lines are necessare to prepare the device for analog input
-  // scanning.
+  // Create a channel configuration for the analog input scan and save it to the
+  // device.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvla"
   ScanList list[n_channels];
+#pragma clang diagnostic pop
   for (uint i = 0; i < n_channels; i++) {
     list[i].channel = channels[i];
     list[i].mode = SINGLE_ENDED;
@@ -148,22 +150,24 @@ float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, doub
   list[n_channels-1].mode |= LAST_CHANNEL;
   usbAInConfig_USB1608G(dev, list);
 
-  uint16_t *rcv_data;
-  if ((rcv_data = calloc(n_channels*n_samples, 2)) == NULL) {
-    perror("Can not allocate memory for analog input scanning.");
-  }
+  // Receive data from the device.
+  uint16_t *rcv_data = calloc(n_channels*n_samples, 2);
   usbAInScanStart_USB1608G(dev, n_samples, 0, frequency, 0x0);
-  int ret = usbAInScanRead_USB1608G(dev, n_samples, n_channels, rcv_data, 20000);
-  printf("Number bytes read = %d  (should be %d)\n", ret, 2*n_channels*n_samples);
+  int ret = usbAInScanRead_USB1608G(dev, (int) n_samples, (int) n_channels,
+                                    rcv_data, 20000);
 
+  // Return error if USB connection failed.
+  if (ret != (int) (sizeof(uint16_t) * n_channels * n_samples)) {
+    fprintf(stderr,
+            "Error (SampleChannels): Number bytes read = %d  (should be %d)\n",
+            ret,
+            2 * n_channels * n_samples);
+  }
+
+  // Convert to voltages and return them.
   float * voltages = malloc(n_samples * n_channels * sizeof(float));
-
-  for (uint i = 0; i < n_samples; i++) {
-    for (uint j = 0; j < n_channels; j++) {
-      uint k = i*n_channels + j;
-      voltages[k] = (float) rcv_data[k] / (kMaxAmplitude) * 20. - 10.;
-      /* voltages[k] = (float) rcv_data[k]; */
-    }
+  for (uint i = 0; i < n_channels * n_samples; i++) {
+    voltages[i] = (float) rcv_data[i] / (kMaxAmplitude) * 20.f - 10.f;
   }
   free(rcv_data);
   return voltages;
@@ -171,7 +175,10 @@ float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, doub
 
 float * SampleChannelsAt10V(uint8_t channels[], uint n_channels,
     uint n_samples, double freq) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvla"
   uint8_t gains[n_channels];
+#pragma clang diagnostic pop
   for (uint i = 0; i < n_channels; i++) {
     gains[i] = BP_10V;
   }
