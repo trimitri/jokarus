@@ -19,4 +19,10 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
 
 void SampleChannel(uint8_t channel);
 
+float * SampleChannels(uint8_t channels[], uint channel_count,
+    uint sample_count, double frequency, uint8_t gains[]);
+
+float * SampleChannelsAt10V(uint8_t channels[], uint channel_count,
+    uint sample_count, double frequency);
+
 #endif

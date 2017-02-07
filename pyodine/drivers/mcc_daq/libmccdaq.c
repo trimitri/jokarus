@@ -131,76 +131,51 @@ void TriangleOnce() {
 
 }
 
-void SampleChannel(uint8_t channel) {
-  /* uint8_t channels[] = {0, 1, 2}; */
-  /* uint sample_count = 5; */
-  /* uint channel_count = sizeof(channels) / sizeof(uint8_t); */
-  /* double rate = 100.; */
-  /* usbAInScanStop_USB1608G(dev); */
-  /* usbAInScanClearFIFO_USB1608G(dev); */
-  /* printf("Scan stopped and cleared\n"); */
-
-  /* uint16_t *rcv_data = calloc(channel_count * sample_count, sizeof(uint16_t)); */
-  /* usbAInScanStart_USB1608G(dev, sample_count, 0, rate, 0x0); */
-  /* printf("Scan started\n"); */
-  /* int ret = usbAInScanRead_USB1608G(dev, (int) sample_count, */
-  /*                                  (int) channel_count, rcv_data, kUsbTimeout); */
-  /* printf("Data read\n"); */
-  /* printf("Number bytes read = %d  (should be %d)\n", */
-  /*        ret, sizeof(uint16_t) * channel_count * sample_count); */
-  /* for (uint i = 0; i < sample_count; i++) { */
-  /*   for (uint j = 0; j < channel_count; j++) { */
-  /*     printf("%d\t", rcv_data[i * channel_count + j]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
-
-  /* free(rcv_data); */
-
-
-  // =====================================
-
+float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, double frequency,
+                    uint8_t gains[]) {
 
   usbAInScanStop_USB1608G(dev);
   usbAInScanClearFIFO_USB1608G(dev);
 
-  uint8_t mode = SINGLE_ENDED;
-  uint32_t nScans = 20;
-  uint8_t nchan = 16;
-  int repeats = 1;
-  double frequency = 10;
-  uint8_t gain = BP_10V;
-
-  ScanList list[16];
-  for (channel = 0; channel < nchan; channel++) {
-    list[channel].range = gain;  
-    list[channel].mode = mode;
-    list[channel].channel = channel;
+  // All those three lines are necessare to prepare the device for analog input
+  // scanning.
+  ScanList list[n_channels];
+  for (uint i = 0; i < n_channels; i++) {
+    list[i].channel = channels[i];
+    list[i].mode = SINGLE_ENDED;
+    list[i].range = gains[i];
   }
-
-  list[nchan-1].mode |= LAST_CHANNEL;
+  list[n_channels-1].mode |= LAST_CHANNEL;
   usbAInConfig_USB1608G(dev, list);
 
   uint16_t *rcv_data;
-  if ((rcv_data = calloc(nchan*nScans, 2)) == NULL) {
-    perror("Can not allocate memory for sdataIn");
+  if ((rcv_data = calloc(n_channels*n_samples, 2)) == NULL) {
+    perror("Can not allocate memory for analog input scanning.");
   }
-  for (int m = 0; m < repeats; m++) {
-    printf("\nrepeat: %d\n", m);
-    usbAInScanStart_USB1608G(dev, nScans, 0, frequency, 0x0);
-    int ret = usbAInScanRead_USB1608G(dev, nScans, nchan, rcv_data, 20000);
-    printf("Number bytes read = %d  (should be %d)\n", ret, 2*nchan*nScans);
-    for (int i = 0; i < nScans; i++) {
-      printf("%6d", i);
-      for (int j = 0; j < nchan; j++) {
-        gain = list[j].range;
-        int k = i*nchan + j;
-        printf(", %d", rcv_data[k]);
-      }
-      printf("\n");
+  usbAInScanStart_USB1608G(dev, n_samples, 0, frequency, 0x0);
+  int ret = usbAInScanRead_USB1608G(dev, n_samples, n_channels, rcv_data, 20000);
+  printf("Number bytes read = %d  (should be %d)\n", ret, 2*n_channels*n_samples);
+
+  float * voltages = malloc(n_samples * n_channels * sizeof(float));
+
+  for (uint i = 0; i < n_samples; i++) {
+    for (uint j = 0; j < n_channels; j++) {
+      uint k = i*n_channels + j;
+      voltages[k] = (float) rcv_data[k] / (kMaxAmplitude) * 20. - 10.;
+      /* voltages[k] = (float) rcv_data[k]; */
     }
   }
   free(rcv_data);
+  return voltages;
+}
+
+float * SampleChannelsAt10V(uint8_t channels[], uint n_channels,
+    uint n_samples, double freq) {
+  uint8_t gains[n_channels];
+  for (uint i = 0; i < n_channels; i++) {
+    gains[i] = BP_10V;
+  }
+  return SampleChannels(channels, n_channels, n_samples, freq, gains);
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
