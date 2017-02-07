@@ -23,6 +23,7 @@ async def main():
     while True:
         await asyncio.sleep(2)
         print("Still alive")
+        asyncio.ensure_future(menlo._send_command(4, 5, '1'))
 
 
 # Only execute if run as main program (not on import). This also holds when the

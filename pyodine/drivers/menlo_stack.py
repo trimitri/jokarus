@@ -120,12 +120,9 @@ class MenloStack:
     def lockbox_enable(self, enable: bool=True, unit: int=1) -> None:
         pass
 
-    def _send_command(self, node: int, service: int, value: str) -> None:
+    async def _send_command(self, node: int, service: int, value: str) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
-        self._send_string(message)
-
-    def _send_string(self, message: str) -> None:
-        pass
+        await self._connection.send(message)
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
         buffer = None
