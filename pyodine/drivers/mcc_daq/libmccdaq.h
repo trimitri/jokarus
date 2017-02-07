@@ -17,6 +17,6 @@ void GenerateTriangleSignal(uint length, uint16_t *amplitudes);
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
                               float output_calibration[NCHAN_AO_1608GX][2]);
 
-void SampleChannel(uint channel);
+void SampleChannel(uint8_t channel);
 
 #endif
