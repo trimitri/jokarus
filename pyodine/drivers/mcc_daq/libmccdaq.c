@@ -24,16 +24,16 @@ static libusb_device_handle *dev = NULL;
 // range.
 static void InitDevice() {
 
-  // Build an options set.
-  ScanList channel_conf[16];
-  for (uint8_t channel = 0; channel < 16; channel++) {
-    channel_conf[channel].mode = SINGLE_ENDED;
-    channel_conf[channel].range = BP_10V;
-    channel_conf[channel].channel = channel;
-  }
+  /* // Build an options set. */
+  /* ScanList channel_conf[16]; */
+  /* for (uint8_t channel = 0; channel < 16; channel++) { */
+  /*   channel_conf[channel].mode = SINGLE_ENDED; */
+  /*   channel_conf[channel].range = BP_10V; */
+  /*   channel_conf[channel].channel = channel; */
+  /* } */
 
-  // Send it to the device.
-  usbAInConfig_USB1608G(dev, channel_conf);
+  /* // Send it to the device. */
+  /* usbAInConfig_USB1608G(dev, channel_conf); */
 }
 
 libusb_device_handle * OpenConnection(void) {
@@ -110,10 +110,10 @@ void TriangleOnce() {
   ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
       (unsigned char *) amplitudes, sizeof(amplitudes),
       &transferred_byte_ct, kUsbTimeout);
-  printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret);
+  /* printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret); */
 
   double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
-  printf("rate: %f\n", rate);
+  /* printf("rate: %f\n", rate); */
   usbAOutScanStart_USB1608GX_2AO(dev,
       // total # of samples to produce before stopping scan automatically
       LIBMCCDAQ_BULK_TRANSFER_SIZE,
@@ -130,8 +130,8 @@ void TriangleOnce() {
 
 }
 
-float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, double frequency,
-                    uint8_t gains[]) {
+void SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double frequency,
+                    uint8_t gains[], double * results) {
 
   usbAInScanStop_USB1608G(dev);
   usbAInScanClearFIFO_USB1608G(dev);
@@ -151,8 +151,8 @@ float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, doub
   usbAInConfig_USB1608G(dev, list);
 
   // Receive data from the device.
-  uint16_t *rcv_data = calloc(n_channels*n_samples, 2);
   usbAInScanStart_USB1608G(dev, n_samples, 0, frequency, 0x0);
+  uint16_t *rcv_data = calloc(n_channels*n_samples, 2);
   int ret = usbAInScanRead_USB1608G(dev, (int) n_samples, (int) n_channels,
                                     rcv_data, 20000);
 
@@ -165,16 +165,14 @@ float * SampleChannels(uint8_t channels[], uint n_channels, uint n_samples, doub
   }
 
   // Convert to voltages and return them.
-  float * voltages = malloc(n_samples * n_channels * sizeof(float));
   for (uint i = 0; i < n_channels * n_samples; i++) {
-    voltages[i] = (float) rcv_data[i] / (kMaxAmplitude) * 20.f - 10.f;
+    results[i] = (double) rcv_data[i] / (kMaxAmplitude) * 20. - 10.;
   }
   free(rcv_data);
-  return voltages;
 }
 
-float * SampleChannelsAt10V(uint8_t channels[], uint n_channels,
-    uint n_samples, double freq) {
+void SampleChannelsAt10V(uint8_t *channels, uint n_channels,
+    uint n_samples, double freq, double * results) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvla"
   uint8_t gains[n_channels];
@@ -182,7 +180,7 @@ float * SampleChannelsAt10V(uint8_t channels[], uint n_channels,
   for (uint i = 0; i < n_channels; i++) {
     gains[i] = BP_10V;
   }
-  return SampleChannels(channels, n_channels, n_samples, freq, gains);
+  SampleChannels(channels, n_channels, n_samples, freq, gains, results);
 }
 
 void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
@@ -214,4 +212,13 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
   float table_AO[NCHAN_AO_1608GX][2];
   usbBuildGainTable_USB1608GX_2AO(dev, table_AO);
   output_calibration = table_AO;  // return filled table
+}
+
+int TestFunc(double * result) {
+  static int iteration_ctr;
+  iteration_ctr++;
+  for (uint i = 0; i<32; i++) {
+    result[i] = (double) i;
+  }
+  return iteration_ctr;
 }

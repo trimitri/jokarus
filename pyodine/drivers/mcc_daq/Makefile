@@ -19,4 +19,4 @@ shared-franztest.elf: franztest.c libmccdaq.so
 	$(CC) $(CFLAGS) -o $@ -fPIC -c $<
 
 libmccdaq.so: libmccdaq.oPIC
-	$(CC) -fPIC -shared -o libmccdaq.so libmccdaq.oPIC
+	$(CC) -fPIC -shared -o libmccdaq.so libmccdaq.oPIC -lmccusb -lhidapi-libusb -lusb-1.0 -lm

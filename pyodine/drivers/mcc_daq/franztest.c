@@ -8,14 +8,14 @@ int main() {
   TriangleOnce();
   uint8_t channels[] = {10, 11, 12};
   uint n_channels = sizeof(channels);
-  uint n_samples = 50;
-  double frequency = 1E2;
+  uint n_samples = 500;
+  double frequency = 5000;
 
-  float * data = NULL;
-  data = SampleChannelsAt10V(channels, n_channels, n_samples, frequency);
+  double * data = calloc(n_samples * n_channels, sizeof(double));
+  SampleChannelsAt10V(channels, n_channels, n_samples, frequency, data);
   for (uint sample = 0; sample < n_samples; sample++) {
     for (uint channel = 0; channel < n_channels; channel++) {
-      printf("%6g  ", (double) data[sample * n_channels + channel]);
+      printf("%10g  ", (double) data[sample * n_channels + channel]);
     }
     printf("\n");
   }

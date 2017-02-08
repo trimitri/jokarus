@@ -21,12 +21,14 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
 
 // Sample one or more analog outputs for the given number of samples at the
 // given frequency.
-float * SampleChannels(uint8_t channels[], uint channel_count,
-    uint sample_count, double frequency, uint8_t gains[]);
+void SampleChannels(uint8_t *channels, uint channel_count,
+    uint sample_count, double frequency, uint8_t gains[], double * results);
 
 // This overloads the standard definition of SampleChannels() with a variant using
 // the maximum possible input gain.
-float * SampleChannelsAt10V(uint8_t channels[], uint channel_count,
-    uint sample_count, double frequency);
+void SampleChannelsAt10V(uint8_t *channels, uint channel_count,
+    uint sample_count, double frequency, double * results);
+
+int TestFunc(double * result);
 
 #endif
