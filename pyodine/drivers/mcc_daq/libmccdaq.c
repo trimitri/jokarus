@@ -9,7 +9,7 @@
 #include "usb-1608G.h"
 #include "libmccdaq.h"
 
-// Max. count of 2-byte integers for an USB bulk transfer the bus can tolerate.
+// Max. count of 2-byte integers, USB bulk can tolerate 5120 bytes.
 #define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
 
 static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
