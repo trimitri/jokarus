@@ -11,14 +11,16 @@ way as discussed in PEP328.
 import logging
 import asyncio
 
-# from .drivers import dds9_control
-from .drivers import menlo_stack
+from .drivers import menlo_stack, mccdaq
 
 
 async def main():
     logger.info("Running Pyodine...")
 
     menlo = menlo_stack.MenloStack()
+    daq = mccdaq.MccDaq()
+    data = daq.scan_ramp()
+    print(data)
 
     while True:
         await asyncio.sleep(2)
