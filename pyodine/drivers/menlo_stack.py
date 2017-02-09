@@ -1,4 +1,5 @@
 """An interface wrapper to the Menlo stack websocket.
+
 This module provides an interface wrapper class for the websockets interface
 exposed by the Menlo Electronics control computer.
 """
@@ -10,6 +11,7 @@ import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
 ROTATE_N = 16  # Keep log of received values smaller than this.
+DEFAULT_URL = 'ws://menlostack:8000'
 
 # Constants specific to the published Menlo interface.
 
@@ -45,9 +47,23 @@ class MenloStack:
 
     # Laser Diode Driver Control.
 
-    def __init__(self, url: str="ws://menlostack:8000"):
-        """Establish a websocket connection with the Menlo stack controller.
+    def __init__(self):
+        """This does not do anything. Make sure to await the init() coro!"""
+
+        # We are not doing anything here. It is imperative the user awaits the
+        # async init() coroutine by themselves.
+
+    async def init(self, url: str=DEFAULT_URL) -> None:
+        """This replaces the default constructor.
+
+        Be sure to await this coroutine before using the class.
         """
+        self._init_buffers()
+        self._connection = await websockets.connect(url)
+        asyncio.ensure_future(self._listen_to_socket())
+
+    def _init_buffers(self) -> None:
+        """Create empty buffers to store received quantities in."""
 
         # Create one buffer for each receiving service of each connected module
         # using nested dict comprehensions.
@@ -76,14 +92,6 @@ class MenloStack:
         self._buffers.update(lockbox_buffers)
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
-
-        # Schedule background tasks to run in central asyncio event loop.
-
-        asyncio.ensure_future(self._init_async(url))
-
-    async def _init_async(self, url: str) -> None:
-        self._connection = await websockets.connect(url)
-        asyncio.ensure_future(self._listen_to_socket())
 
     def laser_enable(self, enable: bool=True, unit: int=1) -> None:
         pass

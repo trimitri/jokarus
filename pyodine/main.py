@@ -1,7 +1,7 @@
 """Run this by invoking ``python3 -m pyodine.main`` from the parent directory.
 
 It launches the lab control software and sets up the Pyodine server.
-(not yet ;)
+(not yet ;-)
 
 The reason for not making this script executable is to keep the import
 statements as clean and unambiguous as possible: Relative imports are used for
@@ -17,16 +17,17 @@ from .drivers import menlo_stack, mccdaq
 async def main():
     logger.info("Running Pyodine...")
 
+    # MenloStack() is mostly async and hence needs external initialization.
     menlo = menlo_stack.MenloStack()
+    await menlo.init()
+
     daq = mccdaq.MccDaq()
-    data = daq.scan_ramp()
-    print(data)
 
     while True:
         await asyncio.sleep(2)
         print("Still alive")
-        asyncio.ensure_future(menlo._send_command(4, 5, '1'))
-
+        data = daq.scan_ramp()
+        print(data)
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
