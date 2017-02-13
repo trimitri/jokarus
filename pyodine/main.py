@@ -26,7 +26,7 @@ async def main():
     while True:
         await asyncio.sleep(2)
         print("Still alive")
-        data = daq.scan_ramp()
+        data = daq.scan_ramp(min_val=-3, max_val=2)
         print(data)
 
 # Only execute if run as main program (not on import). This also holds when the

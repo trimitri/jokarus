@@ -5,11 +5,11 @@
 int main() {
 
   OpenConnection();
-  TriangleOnce();
+  TriangleOnce(1., -10, 10);
   uint8_t channels[] = {10, 11, 12};
   uint n_channels = sizeof(channels);
-  uint n_samples = 500;
-  double frequency = 5000;
+  uint n_samples = 600;
+  double frequency = 500;
 
   double * data = calloc(n_samples * n_channels, sizeof(double));
   SampleChannelsAt10V(channels, n_channels, n_samples, frequency, data);

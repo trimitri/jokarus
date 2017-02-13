@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <math.h>
 #include <fcntl.h>
@@ -9,31 +10,26 @@
 #include "usb-1608G.h"
 #include "libmccdaq.h"
 
-// Max. count of 2-byte integers, USB bulk can tolerate 5120 bytes.
+// Max. count of 2-byte integers, USB bulk transfer can tolerate 5120 bytes.
 #define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
 
 static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
-// Period time of generated signal in seconds.
-static const double kRampDuration = 2.0;
-
 static libusb_device_handle *dev = NULL;
 
-// Configure the analog input channels to use single-ended detection and full
-// range.
-static void InitDevice() {
+enum kLogLevels {kDebug, kInfo, kWarning, kError, kCritical};
 
-  /* // Build an options set. */
-  /* ScanList channel_conf[16]; */
-  /* for (uint8_t channel = 0; channel < 16; channel++) { */
-  /*   channel_conf[channel].mode = SINGLE_ENDED; */
-  /*   channel_conf[channel].range = BP_10V; */
-  /*   channel_conf[channel].channel = channel; */
-  /* } */
+static void Log(enum kLogLevels level, char *message) {
+  char *level_names[] = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
 
-  /* // Send it to the device. */
-  /* usbAInConfig_USB1608G(dev, channel_conf); */
+  char *output = calloc(strlen(message) + 30, 1);  // make room for prefix
+  strcpy(output, level_names[level]);
+  strcat(output, ": libmccdaq: ");
+  strcat(output, message);
+  strcat(output, "\n");
+  fprintf(stderr, "%s", output);
+  free(output);
 }
 
 libusb_device_handle * OpenConnection(void) {
@@ -51,9 +47,6 @@ libusb_device_handle * OpenConnection(void) {
   } else {
     printf("Failure, did not find a USB 1608G series device!\n");
   }
-
-  InitDevice();
-
   return dev;
 }
 
@@ -61,7 +54,7 @@ void Triangle() {
 
   // holds 16 bit unsigned analog output data
   uint16_t ramp[LIBMCCDAQ_BULK_TRANSFER_SIZE];
-  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, ramp);
+  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, -10., 10., ramp);
   usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
 
   double frequency = 3.333333333 * LIBMCCDAQ_BULK_TRANSFER_SIZE;
@@ -92,10 +85,9 @@ void Triangle() {
   usbAOutScanStop_USB1608GX_2AO(dev);
 }
 
-void TriangleOnce() {
-  uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
-  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, amplitudes);
+void TriangleOnce(double duration, double min_ampl, double max_ampl) {
 
+  fprintf(stdout, "min: %f, max: %f, duration: %f\n", min_ampl, max_ampl, duration);
   usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
 
   // The device has an internal FIFO queue storing the values to be put out
@@ -107,12 +99,16 @@ void TriangleOnce() {
   // filling up the FIFO after the scan started.
   usbAOutScanClearFIFO_USB1608GX_2AO(dev);
   int transferred_byte_ct, ret;
+
+  uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
+  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, min_ampl, max_ampl,
+                         amplitudes);
   ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
       (unsigned char *) amplitudes, sizeof(amplitudes),
       &transferred_byte_ct, kUsbTimeout);
   /* printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret); */
 
-  double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1./kRampDuration;
+  double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1/duration;
   /* printf("rate: %f\n", rate); */
   usbAOutScanStart_USB1608GX_2AO(dev,
       // total # of samples to produce before stopping scan automatically
@@ -183,21 +179,27 @@ void SampleChannelsAt10V(uint8_t *channels, uint n_channels,
   SampleChannels(channels, n_channels, n_samples, freq, gains, results);
 }
 
-void GenerateTriangleSignal(uint length, uint16_t *amplitudes) {
-
-  // We will generate a V-shaped pulse in two steps.
-
-  // The sweep-down part, from second-highest amplitude to zero.
-  for (uint i = 0; i < length/2; i ++) {
-    double amplitude = (double) kMaxAmplitude
-                       * (1 - (i + 1)/(length/2.0));  // 2.0 needed!
-    amplitudes[i] = (uint16_t) amplitude;
+void GenerateTriangleSignal(uint length, double min, double max,
+                            uint16_t *amplitudes) {
+  // validation
+  if (min < -10. || min > 10. || max < -10. || max > 10. || min > max) {
+    min = -10.;
+    max = 10.;
+    Log(kWarning, "Invalid range for triangle signal. Defaulting to +-10V.");
   }
 
-  // The sweep-up part goes back from zero to max amplitude.
-  for (uint i = 0; i < length/2; i ++) {
-    double amplitude = (double) kMaxAmplitude * (i + 1)/(length/2);
-    amplitudes[length/2 + i] = (uint16_t) amplitude;
+  // Generate inverse triangle signal, starting and ending with max.
+  double span = max - min;
+  double rel_span = span / 20.;
+  double offset = (min + 10) / 20.;
+  for (uint i = 0; i < length; i ++) {
+
+    // Calculate relative amplitude, max range being 0 to 1.
+    double rel_ampl = fabs((double) i/(length - 1) - .5) * 2 * rel_span;
+
+    // For accurate results we are rounding here, which is why .5 got added
+    // before truncating towards zero through a cast.
+    amplitudes[i] = (uint16_t) (kMaxAmplitude * (rel_ampl + offset) + .5);
   }
 }
 
