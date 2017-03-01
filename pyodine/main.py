@@ -28,6 +28,7 @@ async def main():
         print("Still alive")
         data = daq.scan_ramp(min_val=-3, max_val=2)
         print(data)
+        await menlo._send_command(1, 2, "foo")
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.

@@ -130,7 +130,9 @@ class MenloStack:
 
     async def _send_command(self, node: int, service: int, value: str) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
+        LOGGER.debug("Sending message %d:%d:%s ...", node, service, value)
         await self._connection.send(message)
+        LOGGER.debug("Sent message %d:%d:%s", node, service, value)
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
         buffer = None
