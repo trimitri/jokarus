@@ -29,7 +29,7 @@ async def main():
 
     while True:
         await asyncio.sleep(5)
-        await ws_transport.send('some data')
+        await ws_transport.publish('some data')
         print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)
