@@ -28,9 +28,9 @@ async def main():
     # daq = mccdaq.MccDaq()
 
     while True:
-        await asyncio.sleep(5)
+        await asyncio.sleep(.05)
         await ws_transport.publish('some data')
-        print("Still alive")
+        # print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)
         # await menlo._send_command(1, 2, "foo")
@@ -39,7 +39,7 @@ async def main():
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
     logger = logging.getLogger('pyodine.main')
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     loop = asyncio.get_event_loop()
     # loop.set_debug(True)

@@ -23,9 +23,19 @@ class JsonWs:
         if len(self.subscribers) > 0:
 
             # Send data to every subscriber.
-            await asyncio.wait([ws.send(data) for ws in self.subscribers])
+            await asyncio.wait(
+                [self._send_carefully(ws, data) for ws in self.subscribers])
         else:
-            LOGGER.warn("Won't publish as there are no subscribers connected.")
+            LOGGER.debug("Won't publish as there are "
+                         "no subscribers connected.")
+
+    async def _send_carefully(self, socket, data) -> None:
+        try:
+            await socket.send(data)
+        except websockets.exceptions.ConnectionClosed:
+            self.subscribers.remove(socket)
+            LOGGER.info("Unsubscribed client. %d clients left.",
+                        len(self.subscribers))
 
     async def _create_loopback(self, socket, path):
         while True:
@@ -35,9 +45,16 @@ class JsonWs:
 
     async def _register_subscriber(self, socket, path):
         self.subscribers.add(socket)
-        while True:
+        LOGGER.info("Subscribed client. %d connected clients.",
+                    len(self.subscribers))
+        try:
+            while True:
 
-            # To keep the server running without having to poll, we wait for
-            # commands sent by the client. We don't expect any commands though,
-            # and if there is one, we ignore it.
-            await socket.recv()
+                # To keep the server running without having to poll, we wait
+                # for commands sent by the client. We don't expect any commands
+                # though, and if there is one, we ignore it.
+                await socket.recv()
+        except websockets.exceptions.ConnectionClosed:
+            self.subscribers.remove(socket)
+            LOGGER.info("Unsubscribed client. %d clients left.",
+                        len(self.subscribers))
