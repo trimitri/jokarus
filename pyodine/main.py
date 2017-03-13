@@ -11,7 +11,7 @@ way as discussed in PEP328.
 import logging
 import asyncio
 
-from .drivers import menlo_stack, mccdaq
+# from .drivers import menlo_stack, mccdaq
 from .transport import json_ws
 
 
@@ -45,4 +45,7 @@ if __name__ == '__main__':
     # loop.set_debug(True)
 
     # Schedule main program for running and start central event loop.
-    loop.run_until_complete(main())
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received. Exiting.")
