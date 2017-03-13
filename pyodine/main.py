@@ -21,20 +21,20 @@ async def main():
     menlo = menlo_stack.MenloStack()
     await menlo.init()
 
-    daq = mccdaq.MccDaq()
+    # daq = mccdaq.MccDaq()
 
     while True:
         await asyncio.sleep(2)
-        print("Still alive")
-        data = daq.scan_ramp(min_val=-3, max_val=2)
-        print(data)
+        # print("Still alive")
+        # data = daq.scan_ramp(min_val=-3, max_val=2)
+        # print(data)
         await menlo._send_command(1, 2, "foo")
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
     logger = logging.getLogger('pyodine.main')
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     loop = asyncio.get_event_loop()
     # loop.set_debug(True)
