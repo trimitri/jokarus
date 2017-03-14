@@ -9,10 +9,16 @@
 		<script src="jquery-3.1.1.min.js"></script>
 		<script src="jquery-ui-1.12.1.min.js"></script>
 		<script src="plotly-1.24.2.min.js"></script>
-		<script src="ws_test.js"></script>
+		<script src="pyodine-gui.js"></script>
 	</head>
 	<body>
 		<h1>Pyodine Client</h1>
+		<p>
+			<input id="connect_btn" type="button" value="Connect" />
+			to Pyodine server at <input id="host" type="text" value="locarus" />
+			(WS port <input id="ws_port" type="number" value="12345" />):
+			<strong id="connection_state">Disconnected</strong>
+		</p>
 		<div id="tabs">
 			<ul>
 				<li><a href="#logging">Data Logging</a></li>
