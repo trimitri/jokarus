@@ -18,9 +18,8 @@ jQuery(function(){
       ws.onmessage = messageHandler;
     });
 
-    var plt_id = 'sup1_ld_temp'
     var temp = {
-      y: [10, 4, 12, 3, 4, 5, 16, 17],
+      y: [0],
       mode: 'lines'
     };
     var data = [temp];
@@ -32,10 +31,14 @@ jQuery(function(){
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    Plotly.newPlot(plt_id, data, layout);
-    for (var i = 0; i<100; i++) {
-      Plotly.extendTraces(plt_id, {y: [[20]]}, [0]);
-      await sleep(1000);
+    var plt = document.getElementById('sup1_ld_temp');
+    var display_range = 100;
+
+    Plotly.newPlot(plt, data, layout);
+    while (true) {
+      Plotly.extendTraces(plt, {y: [[Math.random()]]}, [0], display_range);
+      var count = plt.data[0].y.length;
+      await sleep(50);
     }
   }
 
