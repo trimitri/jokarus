@@ -3,21 +3,32 @@
 	<head>
 		<meta charset="utf-8" />
 		<title>Pyodine Client</title>
+
+		<link rel="stylesheet" href="jquery-ui.min.css" />
+
 		<script src="jquery-3.1.1.min.js"></script>
+		<script src="jquery-ui-1.12.1.min.js"></script>
 		<script src="plotly-1.24.2.min.js"></script>
 		<script src="ws_test.js"></script>
 	</head>
 	<body>
-		<div class="tabs">
-			<section class="logging">
-				<h2>Logging</h2>
+		<h1>Pyodine Client</h1>
+		<div id="tabs">
+			<ul>
+				<li><a href="#logging">Data Logging</a></li>
+				<li><a href="#control">Experiment Control</a></li>
+			</ul>
+
+			<section id="logging">
 				<div class="pid1 temp1">
 					<div id="pid1temp1plot"></div>
 				</div>
 			</section>
-			<section class="control">
+
+			<section id="control">
 				<h2>Lorem Ipsum control section.</h2>
 			</section>
+
 		</div>
 	</body>
 </html>
