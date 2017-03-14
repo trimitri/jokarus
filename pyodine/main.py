@@ -11,7 +11,8 @@ way as discussed in PEP328.
 import logging
 import asyncio
 
-# from .drivers import menlo_stack, mccdaq
+from .drivers import menlo_stack
+# from .drivers import mccdaq
 from .transport import json_ws
 
 
@@ -19,21 +20,21 @@ async def main():
     logger.info("Running Pyodine...")
 
     # MenloStack() is mostly async and hence needs external initialization.
-    # menlo = menlo_stack.MenloStack()
-    # await menlo.init()
+    menlo = menlo_stack.MenloStack()
+    await menlo.init()
 
-    ws_transport = json_ws.JsonWs(port=12345)
+    ws_transport = json_ws.JsonWs(port=56320)
     await ws_transport.async_init()
 
     # daq = mccdaq.MccDaq()
 
     while True:
-        await asyncio.sleep(.05)
+        await asyncio.sleep(5)
         await ws_transport.publish('some data')
         # print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)
-        # await menlo._send_command(1, 2, "foo")
+        await menlo._send_command(16, 1, "20")
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.

@@ -93,12 +93,12 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    def laser_enable(self, enable: bool=True, unit: int=1) -> None:
-        pass
+    # def laser_enable(self, enable: bool=True, unit: int=1) -> None:
+    #     pass
 
-    def laser_set_current(self, current: float, unit: int=1) -> None:
-        """Sets the laser diode current setpoint."""
-        pass
+    # def laser_set_current(self, current: float, unit: int=1) -> None:
+    #     """Sets the laser diode current setpoint."""
+    #     pass
 
     def get_laser_current(self, unit: int=1) -> float:
         """Gets the actual laser diode current."""
@@ -113,20 +113,20 @@ class MenloStack:
         buffer = self._buffers[LASER_NODES[unit-1]][service_id]
         return self._get_latest_entry(buffer)[0]
 
-    def laser_set_temperature(self, temp: float, unit: int=1) -> None:
-        pass
+    # def laser_set_temperature(self, temp: float, unit: int=1) -> None:
+    #     pass
 
-    def laser_get_temperature(self, unit: int=1) -> float:
-        pass
+    # def laser_get_temperature(self, unit: int=1) -> float:
+    #     pass
 
-    def laser_get_peltier_current(self, unit: int=1) -> float:
-        pass
+    # def laser_get_peltier_current(self, unit: int=1) -> float:
+    #     pass
 
-    def laser_is_temp_ok(self, unit: int=1) -> bool:
-        pass
+    # def laser_is_temp_ok(self, unit: int=1) -> bool:
+    #     pass
 
-    def lockbox_enable(self, enable: bool=True, unit: int=1) -> None:
-        pass
+    # def lockbox_enable(self, enable: bool=True, unit: int=1) -> None:
+    #     pass
 
     async def _send_command(self, node: int, service: int, value: str) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
@@ -136,11 +136,17 @@ class MenloStack:
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
         buffer = None
+
+        # If we try to access an nonexistent service, the corresponding buffer
+        # doesnt exist. That's why we need to try.
         try:
             buffer = self._buffers[node][service]
         except KeyError:
-            pass
+            pass  # buffer = None
+
         if isinstance(buffer, list):
+            if len(buffer) == 0:
+                LOGGER.info("Service %d:%d alive.", node, service)
             self._rotate_log(self._buffers[node][service], value)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
