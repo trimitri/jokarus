@@ -146,7 +146,8 @@ class MenloStack:
 
         if isinstance(buffer, list):
             if len(buffer) == 0:
-                LOGGER.info("Service %d:%d alive.", node, service)
+                LOGGER.info("Service %d:%d alive. First value: %s",
+                            node, service, value)
             self._rotate_log(self._buffers[node][service], value)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
