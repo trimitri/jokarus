@@ -36,8 +36,9 @@ class Interfaces:
         import time
 
         async def serve_data():
+            value = 0
             while True:
-                value = random.random() * 10
+                value += random.random() - .5
                 data = '{"some_voltage": ["' + str(value) + '", ' + str(time.time()) + ']}'
                 await self._ws.publish(data)
                 await asyncio.sleep(.5)

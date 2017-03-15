@@ -2,6 +2,10 @@
 
 jQuery(function(){
 
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async function createDummyStreamer(plotElm, title) {
     var temp = {
       y: [0],
@@ -20,20 +24,34 @@ jQuery(function(){
     }
   }
 
+  function updatePlot(plot_div, times, values, display_count=40) {
+
+    if (typeof(plot_div.data) == 'object') {  // Plot exists, update it.
+      Plotly.extendTraces(plot_div, {x: [times], y: [values]}, [0], display_count);
+    } else {  // Create new plot.
+      var layout = {
+        title: "Some Voltage",
+        xaxis: {
+          type: 'linear',
+          title: 'time of measurement'
+        },
+      };
+      var data = [{
+        mode: 'lines',
+        x: times,
+        y: values
+      }];
+      Plotly.newPlot(plot_div, data, layout);
+    }
+  }
+
   // Setup layout using jQuery UI.
   $('#tabs').tabs();
 
   var messageHandler = function(event) {
-    document.body.appendChild(document.createTextNode(event.data)); 
+    var data = JSON.parse(event.data);
+    updatePlot($("#some_voltage")[0], [data.some_voltage[1]], [data.some_voltage[0]])
   };
-
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  createDummyStreamer(document.getElementById('sup1_ld_temp'), "SUP1 Laser Diode Temp.");
-  // createDummyStreamer(document.getElementById('sup1_ld_current'), "SUP1 Laser Diode Current");
-  // createDummyStreamer(document.getElementById('sup1_tec_current'), "SUP1 Peltier Current");
 
   var ws;
   $('#connect_btn').on('click', function() {
