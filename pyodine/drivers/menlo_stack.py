@@ -21,25 +21,41 @@ ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
-LASER_SVC_GET = {272: 'diode_temp',
-                 274: 'tec_current',
-                 275: 'diode_current',
-                 288: 'temp_ok'}
-LASER_SVC_SET = {1: 'diode_temp',
-                 2: 'diode_current',
-                 3: 'enable_diode'}
-LOCKBOX_SVC_GET = {272: "not well documented (Lockbox Monitor)",  # FIXME
-                   273: "not well documented (P Monitor)"}  # FIXME
-LOCKBOX_SVC_SET = {0: 'disable',
-                   1: '?1',
-                   2: '?2',
-                   3: 'ramp_enable',
-                   4: '?4',
-                   5: '?5',
-                   6: '?6'}
-ADC_SVC_GET = {}
-ADC_SVC_SET = {}
-MUC_SVC_GET = {1: 'time'}
+LASER_SVC_GET = {272: "meas. LD temperature",
+                 274: "meas. TEC current",
+                 275: "meas. LD current",
+                 288: "temp OK status flag"}
+LASER_SVC_SET = {1: "TEC temperature",
+                 2: "enable TEC, active HIGH",
+                 3: "LD current",
+                 5: "enable LD, active HIGH"}
+LOCKBOX_SVC_GET = {272: "lockbox monitor",
+                   273: "P monitor"}
+LOCKBOX_SVC_SET = {0: "disable lock",
+                   1: "disable I1",
+                   2: "disable I2",
+                   3: "activate ramp",
+                   4: "offset in value",
+                   5: "level",
+                   6: "ramp value"}
+ADC_SVC_GET = {0: "ADC channel 0",
+               1: "ADC channel 1",
+               2: "ADC channel 2",
+               3: "ADC channel 3",
+               4: "ADC channel 4",
+               5: "ADC channel 5",
+               6: "ADC channel 6",
+               7: "ADC channel 7",
+               8: "ADC temp 0",
+               9: "ADC temp 1",
+               10: "ADC temp 2",
+               11: "ADC temp 3",
+               12: "ADC temp 4",
+               13: "ADC temp 5",
+               14: "ADC temp 6",
+               15: "ADC temp 7"}
+ADC_SVC_SET = {}  # ADC has no input channels
+MUC_SVC_GET = {1: "system time?"}
 
 
 class MenloStack:
@@ -93,13 +109,6 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    # def laser_enable(self, enable: bool=True, unit: int=1) -> None:
-    #     pass
-
-    # def laser_set_current(self, current: float, unit: int=1) -> None:
-    #     """Sets the laser diode current setpoint."""
-    #     pass
-
     def get_laser_current(self, unit: int=1) -> float:
         """Gets the actual laser diode current."""
 
@@ -112,21 +121,6 @@ class MenloStack:
         service_id = list(LASER_SVC_GET.keys())[service_index]
         buffer = self._buffers[LASER_NODES[unit-1]][service_id]
         return self._get_latest_entry(buffer)[0]
-
-    # def laser_set_temperature(self, temp: float, unit: int=1) -> None:
-    #     pass
-
-    # def laser_get_temperature(self, unit: int=1) -> float:
-    #     pass
-
-    # def laser_get_peltier_current(self, unit: int=1) -> float:
-    #     pass
-
-    # def laser_is_temp_ok(self, unit: int=1) -> bool:
-    #     pass
-
-    # def lockbox_enable(self, enable: bool=True, unit: int=1) -> None:
-    #     pass
 
     async def _send_command(self, node: int, service: int, value: str) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
@@ -146,8 +140,8 @@ class MenloStack:
 
         if isinstance(buffer, list):
             if len(buffer) == 0:
-                LOGGER.info("Service %d:%d alive. First value: %s",
-                            node, service, value)
+                LOGGER.info("Service %d:%s alive. First value: %s",
+                            node, self.name_service(node, service), value)
             self._rotate_log(self._buffers[node][service], value)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
@@ -201,3 +195,22 @@ class MenloStack:
         else:
             LOGGER.warning('Returning "None", as the given buffer is empty.')
             return (None, None)
+
+    @staticmethod
+    def name_service(node: int, service: int) -> str:
+        if node in LASER_NODES:
+            if service in LASER_SVC_GET.keys():
+                return LASER_SVC_GET[service]
+        elif node in LOCKBOX_NODES:
+            if service in LOCKBOX_SVC_GET.keys():
+                return LOCKBOX_SVC_GET[service]
+        elif node == 16:  # ADC
+            if service in ADC_SVC_GET.keys():
+                return ADC_SVC_GET[service]
+        elif node == 255:  # MUC
+            if service in MUC_SVC_GET.keys():
+                return MUC_SVC_GET[service]
+
+        # Unknown combination of Node and Service.
+        LOGGER.warning("Tried to name unknown service %d:%d.", node, service)
+        return "unknown service"
