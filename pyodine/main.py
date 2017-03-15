@@ -13,7 +13,7 @@ import asyncio
 
 from .drivers import menlo_stack
 # from .drivers import mccdaq
-from .transport import json_ws
+from .transport import websocket_server
 
 
 async def main():
@@ -23,7 +23,7 @@ async def main():
     menlo = menlo_stack.MenloStack()
     await menlo.init()
 
-    ws_transport = json_ws.JsonWs(port=56320)
+    ws_transport = websocket_server.WebsocketServer(port=56320)
     await ws_transport.async_init()
 
     # daq = mccdaq.MccDaq()

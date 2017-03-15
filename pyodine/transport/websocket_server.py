@@ -1,4 +1,4 @@
-"""Sends JSON-formatted data as a websocket server.
+"""A simple websocket server.
 """
 
 import asyncio
@@ -8,7 +8,7 @@ import logging
 LOGGER = logging.getLogger("pyodine.transport.json_ws")
 
 
-class JsonWs:
+class WebsocketServer:
 
     def __init__(self, port: int=80):
         self.port = port
