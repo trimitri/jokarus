@@ -13,7 +13,7 @@ import asyncio
 
 from .drivers import menlo_stack
 # from .drivers import mccdaq
-from .transport import websocket_server
+from .interfaces import websocket_server
 
 
 async def main():
