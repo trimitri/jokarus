@@ -27,8 +27,9 @@ async def main():
     asyncio.ensure_future(subs.set_mo_temp(42.4))
 
     while True:
-        await asyncio.sleep(5)
+        await asyncio.sleep(.2)
         await ws_transport.publish('some data')
+        print(subs.get_full_set_of_readings() + "\n")
         # print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)

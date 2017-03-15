@@ -3,7 +3,7 @@
 This is an interface to the actual things connected to each port of each
 subsystem.
 """
-
+import json
 from ..drivers import menlo_stack
 # from ..drivers import mccdaq
 # from ..drivers import dds9control
@@ -39,3 +39,10 @@ class Subsystems:
 
     async def set_mo_temp(self, temp: float) -> None:
         await self._menlo.set_temp(1, temp)
+
+    def get_some_voltage(self) -> tuple:
+        return self._menlo.get_adc_voltage(0)
+
+    def get_full_set_of_readings(self) -> str:
+        data = {'some_voltage': self.get_some_voltage()}
+        return json.dumps(data)

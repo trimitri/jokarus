@@ -69,9 +69,6 @@ class MenloStack:
     def __init__(self):
         """This does not do anything. Make sure to await the init() coro!"""
 
-        # We are not doing anything here. It is imperative the user awaits the
-        # async init() coroutine by themselves.
-
     async def init_async(self, url: str=DEFAULT_URL) -> None:
         """This replaces the default constructor.
 
@@ -80,6 +77,36 @@ class MenloStack:
         self._init_buffers()
         self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
+
+    def get_laser_current(self, unit: int=1) -> float:
+        """Gets the actual laser diode current."""
+
+        # Do a reverse dictionary lookup to get the service ID.
+        try:
+            service_index = list(LASER_SVC_GET.values()).index('diode_current')
+        except ValueError:
+            LOGGER.error("Service 'diode_current' not specified.")
+            return None
+        service_id = list(LASER_SVC_GET.keys())[service_index]
+        buffer = self._buffers[LASER_NODES[unit-1]][service_id]
+        return self._get_latest_entry(buffer)[0]
+
+    async def set_temp(self, osc_supply_unit_no: int, temp: float):
+        node = 2 + osc_supply_unit_no
+        if node in LASER_NODES:
+            await self._send_command(node, 1, str(int(temp)))
+        else:
+            LOGGER.warning("Oscillator Supply unit index out of range."
+                           "Refusing to set temperature setpoing.")
+
+    def get_adc_voltage(self, channel: int) -> tuple:
+        if channel in ADC_SVC_GET.keys():
+            return self._get_latest_entry(self._buffers[16][channel])
+        else:
+            LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
+            return (float('nan'), '')
+
+    # Private Methods
 
     def _init_buffers(self) -> None:
         """Create empty buffers to store received quantities in."""
@@ -112,19 +139,6 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    def get_laser_current(self, unit: int=1) -> float:
-        """Gets the actual laser diode current."""
-
-        # Do a reverse dictionary lookup to get the service ID.
-        try:
-            service_index = list(LASER_SVC_GET.values()).index('diode_current')
-        except ValueError:
-            LOGGER.error("Service 'diode_current' not specified.")
-            return None
-        service_id = list(LASER_SVC_GET.keys())[service_index]
-        buffer = self._buffers[LASER_NODES[unit-1]][service_id]
-        return self._get_latest_entry(buffer)[0]
-
     async def _send_command(self, node: int, service: int, value: str) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
         LOGGER.debug("Sending message %d:%d:%s ...", node, service, value)
@@ -144,7 +158,7 @@ class MenloStack:
         if isinstance(buffer, list):
             if len(buffer) == 0:
                 LOGGER.info("Service %d:%d (%s) alive. First value: %s",
-                            node, service, self.name_service(node, service),
+                            node, service, self._name_service(node, service),
                             value)
             self._rotate_log(self._buffers[node][service], value)
         else:
@@ -157,14 +171,6 @@ class MenloStack:
             message = await self._connection.recv()
             # message = await self._mock_reply()
             self._parse_reply(message)
-
-    async def set_temp(self, osc_supply_unit_no: int, temp: float):
-        node = 2 + osc_supply_unit_no
-        if node in LASER_NODES:
-            await self._send_command(node, 1, str(int(temp)))
-        else:
-            LOGGER.warning("Oscillator Supply unit index out of range."
-                           "Refusing to set temperature setpoing.")
 
     @staticmethod
     async def _mock_reply() -> str:
@@ -202,14 +208,15 @@ class MenloStack:
 
     @staticmethod
     def _get_latest_entry(buffer: list) -> tuple:
+        """Returns the latest tuple of time and value from given buffer."""
         if len(buffer) > 0:
             return buffer[0]
         else:
-            LOGGER.warning('Returning "None", as the given buffer is empty.')
-            return (None, None)
+            LOGGER.warning('Returning a dummy, as the given buffer is empty.')
+            return (float('nan'), '')
 
     @staticmethod
-    def name_service(node: int, service: int) -> str:
+    def _name_service(node: int, service: int) -> str:
         if node in LASER_NODES:
             if service in LASER_SVC_GET.keys():
                 return LASER_SVC_GET[service]
