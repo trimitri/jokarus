@@ -21,7 +21,9 @@ ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
-LASER_SVC_GET = {272: "meas. LD temperature",
+LASER_SVC_GET = {257: "TEC current setpoint",
+                 272: "meas. LD temperature",
+                 273: "LD temperature setpoint (???)",
                  274: "meas. TEC current",
                  275: "meas. LD current",
                  288: "temp OK status flag"}
@@ -140,8 +142,9 @@ class MenloStack:
 
         if isinstance(buffer, list):
             if len(buffer) == 0:
-                LOGGER.info("Service %d:%s alive. First value: %s",
-                            node, self.name_service(node, service), value)
+                LOGGER.info("Service %d:%d (%s) alive. First value: %s",
+                            node, service, self.name_service(node, service),
+                            value)
             self._rotate_log(self._buffers[node][service], value)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
