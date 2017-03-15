@@ -10,7 +10,13 @@ LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 class WebsocketServer:
 
-    def __init__(self, port: int=80):
+    def __init__(self, port: int=56320):
+        """Mustn't be run alone. Be sure to await the async_init() coroutine
+        afterwards.
+        The default port number is inspired by the 56(32)-0 iodine hyperfine
+        transition. If you want to use lower port numbers, the OS will probably
+        ask you for superuser privileges.
+        """
         self.port = port
         self.subscribers = set()
         LOGGER.info("Creating JsonWs instance. Do call the async_init() fcn.")
@@ -20,6 +26,7 @@ class WebsocketServer:
                                                'localhost', self.port))
 
     async def publish(self, data: str) -> None:
+        LOGGER.debug("Trying to publish: " + data)
         if len(self.subscribers) > 0:
 
             # Send data to every subscriber.
