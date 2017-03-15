@@ -11,7 +11,7 @@ way as discussed in PEP328.
 import logging
 import asyncio
 
-from .interfaces import websocket_server
+from .controller import interfaces
 from .controller import subsystems
 
 
@@ -21,15 +21,14 @@ async def main():
     subs = subsystems.Subsystems()
     await subs.init_async()
 
-    ws_transport = websocket_server.WebsocketServer(port=56320)
-    await ws_transport.async_init()
+    face = interfaces.Interfaces()
+    await face.init_async()
+    face.start_publishing(subs)
 
     asyncio.ensure_future(subs.set_mo_temp(42.4))
 
     while True:
-        await asyncio.sleep(.2)
-        await ws_transport.publish('some data')
-        print(subs.get_full_set_of_readings() + "\n")
+        await asyncio.sleep(2)
         # print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)

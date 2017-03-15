@@ -40,6 +40,7 @@ class Subsystems:
     async def set_mo_temp(self, temp: float) -> None:
         await self._menlo.set_temp(1, temp)
 
+    # FIXME: replace by attached component's name
     def get_some_voltage(self) -> tuple:
         return self._menlo.get_adc_voltage(0)
 

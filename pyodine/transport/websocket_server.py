@@ -5,7 +5,7 @@ import asyncio
 import websockets
 import logging
 
-LOGGER = logging.getLogger("pyodine.transport.json_ws")
+LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 
 class WebsocketServer:
