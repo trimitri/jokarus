@@ -21,9 +21,10 @@ ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
-LASER_SVC_GET = {257: "TEC current setpoint",
+LASER_SVC_GET = {256: "LD temperature setpoint (found by trying)",
+                 257: "TEC current setpoint",
                  272: "meas. LD temperature",
-                 273: "LD temperature setpoint (???)",
+                 273: "Unknown 01 (???)",
                  274: "meas. TEC current",
                  275: "meas. LD current",
                  288: "temp OK status flag"}
@@ -71,7 +72,7 @@ class MenloStack:
         # We are not doing anything here. It is imperative the user awaits the
         # async init() coroutine by themselves.
 
-    async def init(self, url: str=DEFAULT_URL) -> None:
+    async def init_async(self, url: str=DEFAULT_URL) -> None:
         """This replaces the default constructor.
 
         Be sure to await this coroutine before using the class.
@@ -156,6 +157,14 @@ class MenloStack:
             message = await self._connection.recv()
             # message = await self._mock_reply()
             self._parse_reply(message)
+
+    async def set_temp(self, osc_supply_unit_no: int, temp: float):
+        node = 2 + osc_supply_unit_no
+        if node in LASER_NODES:
+            await self._send_command(node, 1, str(int(temp)))
+        else:
+            LOGGER.warning("Oscillator Supply unit index out of range."
+                           "Refusing to set temperature setpoing.")
 
     @staticmethod
     async def _mock_reply() -> str:
