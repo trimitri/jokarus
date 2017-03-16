@@ -22,8 +22,9 @@ class WebsocketServer:
         LOGGER.info("Creating JsonWs instance. Do call the async_init() fcn.")
 
     async def async_init(self) -> None:
+        LOGGER.info("Starting server on port %d.", self.port)
         asyncio.ensure_future(websockets.serve(self._register_subscriber,
-                                               'localhost', self.port))
+                                               port=self.port))
 
     async def publish(self, data: str) -> None:
         LOGGER.debug("Trying to publish: " + data)
