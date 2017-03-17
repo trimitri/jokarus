@@ -12,9 +12,10 @@ from ..drivers import menlo_stack
 class Subsystems:
 
     def __init__(self):
-        self._menlo = None
-        self._dds = None
-        self._daq = None
+        self._menlo = None  # type: menlo_stack.MenloStack
+        # self._dds = None
+        # self._daq = None
+        pass
 
     async def init_async(self):
         await self.initialize_all()
@@ -45,5 +46,9 @@ class Subsystems:
         return self._menlo.get_adc_voltage(0)
 
     def get_full_set_of_readings(self) -> str:
-        data = {'some_voltage': self.get_some_voltage()}
-        return json.dumps(data)
+        data = {}
+        for channel in range(8):
+            data['adc' + str(channel)] = self._menlo.get_adc_voltage(channel)
+        message = {'data': data,
+                   'type': 'readings'}
+        return json.dumps(message)

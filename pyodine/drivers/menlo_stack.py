@@ -4,9 +4,12 @@ This module provides an interface wrapper class for the websockets interface
 exposed by the Menlo Electronics control computer.
 """
 
-import logging     # DEBUG, INFO, WARN, ERROR etc.
+import asyncio     # Needed for websockets.
+import logging
+import math
 import time        # To keep track of when replies came in.
-import asyncio     # A native python module needed for websockets.
+from typing import List, Tuple
+
 import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
@@ -60,6 +63,10 @@ ADC_SVC_GET = {0: "ADC channel 0",
 ADC_SVC_SET = {}  # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
+# Define some custom types.
+DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
+PointSeries = Tuple[List[float], List[str]]  # x values (times), y values
+
 
 class MenloStack:
     """Provides an interface to the Menlo electronics stack."""
@@ -78,19 +85,6 @@ class MenloStack:
         self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
 
-    def get_laser_current(self, unit: int=1) -> float:
-        """Gets the actual laser diode current."""
-
-        # Do a reverse dictionary lookup to get the service ID.
-        try:
-            service_index = list(LASER_SVC_GET.values()).index('diode_current')
-        except ValueError:
-            LOGGER.error("Service 'diode_current' not specified.")
-            return None
-        service_id = list(LASER_SVC_GET.keys())[service_index]
-        buffer = self._buffers[LASER_NODES[unit-1]][service_id]
-        return self._get_latest_entry(buffer)[0]
-
     async def set_temp(self, osc_supply_unit_no: int, temp: float):
         node = 2 + osc_supply_unit_no
         if node in LASER_NODES:
@@ -99,12 +93,16 @@ class MenloStack:
             LOGGER.warning("Oscillator Supply unit index out of range."
                            "Refusing to set temperature setpoing.")
 
-    def get_adc_voltage(self, channel: int) -> tuple:
+    def get_adc_voltage(self, channel: int) -> PointSeries:
         if channel in ADC_SVC_GET.keys():
-            return self._get_latest_entry(self._buffers[16][channel])
+            raw_points = self._get_latest(self._buffers[16][channel])
+            return (raw_points[0],
+
+                    # Scale reading from mV to V.
+                    [str(float(v) / 1000) for v in raw_points[1]])
         else:
             LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
-            return (float('nan'), '')
+            return self._dummy_data_tuple
 
     # Private Methods
 
@@ -196,8 +194,8 @@ class MenloStack:
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     @staticmethod
-    def _rotate_log(log_list: list, value) -> None:
-        log_list.insert(0, (value, time.time()))
+    def _rotate_log(log_list: List[DataPoint], value: str) -> None:
+        log_list.insert(0, (time.time(), value))
 
         # Shave of some elements in case the list got too long. Be careful to
         # not use any statement here that creates a new list. Such as
@@ -207,13 +205,27 @@ class MenloStack:
         del(log_list[ROTATE_N:])
 
     @staticmethod
-    def _get_latest_entry(buffer: list) -> tuple:
+    def _get_latest(buffer: List[DataPoint],
+                    since: float=float('nan')) -> PointSeries:
         """Returns the latest tuple of time and value from given buffer."""
-        if len(buffer) > 0:
-            return buffer[0]
+
+        if math.isnan(since):  # Get single latest data point.
+            if len(buffer) > 0:
+
+                # In order to be consistent with queries using "since", we
+                # return length-1 arrays.
+                return ([buffer[0][0]], [buffer[0][1]])
+            else:
+                LOGGER.warning("Returning a dummy, as the given buffer is"
+                               "(still) empty.")
+                return MenloStack._dummy_point_series()
         else:
-            LOGGER.warning('Returning a dummy, as the given buffer is empty.')
-            return (float('nan'), '')
+            # FIXME
+            LOGGER.error("Getting multiple entries is not yet implemented.")
+
+    @staticmethod
+    def _dummy_point_series() -> PointSeries:
+        return ([math.nan], ['nan'])
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:

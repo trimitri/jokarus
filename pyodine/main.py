@@ -12,25 +12,21 @@ import logging
 import asyncio
 
 from .controller import interfaces
-# from .controller import subsystems
+from .controller import subsystems
 
 
 async def main():
     logger.info("Running Pyodine...")
 
-    # subs = subsystems.Subsystems()
-    # await subs.init_async()
+    subs = subsystems.Subsystems()
+    await subs.init_async()
 
     face = interfaces.Interfaces()
     await face.init_async()
-    # face.start_publishing(subs)
-    face.start_dummy_publishing()
-
-    # asyncio.ensure_future(subs.set_mo_temp(42.4))
+    face.start_publishing(subs, interval=.7)
 
     while True:
         await asyncio.sleep(2)
-        # print("Still alive")
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)
 

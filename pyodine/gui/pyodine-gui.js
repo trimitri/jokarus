@@ -2,6 +2,7 @@
 
 jQuery(function(){
 
+  const DOM_SCOPE = document.body;
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -24,15 +25,17 @@ jQuery(function(){
     }
   }
 
-  function updatePlot(plot_div, times, values, display_count=40) {
+  function updatePlot(plot_div, times, values, display_count=100) {
     if (typeof(plot_div.data) == 'object') {  // Plot exists, update it.
       Plotly.extendTraces(plot_div, {x: [times], y: [values]}, [0], display_count);
     } else {  // Create new plot.
       var layout = {
-        title: "Some Voltage",
+        title: plot_div.dataset['title'],
         xaxis: {
-          type: 'linear',
           title: 'time of measurement'
+        },
+        yaxis: {
+          title: plot_div.dataset['ylabel']
         },
       };
       var data = [{
@@ -47,17 +50,17 @@ jQuery(function(){
   function updateAllPlots(new_values_obj) {
 
     // Gather available plot areas.
-    let available_plots = new Map();
+    let available_plots = {};
     $('div.plot',DOM_SCOPE).each(function(){
-      available_plots.set(this.id, this);
+      available_plots[this.id] = this;
     });
 
     // Update them.
-    for (const [id, data] of new_values_obj) {
-      if (id in available_plots.keys()) {
-        console.assert(data.x.length > 0);
-        console.assert(data.y.length > 0);
-        updatePlot(available_plots[id], data.x, data.y);
+    for (const id in new_values_obj) {
+      if (id in available_plots) {
+        const xvals = new_values_obj[id][0];
+        const yvals = new_values_obj[id][1];
+        updatePlot(available_plots[id], xvals, yvals);
       } else {
         console.log(`No graph available to plot data of type ${id}`)
       }
@@ -68,8 +71,14 @@ jQuery(function(){
   $('#tabs').tabs();
 
   var messageHandler = function(event) {
-    var data = JSON.parse(event.data);
-    updatePlot($("#some_voltage")[0], [data.some_voltage[1]], [data.some_voltage[0]])
+    var message = JSON.parse(event.data);
+    switch (message.type) {
+      case 'readings':
+        updateAllPlots(message.data);
+        break;
+      default:
+        console.warn('Unknown message type "' + message.type + '".');
+    }
   };
 
   var ws;
