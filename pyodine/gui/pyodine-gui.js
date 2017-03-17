@@ -47,6 +47,50 @@ jQuery(function(){
     }
   }
 
+  function updatePlotCanvasJs(plot_div, times, values, display_time=180, crop_time=1000) {
+
+    let div = $(plot_div);
+    const newPoint = {x: new Date(times[0] * 1000), y: parseFloat(values[0])};
+
+    if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
+      const chart = div.data('chart');
+      chart.options.data[0].dataPoints.push(newPoint);
+      const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
+      if (age > crop_time) {
+        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+      }
+      if (age > display_time) {
+        chart.options.axisX.minimum = new Date(new Date() - display_time * 1000);
+      }
+      chart.options.axisX.maximum = new Date();
+      chart.render();
+    } else {  // Create new plot.
+      const chart = new CanvasJS.Chart(plot_div, { 
+        title: {
+          text: plot_div.dataset['title'],
+        },
+        data: [{
+          type: 'stepLine',
+          axisYType: 'secondary',
+          dataPoints: [newPoint],
+          markerType: 'none',
+        }],
+        interactivityEnabled: true,
+        animationEnabled: true,
+        axisX: {
+          labelAngle: 30,
+          gridThickness: 1,
+        },
+        axisY2: {
+          title: div.data('ylabel'),
+          gridThickness: 1,
+          includeZero: false,
+        },
+      });
+      chart.render();	
+      $(plot_div).data('chart', chart);
+    }
+  }
   function updateAllPlots(new_values_obj) {
 
     // Gather available plot areas.
@@ -60,7 +104,7 @@ jQuery(function(){
       if (id in new_values_obj) {
         const xvals = new_values_obj[id][0];
         const yvals = new_values_obj[id][1];
-        updatePlot(available_plots[id], xvals, yvals);
+        updatePlotCanvasJs(available_plots[id], xvals, yvals);
       } else {
         console.log(`Received message didn't include data to update plot "${id}"`)
       }
