@@ -95,11 +95,7 @@ class MenloStack:
 
     def get_adc_voltage(self, channel: int) -> PointSeries:
         if channel in ADC_SVC_GET.keys():
-            raw_points = self._get_latest(self._buffers[16][channel])
-            return (raw_points[0],
-
-                    # Scale reading from mV to V.
-                    [str(float(v) / 1000) for v in raw_points[1]])
+            return self._get_latest(self._buffers[16][channel])
         else:
             LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
             return self._dummy_data_tuple
@@ -108,6 +104,24 @@ class MenloStack:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             return self._get_latest(self._buffers[node_id][272])
+        else:
+            LOGGER.warning("There is no oscillator supply unit %d. "
+                           "Returning dummy.", unit_number)
+            return self._dummy_data_tuple
+
+    def get_diode_current(self, unit_number: int) -> PointSeries:
+        node_id = (unit_number + 2)
+        if node_id in LASER_NODES:
+            return self._get_latest(self._buffers[node_id][275])
+        else:
+            LOGGER.warning("There is no oscillator supply unit %d. "
+                           "Returning dummy.", unit_number)
+            return self._dummy_data_tuple
+
+    def get_tec_current(self, unit_number: int) -> PointSeries:
+        node_id = (unit_number + 2)
+        if node_id in LASER_NODES:
+            return self._get_latest(self._buffers[node_id][274])
         else:
             LOGGER.warning("There is no oscillator supply unit %d. "
                            "Returning dummy.", unit_number)

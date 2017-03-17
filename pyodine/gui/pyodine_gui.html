@@ -43,8 +43,17 @@
 						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
 					</div>
 					<div id="tab_osc">
-						<div class="plot" data-title="TEC 1 Temperature"
-							data-ylabel="Temperature in Menlo Units" id="temp1"></div>
+						<div class="plot_group mo">
+							<div class="plot" id="mo_temperature"
+								data-title="TEC 1 Temperature"
+								data-ylabel="Temperature in Menlo Units"></div>
+							<div class="plot" id="mo_tec_current"
+								data-title="TEC 1 Current"
+								data-ylabel="Current in Menlo Units" ></div>
+							<!-- <div class="plot" id="mo_diode_current" -->
+							<!-- 	data-title="MO Current" -->
+							<!-- 	data-ylabel="Current in Menlo Units"></div> -->
+						</div>
 						<div class="plot" data-title="TEC 2 Temperature"
 							data-ylabel="Temperature in Menlo Units" id="temp2"></div>
 						<div class="plot" data-title="TEC 3 Temperature"
