@@ -25,14 +25,14 @@ jQuery(function(){
     }
   }
 
-  function updatePlot(plot_div, times, values, display_count=100) {
+  function updatePlot(plot_div, times, values, display_count=150) {
     if (typeof(plot_div.data) == 'object') {  // Plot exists, update it.
       Plotly.extendTraces(plot_div, {x: [times], y: [values]}, [0], display_count);
     } else {  // Create new plot.
       var layout = {
         title: plot_div.dataset['title'],
         xaxis: {
-          title: 'time of measurement'
+          title: "Time of Measurement in s"
         },
         yaxis: {
           title: plot_div.dataset['ylabel']
