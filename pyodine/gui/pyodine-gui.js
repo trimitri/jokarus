@@ -68,7 +68,7 @@ jQuery(function(){
   }
 
   // Setup layout using jQuery UI.
-  $('#tabs').tabs();
+  $('div.tabs').tabs();
 
   var messageHandler = function(event) {
     var message = JSON.parse(event.data);

@@ -20,22 +20,31 @@
 			(WS port <input id="ws_port" type="number" value="56320" />):
 			<strong id="connection_state">Disconnected</strong>
 		</p>
-		<div id="tabs">
+		<div class="tabs">
 			<ul>
 				<li><a href="#logging">Data Logging</a></li>
 				<li><a href="#control">Experiment Control</a></li>
 			</ul>
 
 			<section id="logging">
-				<div class="sup1 ld_temp">
-					<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="plot" id="adc0"></div>
-					<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="plot" id="adc1"></div>
-					<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="plot" id="adc2"></div>
-					<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="plot" id="adc3"></div>
-					<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="plot" id="adc4"></div>
-					<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="plot" id="adc5"></div>
-					<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
-					<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
+				<div class="tabs">
+					<ul>
+						<li><a href="#tab_adc">ADC Chip</a></li>
+						<li><a href="#tab_osc">Oscillator Supplies</a></li>
+						<li><a href="#tab_pid">Lockboxes</a></li>
+					</ul>
+					<div id="tab_adc">
+						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="plot" id="adc0"></div>
+						<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="plot" id="adc1"></div>
+						<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="plot" id="adc2"></div>
+						<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="plot" id="adc3"></div>
+						<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="plot" id="adc4"></div>
+						<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="plot" id="adc5"></div>
+						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
+						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
+					</div>
+					<div id="tab_osc"></div>
+					<div id="tab_pid"></div>
 				</div>
 			</section>
 
