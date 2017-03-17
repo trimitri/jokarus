@@ -16,9 +16,8 @@
 		<h1>Pyodine Client</h1>
 		<p>
 			<input id="connect_btn" type="button" value="Connect" />
-			to Pyodine server at <input id="host" type="text" value="localhost" />
-			(WS port <input id="ws_port" type="number" value="56320" />):
-			<strong id="connection_state">Disconnected</strong>
+			to Pyodine server at <input id="host" type="text" value="icarus" />
+			(WS port <input id="ws_port" type="number" value="56320" />)
 		</p>
 		<div class="tabs">
 			<ul>
@@ -43,7 +42,16 @@
 						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
 						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
 					</div>
-					<div id="tab_osc"></div>
+					<div id="tab_osc">
+						<div class="plot" data-title="TEC 1 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp1"></div>
+						<div class="plot" data-title="TEC 2 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp2"></div>
+						<div class="plot" data-title="TEC 3 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp3"></div>
+						<div class="plot" data-title="TEC 4 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp4"></div>
+					</div>
 					<div id="tab_pid"></div>
 				</div>
 			</section>

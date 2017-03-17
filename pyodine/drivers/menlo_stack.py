@@ -104,7 +104,18 @@ class MenloStack:
             LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
             return self._dummy_data_tuple
 
-    # Private Methods
+    def get_temperature(self, unit_number: int) -> PointSeries:
+        node_id = (unit_number + 2)
+        if node_id in LASER_NODES:
+            return self._get_latest(self._buffers[node_id][272])
+        else:
+            LOGGER.warning("There is no oscillator supply unit %d. "
+                           "Returning dummy.", unit_number)
+            return self._dummy_data_tuple
+
+    ###################
+    # Private Methods #
+    ###################
 
     def _init_buffers(self) -> None:
         """Create empty buffers to store received quantities in."""

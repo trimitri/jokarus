@@ -56,13 +56,13 @@ jQuery(function(){
     });
 
     // Update them.
-    for (const id in new_values_obj) {
-      if (id in available_plots) {
+    for (const id in available_plots) {
+      if (id in new_values_obj) {
         const xvals = new_values_obj[id][0];
         const yvals = new_values_obj[id][1];
         updatePlot(available_plots[id], xvals, yvals);
       } else {
-        console.log(`No graph available to plot data of type ${id}`)
+        console.log(`Received message didn't include data to update plot "${id}"`)
       }
     }
   }

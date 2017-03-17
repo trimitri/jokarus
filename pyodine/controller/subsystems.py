@@ -41,14 +41,17 @@ class Subsystems:
     async def set_mo_temp(self, temp: float) -> None:
         await self._menlo.set_temp(1, temp)
 
-    # FIXME: replace by attached component's name
-    def get_some_voltage(self) -> tuple:
-        return self._menlo.get_adc_voltage(0)
-
     def get_full_set_of_readings(self) -> str:
         data = {}
+
+        # ADC readings
         for channel in range(8):
             data['adc' + str(channel)] = self._menlo.get_adc_voltage(channel)
+
+        # TEC controller temperature readings
+        for unit in [1, 2, 3, 4]:
+            data['temp'+str(unit)] = self._menlo.get_temperature(unit)
+
         message = {'data': data,
                    'type': 'readings'}
         return json.dumps(message)
