@@ -25,9 +25,10 @@ jQuery(function(){
     }
   }
 
-  function updatePlot(plot_div, times, values, display_time=180, crop_time=1000) {
+  function updatePlot(plot_div, times, values, crop_time=1000) {
 
     let div = $(plot_div);
+    const display_time = document.getElementById('display_time').value;
     const newPoint = {x: new Date(times[0] * 1000), y: parseFloat(values[0])};
 
     if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
@@ -35,11 +36,11 @@ jQuery(function(){
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
       const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      // if (age > crop_time) {
-      //   chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
-      // }
+      if (age > crop_time) {
+        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+      }
       // if (age > display_time) {
-      //   chart.options.axisX.minimum = new Date(now - display_time * 1000);
+        chart.options.axisX.minimum = new Date(now - display_time * 1000);
       // }
       chart.options.axisX.maximum = now;
       chart.render();

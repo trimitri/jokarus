@@ -22,76 +22,75 @@
 		</p>
 		<p>
 			<label title="Try this if empty plots are shown.">
-				Use server clock instead of local clock <input id="use_server_clock" type="checkbox">
-				</label>
-			</p>
-			<div class="tabs">
-				<ul>
-					<li><a href="#tab_logging">Data Logging</a></li>
-					<li><a href="#tab_control">Experiment Control</a></li>
-					<li><a href="#tab_setup">Setup Parameters</a></li>
-				</ul>
-
-				<section id="tab_logging">
-					<div class="tabs">
-						<ul>
-							<li><a href="#tab_adc">ADC Chip</a></li>
-							<li><a href="#tab_osc">Oscillator Supplies</a></li>
-							<li><a href="#tab_pid">Lockboxes</a></li>
-						</ul>
-						<div id="tab_adc">
-							<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="plot" id="adc0"></div>
-							<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="plot" id="adc1"></div>
-							<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="plot" id="adc2"></div>
-							<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="plot" id="adc3"></div>
-							<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="plot" id="adc4"></div>
-							<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="plot" id="adc5"></div>
-							<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
-							<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
-						</div>
-						<div id="tab_osc">
-							<div class="plot_group mo">
-								<div class="plot" id="mo_temperature"
-									data-title="TEC 1 Temperature"
-									data-ylabel="Temperature in Menlo Units"></div>
-								<div class="plot" id="mo_tec_current"
-									data-title="TEC 1 Current"
-									data-ylabel="Current in Menlo Units" ></div>
-								<div class="plot" id="mo_diode_current"
-									data-title="MO Current"
-									data-ylabel="Current in Menlo Units"></div>
-							</div>
-							<div class="plot" data-title="TEC 2 Temperature"
-								data-ylabel="Temperature in Menlo Units" id="temp2"></div>
-							<div class="plot" data-title="TEC 3 Temperature"
-								data-ylabel="Temperature in Menlo Units" id="temp3"></div>
-							<div class="plot" data-title="TEC 4 Temperature"
-								data-ylabel="Temperature in Menlo Units" id="temp4"></div>
-						</div>
-						<div id="tab_pid"></div>
+				Use server clock instead of local clock <input id="use_server_clock" type="checkbox" />
+			</label>
+		</p>
+		<p>
+			Plots show <input id="display_time" type="number" value="120" min="1" max="1000" /> seconds of data.
+		</p>
+		<div class="tabs">
+			<ul>
+				<li><a href="#tab_logging">Data Logging</a></li>
+				<li><a href="#tab_control">Experiment Control</a></li>
+				<li><a href="#tab_setup">Setup Parameters</a></li>
+			</ul>
+			<section id="tab_logging">
+				<div class="tabs">
+					<ul>
+						<li><a href="#tab_adc">ADC Chip</a></li>
+						<li><a href="#tab_osc">Oscillator Supplies</a></li>
+						<li><a href="#tab_pid">Lockboxes</a></li>
+					</ul>
+					<div id="tab_adc">
+						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="plot" id="adc0"></div>
+						<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="plot" id="adc1"></div>
+						<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="plot" id="adc2"></div>
+						<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="plot" id="adc3"></div>
+						<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="plot" id="adc4"></div>
+						<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="plot" id="adc5"></div>
+						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
+						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
 					</div>
-				</section>
-
-				<section id="tab_control">
-					<h2>Lorem Ipsum control section.</h2>
-				</section>
-
-				<section id="tab_setup">
-					<h2>AOM and Mixer</h2>
-					<p>
-						AOM Frequency (currently <span id="aom_freq"></span>&thinsp;MHz):
-						<input id="aom_freq_setpoint" type="number" value="150.0" />
-						<input type="button" value="set" />
-					</p>
-					<p>
-						Offset between AOM and Mixer phase (currently <span id="aom_phase"></span>&thinsp;%):
-						<div id="aom_phase_setpoint" class="slider">
-							<div class="ui-slider-handle"></div>
-						</div>:
-						<input type="number" class="gauge" data-source-slider="#aom_phase_setpoint" />
-					</p>
-				</section>
-
-			</div>
-		</body>
-	</html>
+					<div id="tab_osc">
+						<div class="plot_group mo">
+							<div class="plot" id="mo_temperature"
+								data-title="TEC 1 Temperature"
+								data-ylabel="Temperature in Menlo Units"></div>
+							<div class="plot" id="mo_tec_current"
+								data-title="TEC 1 Current"
+								data-ylabel="Current in Menlo Units" ></div>
+							<div class="plot" id="mo_diode_current"
+								data-title="MO Current"
+								data-ylabel="Current in Menlo Units"></div>
+						</div>
+						<div class="plot" data-title="TEC 2 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp2"></div>
+						<div class="plot" data-title="TEC 3 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp3"></div>
+						<div class="plot" data-title="TEC 4 Temperature"
+							data-ylabel="Temperature in Menlo Units" id="temp4"></div>
+					</div>
+					<div id="tab_pid"></div>
+				</div>
+			</section>
+			<section id="tab_control">
+				<h2>Lorem Ipsum control section.</h2>
+			</section>
+			<section id="tab_setup">
+				<h2>AOM and Mixer</h2>
+				<p>
+					AOM Frequency (currently <span id="aom_freq"></span>&thinsp;MHz):
+					<input id="aom_freq_setpoint" type="number" value="150.0" />
+					<input type="button" value="set" />
+				</p>
+				<p>
+					Offset between AOM and Mixer phase (currently <span id="aom_phase"></span>&thinsp;%):
+					<div id="aom_phase_setpoint" class="slider">
+						<div class="ui-slider-handle"></div>
+					</div>:
+					<input type="number" class="gauge" data-source-slider="#aom_phase_setpoint" />
+				</p>
+			</section>
+		</div>
+	</body>
+</html>
