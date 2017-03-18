@@ -25,44 +25,23 @@ jQuery(function(){
     }
   }
 
-  function updatePlot(plot_div, times, values, display_count=150) {
-    if (typeof(plot_div.data) == 'object') {  // Plot exists, update it.
-      Plotly.extendTraces(plot_div, {x: [times], y: [values]}, [0], display_count);
-    } else {  // Create new plot.
-      var layout = {
-        title: plot_div.dataset['title'],
-        xaxis: {
-          title: "Time of Measurement in s"
-        },
-        yaxis: {
-          title: plot_div.dataset['ylabel']
-        },
-      };
-      var data = [{
-        mode: 'lines',
-        x: times,
-        y: values
-      }];
-      Plotly.newPlot(plot_div, data, layout);
-    }
-  }
-
-  function updatePlotCanvasJs(plot_div, times, values, display_time=180, crop_time=1000) {
+  function updatePlot(plot_div, times, values, display_time=180, crop_time=1000) {
 
     let div = $(plot_div);
     const newPoint = {x: new Date(times[0] * 1000), y: parseFloat(values[0])};
 
     if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
+      const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
       const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      if (age > crop_time) {
-        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
-      }
-      if (age > display_time) {
-        chart.options.axisX.minimum = new Date(new Date() - display_time * 1000);
-      }
-      chart.options.axisX.maximum = new Date();
+      // if (age > crop_time) {
+      //   chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+      // }
+      // if (age > display_time) {
+      //   chart.options.axisX.minimum = new Date(now - display_time * 1000);
+      // }
+      chart.options.axisX.maximum = now;
       chart.render();
     } else {  // Create new plot.
       const chart = new CanvasJS.Chart(plot_div, { 
@@ -104,7 +83,7 @@ jQuery(function(){
       if (id in new_values_obj) {
         const xvals = new_values_obj[id][0];
         const yvals = new_values_obj[id][1];
-        updatePlotCanvasJs(available_plots[id], xvals, yvals);
+        updatePlot(available_plots[id], xvals, yvals);
       } else {
         console.log(`Received message didn't include data to update plot "${id}"`)
       }
