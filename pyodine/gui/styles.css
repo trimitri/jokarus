@@ -4,3 +4,12 @@ section#logging div.plot {
 	height: 300px;
 	margin: 1em 2em;
 }
+div.slider {
+	width: 400px;
+	display: inline-block;
+	margin: .5em 2em;
+}
+div.slider .ui-slider-handle {
+	width: 5em;
+	text-align: center;
+}

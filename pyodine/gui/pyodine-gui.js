@@ -92,6 +92,21 @@ jQuery(function(){
 
   // Setup layout using jQuery UI.
   $('div.tabs').tabs();
+  $('div.slider').each(function() {
+    const container = $(this);
+    const handle = $('.ui-slider-handle', container);
+    container.slider({
+      min: 0,
+      max: 360,
+      step: 0.1,
+      create: function() {
+        handle.text(container.slider("value") + " °");
+      },
+      slide: function(event, ui) {
+        handle.text(ui.value + " °");
+      }
+    });
+  });
 
   var messageHandler = function(event) {
     var message = JSON.parse(event.data);
