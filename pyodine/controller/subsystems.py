@@ -56,6 +56,5 @@ class Subsystems:
         data['mo_diode_current'] = self._menlo.get_diode_current(1)
         data['mo_tec_current'] = self._menlo.get_tec_current(1)
 
-        message = {'data': data,
-                   'type': 'readings'}
-        return json.dumps(message)
+        message = {'data': data, 'type': 'readings'}
+        return json.dumps(message) + '\n\n\n'

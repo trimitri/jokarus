@@ -1,4 +1,6 @@
-"""Imitate the .websocket_server functionality using RS232 instead of TCP/IP.
+"""Json strings tend to be longer than the chunk size transferrable via RS232.
+
+The JsonCollector class provides a joining service for split Json strings.
 """
 import logging
 
