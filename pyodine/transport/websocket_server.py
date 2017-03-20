@@ -1,4 +1,7 @@
 """A simple websocket server.
+
+It manages a list of subscribers to whom it can publish data.
+It can forward received messages to a callback handler.
 """
 
 import asyncio
@@ -10,7 +13,7 @@ LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 class WebsocketServer:
 
-    def __init__(self, port: int=56320):
+    def __init__(self, port: int=56320, received_msg_callback=None):
         """Mustn't be run alone. Be sure to await the async_init() coroutine
         afterwards.
         The default port number is inspired by the 56(32)-0 iodine hyperfine
@@ -19,15 +22,17 @@ class WebsocketServer:
         """
         self.port = port
         self.subscribers = set()
-        LOGGER.info("Creating JsonWs instance. Do call the async_init() fcn.")
+        self._rcv_callback = received_msg_callback
+        LOGGER.info("Creating WebsocketServer instance. Do call the async_init() fcn.")
 
     async def async_init(self) -> None:
+        LOGGER.info("async_init() called.")
         LOGGER.info("Starting server on port %d.", self.port)
         asyncio.ensure_future(websockets.serve(self._register_subscriber,
                                                port=self.port))
 
     async def publish(self, data: str) -> None:
-        LOGGER.debug("Trying to publish: " + data)
+        LOGGER.debug("Trying to publish: %s", data)
         if len(self.subscribers) > 0:
 
             # Send data to every subscriber.
