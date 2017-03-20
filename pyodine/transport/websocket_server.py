@@ -23,7 +23,7 @@ class WebsocketServer:
         self.port = port
         self.subscribers = set()
         self._rcv_callback = received_msg_callback
-        LOGGER.info("Creating WebsocketServer instance. Do call the async_init() fcn.")
+        LOGGER.info("Creating instance. Do call the async_init() fcn.")
 
     async def async_init(self) -> None:
         LOGGER.info("async_init() called.")
@@ -41,7 +41,7 @@ class WebsocketServer:
             LOGGER.debug("Won't publish as there are "
                          "no subscribers connected.")
 
-    async def _create_loopback(self, socket, path):
+    async def _create_loopback(self, socket):
         while True:
             LOGGER.debug("Waiting for incoming connection.")
             received_msg = await socket.recv()

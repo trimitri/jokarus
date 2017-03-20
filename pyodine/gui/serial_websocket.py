@@ -28,8 +28,9 @@ class SerialWebsocket():
         asyncio.ensure_future(self._server())
 
     def _forward_reply(self, message: str):
-        n_bytes = message.encode()
-        n_transmitted_bytes = self._serial.write(message.encode)
+        bytestream = message.encode()
+        n_bytes = len(bytestream)
+        n_transmitted_bytes = self._serial.write(bytestream)
         if (n_transmitted_bytes == n_bytes):
             LOGGER.debug("Transmitted Message: %s", message)
         else:

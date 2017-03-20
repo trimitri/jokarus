@@ -21,9 +21,9 @@ async def main():
     subs = subsystems.Subsystems()
     await subs.init_async()
 
-    face = interfaces.Interfaces()
+    face = interfaces.Interfaces(start_serial_server=True)
     await face.init_async()
-    face.start_publishing(subs, interval=.7)
+    face.start_publishing(subs, interval=3)
 
     while True:
         await asyncio.sleep(2)
