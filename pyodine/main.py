@@ -23,10 +23,10 @@ async def main():
 
     face = interfaces.Interfaces(start_serial_server=True)
     await face.init_async()
-    face.start_publishing(subs, interval=3)
+    face.start_publishing(subs, interval=0.5)
 
     while True:
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
         # data = daq.scan_ramp(min_val=-3, max_val=2)
         # print(data)
 

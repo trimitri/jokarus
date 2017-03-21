@@ -25,7 +25,7 @@ class SerialServer:
 
     def publish(self, data: str) -> None:
         LOGGER.debug("Trying to publish: %s", data)
-        bytestream = (data + '\n\n\n').encode()
+        bytestream = data.encode()
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._dev.write(bytestream)
         if (n_transmitted_bytes == n_bytes):
