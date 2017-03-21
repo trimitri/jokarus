@@ -127,4 +127,13 @@ jQuery(function(){
     ws = new WebSocket('ws://' + host + ':' + ws_port + '/');
     ws.onmessage = messageHandler;
   });
+  function sendMessage(message) {
+    ws.send(message + '\n\n\n')
+  }
+
+  $('#send_btn').on('click', function() {
+    const message = $('#send_data').val();
+    console.log("Sending: " + message);
+    sendMessage(message);
+  });
 });

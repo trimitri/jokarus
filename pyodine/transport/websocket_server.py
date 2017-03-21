@@ -32,7 +32,7 @@ class WebsocketServer:
                                                port=self.port))
 
     async def publish(self, data: str) -> None:
-        LOGGER.debug("Trying to publish: %s", data)
+        LOGGER.debug("Trying to publish: %s", data[:30])
         if len(self.subscribers) > 0:
 
             # Send data to every subscriber.
@@ -57,7 +57,10 @@ class WebsocketServer:
                 # To keep the server running without having to poll, we wait
                 # for commands sent by the client. We don't expect any commands
                 # though, and if there is one, we ignore it.
-                await socket.recv()
+                message = await socket.recv()
+                if callable(self._rcv_callback):
+                    self._rcv_callback(message)
+                LOGGER.debug("Received message: %s", message)
         except (websockets.exceptions.ConnectionClosed, ConnectionError):
             self.subscribers.remove(socket)
             LOGGER.info("Unsubscribed client. %d clients left.",

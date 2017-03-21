@@ -33,7 +33,7 @@ class SerialWebsocket():
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
         if (n_transmitted_bytes == n_bytes):
-            LOGGER.debug("Transmitted Message: %s", message)
+            LOGGER.debug("Transmitted Message: %s", message[:20] + "...")
         else:
             LOGGER.warning("Error transmitting Message.")
 
@@ -46,7 +46,7 @@ class SerialWebsocket():
                 packager.push(data)
                 if packager.is_complete():
                     message = packager.harvest()
-                    LOGGER.debug("Received message: %s", message)
+                    LOGGER.debug("Received message: %s", message[:30])
                     asyncio.ensure_future(self._ws_server.publish(message))
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.

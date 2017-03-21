@@ -16,7 +16,7 @@ class JsonCollector:
         self._n_chunks = 0
 
     def push(self, data: bytes) -> None:
-        LOGGER.debug('Pushing data into collector: %s', data)
+        LOGGER.debug('Pushing data into collector: %s', data[:30])
         self._rcv_buffer += data
         self._n_chunks += 1
 
