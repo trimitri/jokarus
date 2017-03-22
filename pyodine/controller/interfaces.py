@@ -5,12 +5,12 @@ control requests they might transmit.
 """
 import asyncio
 import logging
+from typing import Callable
 from ..transport.websocket_server import WebsocketServer
 from ..transport.serial_server import SerialServer
-from ..transport.texus_relay import TexusRelay
+from ..transport import texus_relay
 from ..transport import packer
 from ..controller.subsystems import Subsystems
-from ..controller.instruction_handler import InstructionHandler
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 
@@ -19,14 +19,15 @@ class Interfaces:
 
     def __init__(self, subsystem_controller: Subsystems,
                  start_ws_server: bool=True,
-                 start_serial_server: bool=False):
+                 start_serial_server: bool=False,
+                 on_receive: Callable[[str], None]=None):
         self._use_ws = start_ws_server
         self._use_rs232 = start_serial_server
         self._ws = None  # type: WebsocketServer
         self._rs232 = None  # type: SerialServer
-        self._texus = None  # type: TexusRelay
+        self._texus = None  # type: texus_relay.TexusRelay
         self._subs = subsystem_controller
-        self._instr_handler = InstructionHandler(self._subs)
+        self._rcv_callback = on_receive
 
     async def init_async(self):
 
@@ -42,7 +43,7 @@ class Interfaces:
             await self._rs232.async_init()
 
         # TEXUS flags relay
-        self._texus = TexusRelay()
+        self._texus = texus_relay.TexusRelay()
 
     def start_publishing_regularly(self, readings_interval: float=1,
                                    flags_interval: float=10):
@@ -68,6 +69,13 @@ class Interfaces:
         data = self._texus.get_full_set()
         await self._publish_message(packer.create_message(data, 'texus'))
 
+    def set_flag(self, entity_id: str, value: bool) -> None:
+        if entity_id in texus_relay.LEGAL_SETTERS and type(value) is bool:
+            setattr(self._texus, entity_id, value)
+
+    def on_receive(self, callback: Callable[[str], None]) -> None:
+        self._rcv_callback = callback
+
     async def _publish_message(self, message: str) -> None:
         if self._use_rs232:
             self._rs232.publish(message)
@@ -75,4 +83,5 @@ class Interfaces:
             await self._ws.publish(message)
 
     def _parse_reply(self, message: str) -> None:
-        self._instr_handler.handle_instruction(message)
+        if callable(self._rcv_callback):
+            self._rcv_callback(message)

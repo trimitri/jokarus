@@ -13,6 +13,7 @@ import asyncio
 
 from .controller import interfaces
 from .controller import subsystems
+from .controller import instruction_handler
 
 
 async def main():
@@ -24,6 +25,9 @@ async def main():
     face = interfaces.Interfaces(subs, start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(flags_interval=1.1)
+
+    handler = instruction_handler.InstructionHandler(subs, face)
+    face.on_receive(handler.handle_instruction)
 
     while True:
         await asyncio.sleep(1)

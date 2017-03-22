@@ -110,6 +110,26 @@ jQuery(function(){
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
+  function sendFlag(entityId, value) {
+    const message = createMessage({
+      method: 'setflag',
+      args: [entityId, value]
+    });
+    sendMessage(message);
+  }
+
+  function sendMessage(message) {
+    ws.send(message)
+  }
+
+  function createMessage(object, type) {
+    const wrapper = {};
+    wrapper.type = type;
+    wrapper.checksum = '';
+    wrapper.data = object;
+    return JSON.stringify(wrapper) + '\n\n\n';
+  }
+
   // Setup layout using jQuery UI.
   $('div.tabs').tabs();
   $('div.slider').each(function() {
@@ -149,14 +169,19 @@ jQuery(function(){
     ws = new WebSocket('ws://' + host + ':' + ws_port + '/');
     ws.onmessage = messageHandler;
   });
-  function sendMessage(message) {
-    ws.send(message + '\n\n\n')
-  }
+
 
   $('#send_btn').on('click', function() {
     const message = $('#send_data').val();
     console.log("Sending: " + message);
     sendMessage(message);
+  });
+
+  $('tr[data-flag]').each(function(){
+    const container = $(this);
+    $('.switch', this).on('click', function() {
+      sendFlag(container.data('flag'), $(this).hasClass('on'));
+    });
   });
 
   // TOOLS
