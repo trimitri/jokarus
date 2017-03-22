@@ -1,15 +1,43 @@
+.flex_container {
+	display: flex;
+	flex-flow: row wrap;
+	justify-content: space-around;
+}
+div.tabs {
+	background: hsl(0, 0%, 97%);
+}
+div.layout_block {
+	flex-shrink: 1;
+	background: #fff;
+	border-radius: 2px;
+	margin: 1rem;
+	padding: 0 1rem;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
 section#tab_logging div.plot {
-	display: inline-block;
-	width: 500px;
-	height: 300px;
-	margin: 1em 2em;
+	width: 30rem;
+	height: 20rem;
+	padding: 0;
+	flex-shrink: 0;
+	flex-grow: 1;
 }
 div.slider {
 	width: 400px;
 	display: inline-block;
-	margin: .5em 2em;
+	margin: .5rem 2rem;
 }
 div.slider .ui-slider-handle {
-	width: 5em;
+	width: 5rem;
 	text-align: center;
+}
+
+table.flags {
+	border-spacing: 2rem 1rem;
+}
+table.flags td,
+table.flags th {
+	text-align:left;
+}
+label {
+	cursor: pointer;
 }

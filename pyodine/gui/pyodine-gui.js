@@ -136,4 +136,19 @@ jQuery(function(){
     console.log("Sending: " + message);
     sendMessage(message);
   });
+
+  // TOOLS
+
+  $('[data-safety-switch]').each(function(){
+    const sswitch = $(this);
+    const controls = $(sswitch.data('safetySwitch'));
+    controls.prop('disabled', true);
+    sswitch.on('change', function() {
+      controls.prop('disabled', this.checked ? false : true);
+    });
+    controls.on('click', function() {
+      sswitch.prop('checked', false);
+      sswitch.trigger('change');
+    });
+  });
 });

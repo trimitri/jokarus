@@ -41,17 +41,17 @@
 						<li><a href="#tab_osc">Oscillator Supplies</a></li>
 						<li><a href="#tab_pid">Lockboxes</a></li>
 					</ul>
-					<div id="tab_adc">
-						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="plot" id="adc0"></div>
-						<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="plot" id="adc1"></div>
-						<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="plot" id="adc2"></div>
-						<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="plot" id="adc3"></div>
-						<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="plot" id="adc4"></div>
-						<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="plot" id="adc5"></div>
-						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="plot" id="adc6"></div>
-						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="plot" id="adc7"></div>
+					<div id="tab_adc" class="flex_container">
+						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc0"></div>
+						<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc1"></div>
+						<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc2"></div>
+						<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc3"></div>
+						<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc4"></div>
+						<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc5"></div>
+						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc6"></div>
+						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc7"></div>
 					</div>
-					<div id="tab_osc">
+					<div id="tab_osc" class="flex_container">
 						<div class="plot_group mo">
 							<div class="plot" id="mo_temperature"
 								data-title="TEC 1 Temperature"
@@ -63,17 +63,105 @@
 								data-title="MO Current"
 								data-ylabel="Current in Menlo Units"></div>
 						</div>
-						<div class="plot" data-title="TEC 2 Temperature"
+						<div class="plot layout_block" data-title="TEC 2 Temperature"
 							data-ylabel="Temperature in Menlo Units" id="temp2"></div>
-						<div class="plot" data-title="TEC 3 Temperature"
+						<div class="plot layout_block" data-title="TEC 3 Temperature"
 							data-ylabel="Temperature in Menlo Units" id="temp3"></div>
-						<div class="plot" data-title="TEC 4 Temperature"
+						<div class="plot layout_block" data-title="TEC 4 Temperature"
 							data-ylabel="Temperature in Menlo Units" id="temp4"></div>
 					</div>
 					<div id="tab_pid"></div>
 				</div>
 			</section>
 			<section id="tab_control">
+				<div class="tabs">
+					<ul>
+						<li><a href="#tab_texus">TEXUS Relay</a></li>
+					</ul>
+					<div id="tab_texus" class="flex_container">
+						<div class="layout_block">
+							<h2>Incoming Flags</h2>
+							<table id="incoming_flags" class="flags">
+								<tr>
+									<th>Signal</th>
+									<th>State</th>
+									<th>Updated</th>
+									<th>Changed</th>
+								</tr>
+								<tr data-flag="liftoff">
+									<th class="title">LiftOff</th>
+									<td class="indicator">N/A</td>
+									<td class="last_updated">Never</td>
+									<td class="last_changed">Never</td>
+								</tr>
+								<tr data-flag="3axis">
+									<th class="title">3-Axis Go</th>
+									<td class="indicator">N/A</td>
+									<td class="last_updated">Never</td>
+									<td class="last_changed">Never</td>
+								</tr>
+							</table>
+						</div>
+						<div class="layout_block">
+							<h2>Outgoing Flags</h2>
+							<table id="outgoing_flags" class="flags">
+								<tr>
+									<th>Signal</th>
+									<th>
+										Set 
+										<label>
+											(enable
+											<input type="checkbox" data-safety-switch="#outgoing_flags input.switch" />)
+										</label>
+									</th>
+									<th>State</th>
+									<th>Changed</th>
+									<th>Updated</th>
+								</tr>
+								<tr class="flag" data-flag="signal1">
+									<th class="title">Signal 1</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="signal2">
+									<th class="title">Signal 2</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="signal3">
+									<th class="title">Signal 3</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="signal4">
+									<th class="title">Signal 4</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+							</table>
+						</div>
+					</div>
+				</div>
 				<p>Send arbitrary command:</p>
 				<p>
 					<input id="send_data" type="text" value='{"data":{"method":"foo", "args":[1, 2, 3]}}' />
