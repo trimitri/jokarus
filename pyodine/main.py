@@ -23,7 +23,7 @@ async def main():
 
     face = interfaces.Interfaces(subs, start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly()
+    face.start_publishing_regularly(flags_interval=1.1)
 
     while True:
         await asyncio.sleep(1)

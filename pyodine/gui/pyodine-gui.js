@@ -71,6 +71,7 @@ jQuery(function(){
       $(plot_div).data('chart', chart);
     }
   }
+
   function updateAllPlots(new_values_obj) {
 
     // Gather available plot areas.
@@ -89,6 +90,24 @@ jQuery(function(){
         console.log(`Received message didn't include data to update plot "${id}"`)
       }
     }
+  }
+
+  function updateTexusFlags(new_values_obj) {
+    for (const key in new_values_obj) {
+      updateFlag(key, new_values_obj[key]);
+    }
+  }
+
+  function updateFlag(entity_id, new_value) {
+    const container = $(`tr[data-flag=${entity_id}]`);
+    const indicators = $('td.indicator', container);
+    if (new_value !== container.data('value')) {
+      container.data('value', new_value);
+      $('td.changed', container).html((new Date()).toLocaleTimeString())
+    }
+    indicators.html(new_value ? "On" : "Off");
+    indicators.css('backgroundColor', new_value ? 'green' : 'red');
+    $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
   // Setup layout using jQuery UI.
@@ -114,6 +133,9 @@ jQuery(function(){
     switch (message.type) {
       case 'readings':
         updateAllPlots(message.data);
+        break;
+      case 'texus':
+        updateTexusFlags(message.data);
         break;
       default:
         console.warn('Unknown message type "' + message.type + '".');
