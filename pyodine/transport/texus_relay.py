@@ -2,4 +2,9 @@
 
 Provides callbacks for start and stop of specific flight phases, etc.
 """
-pass
+
+
+class TexusRelay:
+
+    def get_full_set(self) -> dict:
+        return {}  # FIXME

@@ -3,6 +3,7 @@
 The JsonCollector class provides a joining service for split Json strings.
 """
 import logging
+from . import packer
 
 LOGGER = logging.getLogger("pyodine.transport.json_collector")
 
@@ -11,7 +12,7 @@ class JsonCollector:
     """Collect message chunks until complete JSON string is formed.
     """
     def __init__(self):
-        self.max_n_chunks = 100  # Max. # of messages to be combined into one.
+        self.max_n_chunks = 10  # Max. # of messages to be combined into one.
         self._rcv_buffer = b''
         self._n_chunks = 0
 
@@ -31,8 +32,8 @@ class JsonCollector:
 
     def is_complete(self) -> bool:
         tester = self._rcv_buffer.decode(encoding='utf-8', errors='ignore')
-        if tester[-4:] == '}\n\n\n':
-            if tester[0] == '{':
+        if packer.has_msg_suffix(tester):
+            if packer.has_msg_prefix(tester):
                 LOGGER.debug("Returning complete message.")
                 return True
             else:
