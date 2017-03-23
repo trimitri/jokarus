@@ -5,7 +5,7 @@ import serial
 import logging
 from typing import Callable
 
-from .json_collector import JsonCollector
+from .decoder import Decoder
 
 LOGGER = logging.getLogger("pyodine.transport.serial_server")
 

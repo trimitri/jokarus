@@ -4,7 +4,7 @@ import asyncio
 import serial
 import logging
 from ..transport.websocket_server import WebsocketServer
-from ..transport.json_collector import JsonCollector
+from ..transport.decoder import Decoder
 
 LOGGER = logging.getLogger('pyodine.gui.serial_websocket')
 
@@ -33,21 +33,24 @@ class SerialWebsocket():
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
         if (n_transmitted_bytes == n_bytes):
-            LOGGER.debug("Transmitted Message: %s", message[:20] + "...")
+            LOGGER.debug("Transmitted Message: %s ... %s",
+                         message[:11], message[-11:])
         else:
             LOGGER.warning("Error transmitting Message.")
 
     async def _server(self):
-        packager = JsonCollector()
+        collector = Decoder()
         while True:
             if (self._serial.in_waiting > 0):
                 data = self._serial.read(1)
                 data += self._serial.read(self._serial.in_waiting)
-                packager.push(data)
-                if packager.is_complete():
-                    message = packager.harvest()
-                    LOGGER.debug("Received message: %s", message[:30])
-                    asyncio.ensure_future(self._ws_server.publish(message))
+                collector.push(data)
+                if collector.n_pending() > 0:
+                    messages = collector.harvest()
+                    for msg in messages:
+                        LOGGER.debug("Forwarding message: %s ... %s",
+                                     msg[:11], msg[-10:])
+                        asyncio.ensure_future(self._ws_server.publish(msg))
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.
 

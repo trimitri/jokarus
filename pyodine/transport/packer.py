@@ -1,4 +1,4 @@
-"""Create pyodine-flavoured json strings out of Python objects.
+"""Create pyodine-flavoured JSON strings out of Python objects.
 """
 import json
 import logging
@@ -26,8 +26,8 @@ def is_valid_message(msg: str) -> bool:
 
 
 def has_msg_suffix(msg: str) -> bool:
-    return str[-4:] == '}\n\n\n'
+    return msg[-4:] == '}\n\n\n'
 
 
 def has_msg_prefix(msg: str) -> bool:
-    return str[0] == '{'
+    return msg[0] == '{'

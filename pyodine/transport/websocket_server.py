@@ -3,7 +3,6 @@
 It manages a list of subscribers to whom it can publish data.
 It can forward received messages to a callback handler.
 """
-
 import asyncio
 import websockets
 import logging
