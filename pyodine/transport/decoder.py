@@ -43,11 +43,11 @@ class Decoder:
 
                         # Get full message, including token.
                         self._rcv_buffer[:msg_boundary+len(END_TOKEN)]
-                        ).encode(encoding='utf-8', errors='ignore')
+                        ).decode(encoding='utf-8', errors='ignore')
 
                 # Delete it from buffer.
                 self._rcv_buffer = self._rcv_buffer[msg_boundary +
-                                                    len(END_TOKEN) + 1:]
+                                                    len(END_TOKEN):]
 
                 # Store candidate if it is valid.
 

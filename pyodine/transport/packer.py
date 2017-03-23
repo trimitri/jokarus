@@ -2,6 +2,7 @@
 """
 import json
 import logging
+from typing import Dict, Any
 
 LOGGER = logging.getLogger('pyodine.transport.packer')
 MESSAGE_TYPES = ['readings', 'texus']
@@ -9,7 +10,7 @@ MESSAGE_TYPES = ['readings', 'texus']
 
 def create_message(payload: dict, msg_type: str) -> str:
     if msg_type in MESSAGE_TYPES:
-        container = {}
+        container = {}  # type: Dict[str, Any]
         container['data'] = payload
         container['type'] = msg_type
         container['checksum'] = ''  # FIXME
@@ -22,7 +23,7 @@ def create_message(payload: dict, msg_type: str) -> str:
 
 
 def is_valid_message(msg: str) -> bool:
-    return has_msg_suffix(str) and has_msg_prefix(str)
+    return has_msg_suffix(msg) and has_msg_prefix(msg)
 
 
 def has_msg_suffix(msg: str) -> bool:

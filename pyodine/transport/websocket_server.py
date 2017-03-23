@@ -12,7 +12,7 @@ LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 class WebsocketServer:
 
-    def __init__(self, port: int=56320, received_msg_callback=None):
+    def __init__(self, port: int=56320, received_msg_callback=None) -> None:
         """Mustn't be run alone. Be sure to await the async_init() coroutine
         afterwards.
         The default port number is inspired by the 56(32)-0 iodine hyperfine
@@ -20,7 +20,7 @@ class WebsocketServer:
         ask you for superuser privileges.
         """
         self.port = port
-        self.subscribers = set()
+        self.subscribers = set()  # type: set
         self._rcv_callback = received_msg_callback
         LOGGER.info("Creating instance. Do call the async_init() fcn.")
 

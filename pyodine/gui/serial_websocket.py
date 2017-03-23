@@ -11,7 +11,7 @@ LOGGER = logging.getLogger('pyodine.gui.serial_websocket')
 
 class SerialWebsocket():
 
-    def __init__(self, ws_port: int, serial_device: str):
+    def __init__(self, ws_port: int, serial_device: str) -> None:
         """Do also run async_init()."""
         LOGGER.debug("Creating instance...")
         self._ws_port = ws_port
@@ -44,7 +44,7 @@ class SerialWebsocket():
             if (self._serial.in_waiting > 0):
                 data = self._serial.read(1)
                 data += self._serial.read(self._serial.in_waiting)
-                collector.push(data)
+                collector.feed(data)
                 if collector.n_pending() > 0:
                     messages = collector.harvest()
                     for msg in messages:
@@ -61,9 +61,7 @@ async def launch():
     ws.start_server()
 
 if __name__ == '__main__':
-    print('foo')
     logging.basicConfig(level=logging.DEBUG)
-    LOGGER.info("foo")
     asyncio.ensure_future(launch())
     loop = asyncio.get_event_loop()
     loop.run_forever()

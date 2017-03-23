@@ -13,7 +13,7 @@ LOGGER = logging.getLogger("pyodine.transport.serial_server")
 class SerialServer:
     def __init__(self, device: str,
                  received_msg_callback: Callable[[str], None]=None,
-                 baudrate: int=19200):
+                 baudrate: int=19200) -> None:
         self._dev = serial.Serial(port=device, baudrate=baudrate)
         self._rcv_callback = received_msg_callback
         LOGGER.info("Creating instance. Do call the async_init() fcn.")
@@ -34,7 +34,7 @@ class SerialServer:
             LOGGER.warning("Error transmitting Message.")
 
     async def _serve(self) -> None:
-        packager = JsonCollector()
+        collector = Decoder()
 
         while True:
             if (self._dev.in_waiting > 0):
@@ -42,11 +42,12 @@ class SerialServer:
                 # Receive data
                 data = self._dev.read(1)
                 data += self._dev.read(self._dev.in_waiting)
-                packager.push(data)
-                if packager.is_complete():
-                    message = packager.harvest()
-                    LOGGER.debug("Received message: %s", message)
-                    if callable(self._rcv_callback):
-                        self._rcv_callback(message)
+                collector.feed(data)
+                if collector.n_pending() > 0:
+                    messages = collector.harvest()
+                    for msg in messages:
+                        LOGGER.debug("Received message: %s", msg)
+                        if callable(self._rcv_callback):
+                            self._rcv_callback(msg)
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.
