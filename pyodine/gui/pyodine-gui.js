@@ -25,11 +25,15 @@ jQuery(function(){
     }
   }
 
-  function updatePlot(plot_div, times, values, crop_time=1000) {
+  function updatePlot(plot_div, points, crop_time=1000) {
 
     let div = $(plot_div);
     const display_time = document.getElementById('display_time').value;
-    const newPoint = {x: new Date(times[0] * 1000), y: parseFloat(values[0])};
+
+    // For now, we are only using the first point of the received dataset, even
+    // if it contains more. TODO allow adding more points at once.
+    const newPoint = {x: new Date(points[0][0] * 1000),
+                      y: parseFloat(points[0][1])};
 
     if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
       const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
@@ -83,9 +87,7 @@ jQuery(function(){
     // Update them.
     for (const id in available_plots) {
       if (id in new_values_obj) {
-        const xvals = new_values_obj[id][0];
-        const yvals = new_values_obj[id][1];
-        updatePlot(available_plots[id], xvals, yvals);
+        updatePlot(available_plots[id], new_values_obj[id]);
       } else {
         console.log(`Received message didn't include data to update plot "${id}"`)
       }

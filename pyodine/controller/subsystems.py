@@ -3,20 +3,24 @@
 This is an interface to the actual things connected to each port of each
 subsystem.
 """
+from typing import Dict, List, Tuple
 from ..drivers import menlo_stack
 # from ..drivers import mccdaq
 # from ..drivers import dds9control
 
+# Define some custom types.
+DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
+Buffer = List[DataPoint]
+
 
 class Subsystems:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._menlo = None  # type: menlo_stack.MenloStack
         # self._dds = None
         # self._daq = None
-        pass
 
-    async def init_async(self):
+    async def init_async(self) -> None:
         await self.initialize_all()
 
     async def initialize_all(self) -> None:
@@ -40,8 +44,8 @@ class Subsystems:
     async def set_mo_temp(self, temp: float) -> None:
         await self._menlo.set_temp(1, temp)
 
-    def get_full_set_of_readings(self) -> dict:
-        data = {}
+    def get_full_set_of_readings(self) -> Dict[str, Buffer]:
+        data = {}  # type: Dict[str, Buffer]
 
         # ADC readings
         for channel in range(8):

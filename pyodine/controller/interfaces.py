@@ -20,7 +20,7 @@ class Interfaces:
     def __init__(self, subsystem_controller: Subsystems,
                  start_ws_server: bool=True,
                  start_serial_server: bool=False,
-                 on_receive: Callable[[str], None]=None):
+                 on_receive: Callable[[str], None]=None) -> None:
         self._use_ws = start_ws_server
         self._use_rs232 = start_serial_server
         self._ws = None  # type: WebsocketServer
@@ -29,7 +29,7 @@ class Interfaces:
         self._subs = subsystem_controller
         self._rcv_callback = on_receive
 
-    async def init_async(self):
+    async def init_async(self) -> None:
 
         # Websocket server
         if self._use_ws:
@@ -46,7 +46,7 @@ class Interfaces:
         self._texus = texus_relay.TexusRelay()
 
     def start_publishing_regularly(self, readings_interval: float=1,
-                                   flags_interval: float=10):
+                                   flags_interval: float=10) -> None:
 
         async def serve_readings():
             while True:

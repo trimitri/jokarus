@@ -8,7 +8,7 @@ import asyncio     # Needed for websockets.
 import logging
 import math
 import time        # To keep track of when replies came in.
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import websockets
 
@@ -60,12 +60,13 @@ ADC_SVC_GET = {0: "ADC channel 0",
                13: "ADC temp 5",
                14: "ADC temp 6",
                15: "ADC temp 7"}
-ADC_SVC_SET = {}  # ADC has no input channels
+ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
 # Define some custom types.
 DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
-PointSeries = Tuple[List[float], List[str]]  # x values (times), y values
+Buffer = List[DataPoint]
+Buffers = Dict[int, Dict[int, Buffer]]
 
 
 class MenloStack:
@@ -75,6 +76,7 @@ class MenloStack:
 
     def __init__(self):
         """This does not do anything. Make sure to await the init() coro!"""
+        self._buffers = None  # type: Buffers
 
     async def init_async(self, url: str=DEFAULT_URL) -> None:
         """This replaces the default constructor.
@@ -93,39 +95,39 @@ class MenloStack:
             LOGGER.warning("Oscillator Supply unit index out of range."
                            "Refusing to set temperature setpoing.")
 
-    def get_adc_voltage(self, channel: int) -> PointSeries:
+    def get_adc_voltage(self, channel: int) -> Buffer:
         if channel in ADC_SVC_GET.keys():
             return self._get_latest(self._buffers[16][channel])
         else:
             LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
-            return self._dummy_data_tuple
+            return self._dummy_point_series()
 
-    def get_temperature(self, unit_number: int) -> PointSeries:
+    def get_temperature(self, unit_number: int) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             return self._get_latest(self._buffers[node_id][272])
         else:
             LOGGER.warning("There is no oscillator supply unit %d. "
                            "Returning dummy.", unit_number)
-            return self._dummy_data_tuple
+            return self._dummy_point_series()
 
-    def get_diode_current(self, unit_number: int) -> PointSeries:
+    def get_diode_current(self, unit_number: int) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             return self._get_latest(self._buffers[node_id][275])
         else:
             LOGGER.warning("There is no oscillator supply unit %d. "
                            "Returning dummy.", unit_number)
-            return self._dummy_data_tuple
+            return self._dummy_point_series()
 
-    def get_tec_current(self, unit_number: int) -> PointSeries:
+    def get_tec_current(self, unit_number: int) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             return self._get_latest(self._buffers[node_id][274])
         else:
             LOGGER.warning("There is no oscillator supply unit %d. "
                            "Returning dummy.", unit_number)
-            return self._dummy_data_tuple
+            return self._dummy_point_series()
 
     ###################
     # Private Methods #
@@ -143,17 +145,19 @@ class MenloStack:
         #      etc.
         #   }
         # Each of the contained empty lists will eventually hold received data
-        # in tuples: [(value1, time1), (value2, time2), etc.]
+        # in tuples: [(time1, value1), (time2, value2), etc.]
 
         # First, create a tree of buffers for each module.
-        laser_buffers = {
-            node_id: {svc_id: [] for svc_id in LASER_SVC_GET}
-            for node_id in LASER_NODES}
-        lockbox_buffers = {
-            node_id: {svc_id: [] for svc_id in LOCKBOX_SVC_GET}
-            for node_id in LOCKBOX_NODES}
-        adc_buffers = {ADC_NODE: {svc_id: [] for svc_id in ADC_SVC_GET}}
-        muc_buffers = {MUC_NODE: {svc_id: [] for svc_id in MUC_SVC_GET}}
+        laser_buffers = {node_id: {svc_id: []
+                                   for svc_id in LASER_SVC_GET}
+                         for node_id in LASER_NODES}  # type: Buffers
+        lockbox_buffers = {node_id: {svc_id: []
+                                     for svc_id in LOCKBOX_SVC_GET}
+                           for node_id in LOCKBOX_NODES}  # type: Buffers
+        adc_buffers = {ADC_NODE: {svc_id: []
+                                  for svc_id in ADC_SVC_GET}}  # type: Buffers
+        muc_buffers = {MUC_NODE: {svc_id: []
+                                  for svc_id in MUC_SVC_GET}}  # type: Buffers
 
         # Merge dictionaries into one, as "node" is a unique key.
         self._buffers = {}
@@ -219,7 +223,7 @@ class MenloStack:
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     @staticmethod
-    def _rotate_log(log_list: List[DataPoint], value: str) -> None:
+    def _rotate_log(log_list: Buffer, value: str) -> None:
         log_list.insert(0, (time.time(), value))
 
         # Shave of some elements in case the list got too long. Be careful to
@@ -230,27 +234,27 @@ class MenloStack:
         del(log_list[ROTATE_N:])
 
     @staticmethod
-    def _get_latest(buffer: List[DataPoint],
-                    since: float=float('nan')) -> PointSeries:
+    def _get_latest(buffer: Buffer,
+                    since: float=math.nan) -> Buffer:
         """Returns the latest tuple of time and value from given buffer."""
 
         if math.isnan(since):  # Get single latest data point.
             if len(buffer) > 0:
 
                 # In order to be consistent with queries using "since", we
-                # return length-1 arrays.
-                return ([buffer[0][0]], [buffer[0][1]])
-            else:
-                LOGGER.warning("Returning a dummy, as the given buffer is"
-                               "(still) empty.")
-                return MenloStack._dummy_point_series()
+                # return a length-1 array.
+                return [(buffer[0][0], buffer[0][1])]
+            LOGGER.warning("Returning a dummy, as the given buffer is"
+                           "(still) empty.")
         else:
             # FIXME
             LOGGER.error("Getting multiple entries is not yet implemented.")
 
+        return MenloStack._dummy_point_series()
+
     @staticmethod
-    def _dummy_point_series() -> PointSeries:
-        return ([math.nan], ['nan'])
+    def _dummy_point_series() -> Buffer:
+        return [(math.nan, 'nan')]
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:

@@ -11,7 +11,7 @@ LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 class InstructionHandler:
 
     def __init__(self, subsystem_controller: Subsystems,
-                 interface_controller: Interfaces):
+                 interface_controller: Interfaces) -> None:
         self._subs = subsystem_controller
         self._face = interface_controller
         self.LEGAL_METHODS = {
