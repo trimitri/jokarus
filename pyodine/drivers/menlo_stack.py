@@ -111,6 +111,15 @@ class MenloStack:
                            "Returning dummy.", unit_number)
             return self._dummy_point_series()
 
+    def get_temp_setpoint(self, unit_number: int) -> Buffer:
+        node_id = (unit_number + 2)
+        if node_id in LASER_NODES:
+            return self._get_latest(self._buffers[node_id][256])
+        else:
+            LOGGER.warning("There is no oscillator supply unit %d. "
+                           "Returning dummy.", unit_number)
+            return self._dummy_point_series()
+
     def get_diode_current(self, unit_number: int) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:

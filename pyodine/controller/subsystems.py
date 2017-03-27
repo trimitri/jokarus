@@ -55,8 +55,10 @@ class Subsystems:
         for unit in [1, 2, 3, 4]:
             data['temp'+str(unit)] = self._menlo.get_temperature(unit)
 
-        data['mo_temperature'] = self._menlo.get_temperature(1)
-        data['mo_diode_current'] = self._menlo.get_diode_current(1)
+        # Oscillator Supplies
+        data['mo_temp'] = self._menlo.get_temperature(1)
+        data['mo_current'] = self._menlo.get_diode_current(1)
         data['mo_tec_current'] = self._menlo.get_tec_current(1)
+        data['mo_temp_set'] = self._menlo.get_temp_setpoint(1)
 
         return data

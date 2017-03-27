@@ -1,13 +1,20 @@
-(function ($) {
+(function ($) {  // Require jQuery. Don't use global scope. (IIFE)
   'use strict';
 
-  const DOM_SCOPE = document.body;
+  const DOM_SCOPE = document.body;  // Optional, for scoping this script.
+  const N_KEEP_POINTS = 1000;  // # of plot points to keep in memory.
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  function updatePlot(plot_div, points, crop_time=1000) {
+  // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
+  function convertToPlotPoint(json_data_point) {
+    return {x: new Date(json_data_point[0] * 1000),
+            y: parseFloat(json_data_point[1])};
+  }
+
+  function updatePlot(plot_div, points, crop_time=N_KEEP_POINTS) {
 
     let div = $(plot_div);
     const display_time = document.getElementById('display_time').value;
@@ -49,6 +56,96 @@
         },
         axisY2: {
           title: div.data('ylabel'),
+          gridThickness: 1,
+          includeZero: false,
+        },
+      });
+      chart.render();	
+      $(plot_div).data('chart', chart);
+    }
+  }
+
+  function updateOscPlot(plotDiv, readingsObj, cropTime=N_KEEP_POINTS) {
+
+    let div = $(plotDiv);
+    const displayTime = document.getElementById('display_time').value;
+
+    const diodeCurrents =
+      readingsObj[div.data('current1')].map(convertToPlotPoint);
+    const tecCurrents =
+      readingsObj[div.data('current2')].map(convertToPlotPoint);
+    const temps =
+      readingsObj[div.data('temp')].map(convertToPlotPoint);
+    const temp_setpoint = parseFloat(readingsObj[div.data('tempSet')][0][1]);
+
+    // Plot exists, update it.
+    if (typeof(div.data('chart')) !== 'undefined') {
+      const now =
+        $('#use_server_clock:checked').length ? temps[0].x : new Date();
+      const chart = div.data('chart');
+      Array.prototype.push.apply(chart.options.data[0].dataPoints,
+                                 diodeCurrents);
+      Array.prototype.push.apply(chart.options.data[1].dataPoints,
+                                 tecCurrents);
+      Array.prototype.push.apply(chart.options.data[2].dataPoints,
+                                 temps);
+
+      // FIXME Update setpoint.
+
+      // Crop off some points if we have too many points in memory.
+      const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
+      if (age > crop_time) {
+        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+      }
+
+      // Render (visually update) plot.
+      chart.options.axisX.minimum = new Date(now - display_time * 1000);
+      chart.options.axisX.maximum = now;
+      chart.render();
+    }
+
+    // Plot doesn't exist yet. Create it.
+    else {
+      const chart = new CanvasJS.Chart(plot_div, { 
+        title: {
+          text: div.data('title'),
+        },
+        data: [
+          {  // diode current
+            axisYType: 'secondary',
+            dataPoints: diode_currents,
+            lineColor: 'red',
+            markerType: 'none',
+            type: 'stepLine',
+          },
+          {  // tec current
+            axisYType: 'secondary',
+            dataPoints: tec_currents,
+            lineColor: 'green',
+            markerType: 'none',
+            type: 'stepLine',
+          },
+          {  // temperature
+            axisYType: 'primary',
+            dataPoints: temperatures,
+            lineColor: 'blue',
+            markerType: 'none',
+            type: 'spline',
+          }
+        ],
+        interactivityEnabled: true,
+        animationEnabled: true,
+        axisX: {
+          labelAngle: 30,
+          gridThickness: 1,
+        },
+        axisY: {
+          title: "Temp. in Menlo Units",
+          gridThickness: 1,
+          includeZero: false,
+        },
+        axisY2: {
+          title: "Current in Menlo Units",
           gridThickness: 1,
           includeZero: false,
         },
@@ -121,13 +218,16 @@
       $('div.tabs').tabs();
     }
 
-    let ws;  // Websocket conn. to server.
+    let ws;  // Websocket connection.
     {  // Establish connection to server.
       const messageHandler = function(event) {
         const message = JSON.parse(event.data);
         switch (message.type) {
           case 'readings':
             updateAllPlots(message.data);
+            $('div.osc_plot').each(function () {
+              updateOscPlot(this, message.data);
+            });
             break;
           case 'texus':
             updateTexusFlags(message.data);
