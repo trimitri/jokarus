@@ -1,28 +1,10 @@
-'use strict';
-
-jQuery(function(){
+(function ($) {
+  'use strict';
 
   const DOM_SCOPE = document.body;
+
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async function createDummyStreamer(plotElm) {
-    var temp = {
-      y: [0],
-      mode: 'lines'
-    };
-    var data = [temp];
-    var layout = {title: "Dummy Data!"};
-    var plt = document.getElementById('sup1_ld_temp');
-    var display_range = 100;
-
-    Plotly.newPlot(plt, data, layout);
-    while (true) {
-      Plotly.extendTraces(plt, {y: [[Math.random()]]}, [0], display_range);
-      var count = plt.data[0].y.length;
-      await sleep(50);
-    }
   }
 
   function updatePlot(plot_div, points, crop_time=1000) {
@@ -33,7 +15,7 @@ jQuery(function(){
     // For now, we are only using the first point of the received dataset, even
     // if it contains more. TODO allow adding more points at once.
     const newPoint = {x: new Date(points[0][0] * 1000),
-                      y: parseFloat(points[0][1])};
+      y: parseFloat(points[0][1])};
 
     if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
       const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
@@ -44,7 +26,7 @@ jQuery(function(){
         chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
       }
       // if (age > display_time) {
-        chart.options.axisX.minimum = new Date(now - display_time * 1000);
+      chart.options.axisX.minimum = new Date(now - display_time * 1000);
       // }
       chart.options.axisX.maximum = now;
       chart.render();
@@ -112,16 +94,16 @@ jQuery(function(){
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
-  function sendFlag(entityId, value) {
+  function sendFlag(ws, entityId, value) {
     const message = createMessage({
       method: 'setflag',
       args: [entityId, value]
     });
-    sendMessage(message);
+    sendMessage(ws, message);
   }
 
-  function sendMessage(message) {
-    ws.send(message)
+  function sendMessage(socket, message) {
+    socket.send(message)
   }
 
   function createMessage(object, type) {
@@ -132,72 +114,82 @@ jQuery(function(){
     return JSON.stringify(wrapper) + '\n\n\n';
   }
 
-  // Setup layout using jQuery UI.
-  $('div.tabs').tabs();
-  $('div.slider').each(function() {
-    const container = $(this);
-    const handle = $('.ui-slider-handle', container);
-    container.slider({
-      min: 0,
-      max: 360,
-      step: 0.1,
-      create: function() {
-        handle.text(container.slider("value") + " °");
-      },
-      slide: function(event, ui) {
-        handle.text(ui.value + " °");
-      }
-    });
-  });
+  $(function(){  // Do things on page load.
 
-  var messageHandler = function(event) {
-    var message = JSON.parse(event.data);
-    switch (message.type) {
-      case 'readings':
-        updateAllPlots(message.data);
-        break;
-      case 'texus':
-        updateTexusFlags(message.data);
-        break;
-      default:
-        console.warn('Unknown message type "' + message.type + '".');
+
+    {  // Setup layout using jQuery UI.
+      $('div.tabs').tabs();
     }
-  };
 
-  var ws;
-  $('#connect_btn').on('click', function() {
-    var host = $('#host').val();
-    var ws_port = $('#ws_port').val();
-    ws = new WebSocket('ws://' + host + ':' + ws_port + '/');
-    ws.onmessage = messageHandler;
+    let ws;  // Websocket conn. to server.
+    {  // Establish connection to server.
+      const messageHandler = function(event) {
+        const message = JSON.parse(event.data);
+        switch (message.type) {
+          case 'readings':
+            updateAllPlots(message.data);
+            break;
+          case 'texus':
+            updateTexusFlags(message.data);
+            break;
+          default:
+            console.warn('Unknown message type "' + message.type + '".');
+        }
+      };
+
+      $('#connect_btn').on('click', function() {
+        const host = $('#host').val();
+        const ws_port = $('#ws_port').val();
+        ws = new WebSocket('ws://' + host + ':' + ws_port + '/');
+        ws.onmessage = messageHandler;
+      });
+    }
+
+
+    {  // Setup interactive UI elements.
+      $('div.slider').each(function() {
+        const container = $(this);
+        const handle = $('.ui-slider-handle', container);
+        container.slider({
+          min: 0,
+          max: 360,
+          step: 0.1,
+          create: function() {
+            handle.text(container.slider("value") + " °");
+          },
+          slide: function(event, ui) {
+            handle.text(ui.value + " °");
+          }
+        });
+      });
+      $('#send_btn').on('click', function() {
+        const message = $('#send_data').val();
+        console.log("Sending: " + message);
+        sendMessage(ws, message);
+      });
+
+      $('tr[data-flag]').each(function(){
+        const container = $(this);
+        $('.switch', this).on('click', function() {
+          sendFlag(ws, container.data('flag'), $(this).hasClass('on'));
+        });
+      });
+
+      // TOOLS
+
+      $('[data-safety-switch]').each(function(){
+        const sswitch = $(this);
+        const controls = $(sswitch.data('safetySwitch'));
+        controls.prop('disabled', true);
+        sswitch.on('change', function() {
+          controls.prop('disabled', this.checked ? false : true);
+        });
+        controls.on('click', function() {
+          sswitch.prop('checked', false);
+          sswitch.trigger('change');
+        });
+      });
+    }
   });
 
-
-  $('#send_btn').on('click', function() {
-    const message = $('#send_data').val();
-    console.log("Sending: " + message);
-    sendMessage(message);
-  });
-
-  $('tr[data-flag]').each(function(){
-    const container = $(this);
-    $('.switch', this).on('click', function() {
-      sendFlag(container.data('flag'), $(this).hasClass('on'));
-    });
-  });
-
-  // TOOLS
-
-  $('[data-safety-switch]').each(function(){
-    const sswitch = $(this);
-    const controls = $(sswitch.data('safetySwitch'));
-    controls.prop('disabled', true);
-    sswitch.on('change', function() {
-      controls.prop('disabled', this.checked ? false : true);
-    });
-    controls.on('click', function() {
-      sswitch.prop('checked', false);
-      sswitch.trigger('change');
-    });
-  });
-});
+})(jQuery);
