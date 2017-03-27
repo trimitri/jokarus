@@ -263,7 +263,7 @@ class MenloStack:
 
     @staticmethod
     def _dummy_point_series() -> Buffer:
-        return [(math.nan, 'nan')]
+        return [(time.time(), 'nan')]
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:

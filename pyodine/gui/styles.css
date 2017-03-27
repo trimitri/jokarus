@@ -14,6 +14,15 @@ div.layout_block {
 	padding: 0 1rem;
 	box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
 }
+div.layout_block.osc {
+	width: 70rem;
+	display: flex;
+}
+div.layout_block.osc div.osc_plot {
+	width: 40rem;
+	height: 30rem;
+	flex-grow: 1;
+}
 section#tab_logging div.plot {
 	width: 30rem;
 	height: 20rem;

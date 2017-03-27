@@ -14,22 +14,24 @@
             y: parseFloat(json_data_point[1])};
   }
 
-  function updatePlot(plot_div, points, crop_time=N_KEEP_POINTS) {
+  function updatePlot(plotDiv, points, cropTime=N_KEEP_POINTS) {
 
-    let div = $(plot_div);
+    let div = $(plotDiv);
     const display_time = document.getElementById('display_time').value;
 
     // For now, we are only using the first point of the received dataset, even
     // if it contains more. TODO allow adding more points at once.
-    const newPoint = {x: new Date(points[0][0] * 1000),
-      y: parseFloat(points[0][1])};
+    const newPoint = {
+      x: new Date(points[0][0] * 1000),
+      y: parseFloat(points[0][1])
+    };
 
     if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
       const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
       const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      if (age > crop_time) {
+      if (age > cropTime) {
         chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
       }
       // if (age > display_time) {
@@ -38,9 +40,9 @@
       chart.options.axisX.maximum = now;
       chart.render();
     } else {  // Create new plot.
-      const chart = new CanvasJS.Chart(plot_div, { 
+      const chart = new CanvasJS.Chart(plotDiv, { 
         title: {
-          text: plot_div.dataset['title'],
+          text: plotDiv.dataset['title'],
         },
         data: [{
           type: 'stepLine',
@@ -61,7 +63,7 @@
         },
       });
       chart.render();	
-      $(plot_div).data('chart', chart);
+      $(plotDiv).data('chart', chart);
     }
   }
 
@@ -93,44 +95,50 @@
       // FIXME Update setpoint.
 
       // Crop off some points if we have too many points in memory.
-      const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      if (age > crop_time) {
+      const age = (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
+      if (age > cropTime) {
         chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
       }
 
       // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - display_time * 1000);
+      chart.options.axisX.minimum = new Date(now - displayTime * 1000);
       chart.options.axisX.maximum = now;
       chart.render();
     }
 
     // Plot doesn't exist yet. Create it.
     else {
-      const chart = new CanvasJS.Chart(plot_div, { 
-        title: {
-          text: div.data('title'),
-        },
+      const chart = new CanvasJS.Chart(plotDiv, { 
+        // title: {
+        //   text: div.data('title'),
+        // },
         data: [
           {  // diode current
             axisYType: 'secondary',
-            dataPoints: diode_currents,
-            lineColor: 'red',
+            axisYIndex: 0,
+            dataPoints: diodeCurrents,
+            legendText: "Diode current",
             markerType: 'none',
+            showInLegend: true,
             type: 'stepLine',
           },
           {  // tec current
             axisYType: 'secondary',
-            dataPoints: tec_currents,
-            lineColor: 'green',
+            axisYIndex: 0,
+            dataPoints: tecCurrents,
+            legendText: "Peltier current",
             markerType: 'none',
+            showInLegend: true,
             type: 'stepLine',
           },
           {  // temperature
             axisYType: 'primary',
-            dataPoints: temperatures,
-            lineColor: 'blue',
+            axisYIndex: 1,
+            dataPoints: temps,
+            legendText: "Temperature",
             markerType: 'none',
-            type: 'spline',
+            showInLegend: true,
+            type: 'stepLine',
           }
         ],
         interactivityEnabled: true,
@@ -147,11 +155,13 @@
         axisY2: {
           title: "Current in Menlo Units",
           gridThickness: 1,
+          gridDashType: 'dash',
           includeZero: false,
         },
+        legend: {},
       });
       chart.render();	
-      $(plot_div).data('chart', chart);
+      $(plotDiv).data('chart', chart);
     }
   }
 

@@ -76,9 +76,35 @@
 			<section id="tab_control">
 				<div class="tabs">
 					<ul>
-						<li><a href="#tab_texus">TEXUS Relay</a></li>
 						<li><a href="#tab_osc">Oscillator Supplies</a></li>
+						<li><a href="#tab_texus">TEXUS Relay</a></li>
 					</ul>
+					<div id="tab_osc" class="flex_container">
+						<div class="layout_block osc">
+							<div class="osc_plot"
+								data-title="Master Oscillator"
+								data-current1="mo_current"
+								data-current2="mo_tec_current"
+								data-temp="mo_temp"
+								data-temp-set="mo_temp_set"></div>
+							<div class="controls">
+								<h2>Master Oscillator</h2>
+								<p>Lorem ipsum dolor sit amet.</p>
+							</div>
+						</div>
+						<div class="layout_block osc">
+							<div class="osc_plot"
+								data-title="Power Amplifier"
+								data-current1="pa_current"
+								data-current2="pa_tec_current"
+								data-temp="pa_temp"
+								data-temp-set="pa_temp_set"></div>
+							<div class="controls">
+								<h2>Power Amplifier</h2>
+								<p>Lorem ipsum dolor sit amet.</p>
+							</div>
+						</div>
+					</div>
 					<div id="tab_texus" class="flex_container">
 						<div class="layout_block">
 							<h2>Incoming Flags</h2>
@@ -196,17 +222,6 @@
 									<td class="updated">Never</td>
 								</tr>
 							</table>
-						</div>
-					</div>
-					<div id="tab_osc" class="flex_container">
-						<div class="layout_block">
-							<div class="osc_plot"
-								data-title="Master Oscillator"
-								data-current1="mo_current"
-								data-current2="mo_tec_current"
-								data-temp="mo_temp"
-								data-temp-set="mo_temp_set"></div>
-							<div class="controls"></div>
 						</div>
 					</div>
 				</div>
