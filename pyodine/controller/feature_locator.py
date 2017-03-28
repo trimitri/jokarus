@@ -7,14 +7,14 @@ import numpy as np
 
 class FeatureLocator:
 
-    def __init__(self):
+    def __init__(self) -> None:
+        self.ref_spectrum = None  # type: np.ndarray
+
+    def load_reference_spectrum(self, filename: str) -> None:
+        self.ref_spectrum = np.loadtxt(filename, unpack=True)
+
+    def locate_feature(self, data: np.ndarray) -> None:
         pass
 
-    def load_reference_spectrum(filename: str):
-        pass
-
-    def locate_feature(data: np.ndarray):
-        pass
-
-    def save_reference_spectrum(filename: str):
+    def save_reference_spectrum(self, filename: str) -> None:
         pass
