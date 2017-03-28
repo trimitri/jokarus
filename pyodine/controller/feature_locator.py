@@ -14,7 +14,7 @@ SomeArray = Union[List[float], np.ndarray]  # Either python list or np array.
 
 class FeatureLocator:
 
-    def __init__(self, feature_threshold: float=0.2) -> None:
+    def __init__(self, feature_threshold: float=0.0) -> None:
         self._FEATURE_THRESH = feature_threshold
         self._ref = None  # type: np.ndarray
         self._ref_xvals = None  # type: np.ndarray
