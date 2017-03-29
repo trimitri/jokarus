@@ -191,14 +191,16 @@
 
   function updateFlag(entity_id, new_value) {
     const container = $(`tr[data-flag=${entity_id}]`);
-    const indicators = $('td.indicator', container);
     if (new_value !== container.data('value')) {
       container.data('value', new_value);
       $('td.changed', container).html((new Date()).toLocaleTimeString())
     }
-    indicators.html(new_value ? "On" : "Off");
-    indicators.css('backgroundColor', new_value ? 'green' : 'red');
+    updateIndicator($('td.indicator', container), new_value == '1')
     $('td.updated', container).html((new Date()).toLocaleTimeString());
+  }
+  function updateIndicator (elm, is_on) {
+    elm.html(is_on ? "On" : "Off");
+    elm.css('backgroundColor', is_on ? 'green' : 'red');
   }
 
   function sendFlag(ws, entityId, value) {
@@ -221,6 +223,24 @@
     return JSON.stringify(wrapper) + '\n\n\n';
   }
 
+  function updateIndicators(newValuesObj) {
+    $("td.indicator[data-qty]").each(function () {
+      const qty = this.dataset.qty;
+      if (qty in newValuesObj) {
+        if (newValuesObj[qty].length > 0) {
+
+          // Get the value ([1]) of the latest ([0]) data point.
+          updateIndicator($(this), newValuesObj[qty][0][1] == '1');
+
+          // Update "last updated" fields if any are present for qty.
+          const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
+          $('.update_indicator[data-qty=' + qty + ']').html(
+            timeOfMeasurement.toLocaleTimeString());
+        }
+      }
+    });
+  }
+
   $(function(){  // Do things on page load.
 
 
@@ -238,6 +258,7 @@
             $('div.osc_plot').each(function () {
               updateOscPlot(this, message.data);
             });
+            updateIndicators(message.data);
             break;
           case 'texus':
             updateTexusFlags(message.data);
@@ -272,6 +293,7 @@
           }
         });
       });
+
       $('#send_btn').on('click', function() {
         const message = $('#send_data').val();
         console.log("Sending: " + message);
@@ -284,6 +306,7 @@
           sendFlag(ws, container.data('flag'), $(this).hasClass('on'));
         });
       });
+
 
       // TOOLS
 

@@ -119,10 +119,10 @@ class MenloStack:
             return self._dummy_point_series()
 
     def is_current_driver_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 305)
+        return self._get_laser_prop(unit_number, 305)[:1]
 
     def is_tec_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 304)
+        return self._get_laser_prop(unit_number, 304)[:1]
 
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 288)
@@ -280,7 +280,8 @@ class MenloStack:
 
     @staticmethod
     def _dummy_point_series() -> Buffer:
-        return [(time.time(), 'nan')]
+        return []
+        # return [(time.time(), 'nan')]
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:

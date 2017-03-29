@@ -17,7 +17,7 @@
 		<h1>Pyodine Client</h1>
 		<p>
 			<input id="connect_btn" type="button" value="Connect" />
-			to Pyodine server at <input id="host" type="text" value="icarus" />
+			to Pyodine server at <input id="host" type="text" value="locarus" />
 			(WS port <input id="ws_port" type="number" value="56320" />)
 		</p>
 		<p>
@@ -38,8 +38,6 @@
 				<div class="tabs">
 					<ul>
 						<li><a href="#tab_adc">ADC Chip</a></li>
-						<li><a href="#tab_osc">Oscillator Supplies</a></li>
-						<li><a href="#tab_pid">Lockboxes</a></li>
 					</ul>
 					<div id="tab_adc" class="flex_container">
 						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc0"></div>
@@ -51,26 +49,6 @@
 						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc6"></div>
 						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc7"></div>
 					</div>
-					<div id="tab_osc" class="flex_container">
-						<div class="plot_group mo">
-							<div class="plot" id="mo_temperature"
-								data-title="TEC 1 Temperature"
-								data-ylabel="Temperature in Menlo Units"></div>
-							<div class="plot" id="mo_tec_current"
-								data-title="TEC 1 Current"
-								data-ylabel="Current in Menlo Units" ></div>
-							<div class="plot" id="mo_diode_current"
-								data-title="MO Current"
-								data-ylabel="Current in Menlo Units"></div>
-						</div>
-						<div class="plot layout_block" data-title="TEC 2 Temperature"
-							data-ylabel="Temperature in Menlo Units" id="temp2"></div>
-						<div class="plot layout_block" data-title="TEC 3 Temperature"
-							data-ylabel="Temperature in Menlo Units" id="temp3"></div>
-						<div class="plot layout_block" data-title="TEC 4 Temperature"
-							data-ylabel="Temperature in Menlo Units" id="temp4"></div>
-					</div>
-					<div id="tab_pid"></div>
 				</div>
 			</section>
 			<section id="tab_control">
@@ -89,7 +67,44 @@
 								data-temp-set="mo_temp_set"></div>
 							<div class="controls">
 								<h2>Master Oscillator</h2>
-								<p>Lorem ipsum dolor sit amet.</p>
+								<p>
+									<label>
+										Unlock controls
+										<input type="checkbox" data-safety-switch="#mo_controls input" />
+									</label>
+								</p>
+								<table id="mo_controls">
+									<tr>
+										<td></td>
+										<th>TEC</th>
+										<th>LD Driver</th>
+									</tr>
+									<tr>
+										<th>State</th>
+										<td class="indicator" data-qty="mo_tec_enabled">N/A</td>
+										<td class="indicator" data-qty="mo_enabled">N/A</td>
+									</tr>
+									<tr>
+										<th>Switch</th>
+										<td>
+											<input type="button" class="command" value="On"
+												data-method="switch_tec" data-arguments='["mo", true]' />
+											<input type="button" class="command" value="Off"
+												data-method="switch_tec" data-arguments='["mo", false]' />
+										</td>
+										<td>
+											<input type="button" class="command" value="On"
+												data-method="switch_ld" data-arguments='["mo", true]' />
+											<input type="button" class="command" value="Off"
+												data-method="switch_ld" data-arguments='["mo", false]' />
+										</td>
+									</tr>
+									<tr>
+										<th>Updated</th>
+										<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
+										<td class="update_indicator" data-qty="mo_enabled">Never</td>
+									</tr>
+								</table>
 							</div>
 						</div>
 						<div class="layout_block osc">
@@ -101,7 +116,44 @@
 								data-temp-set="pa_temp_set"></div>
 							<div class="controls">
 								<h2>Power Amplifier</h2>
-								<p>Lorem ipsum dolor sit amet.</p>
+								<p>
+									<label>
+										Unlock controls
+										<input type="checkbox" data-safety-switch="#pa_controls input" />
+									</label>
+								</p>
+								<table id="pa_controls">
+									<tr>
+										<td></td>
+										<th>TEC</th>
+										<th>LD Driver</th>
+									</tr>
+									<tr>
+										<th>State</th>
+										<td class="indicator" data-qty="pa_tec_enabled">N/A</td>
+										<td class="indicator" data-qty="pa_enabled">N/A</td>
+									</tr>
+									<tr>
+										<th>Switch</th>
+										<td>
+											<input type="button" class="command" value="On"
+												data-method="switch_tec" data-arguments='["pa", true]' />
+											<input type="button" class="command" value="Off"
+												data-method="switch_tec" data-arguments='["pa", false]' />
+										</td>
+										<td>
+											<input type="button" class="command" value="On"
+												data-method="switch_ld" data-arguments='["pa", true]' />
+											<input type="button" class="command" value="Off"
+												data-method="switch_ld" data-arguments='["pa", false]' />
+										</td>
+									</tr>
+									<tr>
+										<th>Updated</th>
+										<td class="update_indicator" data-qty="pa_tec_enabled">Never</td>
+										<td class="update_indicator" data-qty="pa_enabled">Never</td>
+									</tr>
+								</table>
 							</div>
 						</div>
 					</div>
