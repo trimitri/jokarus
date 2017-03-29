@@ -26,7 +26,7 @@ MUC_NODE = 255              # node ID of the embedded system
 # Provide dictionaries for the service IDs.
 LASER_SVC_GET = {
         256: "temp setpoint",
-        257: "TEC current setpoint",
+        257: "LD current setpoint",
         272: "meas. LD temperature",
         273: "UNKNOWN 01",
         274: "meas. TEC current",
@@ -118,45 +118,42 @@ class MenloStack:
             LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
             return self._dummy_point_series()
 
+    def is_current_driver_enabled(self, unit_number: int) -> Buffer:
+        return self._get_laser_prop(unit_number, 305)
+
+    def is_tec_enabled(self, unit_number: int) -> Buffer:
+        return self._get_laser_prop(unit_number, 304)
+
+    def is_temp_ok(self, unit_number: int) -> Buffer:
+        return self._get_laser_prop(unit_number, 288)
+
     def get_temperature(self, unit_number: int) -> Buffer:
-        node_id = (unit_number + 2)
-        if node_id in LASER_NODES:
-            return self._get_latest(self._buffers[node_id][272])
-        else:
-            LOGGER.warning("There is no oscillator supply unit %d. "
-                           "Returning dummy.", unit_number)
-            return self._dummy_point_series()
+        return self._get_laser_prop(unit_number, 272)
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
-        node_id = (unit_number + 2)
-        if node_id in LASER_NODES:
-            return self._get_latest(self._buffers[node_id][256])
-        else:
-            LOGGER.warning("There is no oscillator supply unit %d. "
-                           "Returning dummy.", unit_number)
-            return self._dummy_point_series()
+        return self._get_laser_prop(unit_number, 256)
 
     def get_diode_current(self, unit_number: int) -> Buffer:
-        node_id = (unit_number + 2)
-        if node_id in LASER_NODES:
-            return self._get_latest(self._buffers[node_id][275])
-        else:
-            LOGGER.warning("There is no oscillator supply unit %d. "
-                           "Returning dummy.", unit_number)
-            return self._dummy_point_series()
+        return self._get_laser_prop(unit_number, 275)
+
+    def get_diode_current_setpoint(self, unit_number: int) -> Buffer:
+        return self._get_laser_prop(unit_number, 257)
 
     def get_tec_current(self, unit_number: int) -> Buffer:
-        node_id = (unit_number + 2)
-        if node_id in LASER_NODES:
-            return self._get_latest(self._buffers[node_id][274])
-        else:
-            LOGGER.warning("There is no oscillator supply unit %d. "
-                           "Returning dummy.", unit_number)
-            return self._dummy_point_series()
+        return self._get_laser_prop(unit_number, 274)
 
     ###################
     # Private Methods #
     ###################
+
+    def _get_laser_prop(self, unit_number: int, service_id: int) -> Buffer:
+        node_id = (unit_number + 2)
+        if node_id in LASER_NODES:
+            return self._get_latest(self._buffers[node_id][service_id])
+        else:
+            LOGGER.warning("There is no oscillator supply unit %d. "
+                           "Returning dummy.", unit_number)
+            return self._dummy_point_series()
 
     def _init_buffers(self) -> None:
         """Create empty buffers to store received quantities in."""

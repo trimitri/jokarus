@@ -130,6 +130,8 @@ class FeatureLocator:
                 # There is no feature here. Set a high normalization divisor to
                 # effectively block this section from matching anything. (1.0
                 # is the highest regular divisor, see above.)
+                # This part is also important to avoid division by zero
+                # problems.
                 f[...] = 1.11111111
 
         # Cache the result.

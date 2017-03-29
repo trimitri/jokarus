@@ -56,14 +56,22 @@ class Subsystems:
             data['temp'+str(unit)] = self._menlo.get_temperature(unit)
 
         # Oscillator Supplies
-        data['mo_temp'] = self._menlo.get_temperature(1)
+        data['mo_enabled'] = self._menlo.is_current_driver_enabled(1)
         data['mo_current'] = self._menlo.get_diode_current(1)
-        data['mo_tec_current'] = self._menlo.get_tec_current(1)
+        data['mo_current_set'] = self._menlo.get_diode_current_setpoint(1)
+        data['mo_tec_enabled'] = self._menlo.is_tec_enabled(1)
+        data['mo_temp'] = self._menlo.get_temperature(1)
         data['mo_temp_set'] = self._menlo.get_temp_setpoint(1)
+        # data['mo_temp_ok'] = self._menlo.is_temp_ok(1)  # FIXME not sent yet
+        data['mo_tec_current'] = self._menlo.get_tec_current(1)
 
-        data['pa_temp'] = self._menlo.get_temperature(2)
+        data['pa_enabled'] = self._menlo.is_current_driver_enabled(2)
         data['pa_current'] = self._menlo.get_diode_current(2)
-        data['pa_tec_current'] = self._menlo.get_tec_current(2)
+        data['pa_current_set'] = self._menlo.get_diode_current_setpoint(2)
+        data['pa_tec_enabled'] = self._menlo.is_tec_enabled(2)
+        data['pa_temp'] = self._menlo.get_temperature(2)
         data['pa_temp_set'] = self._menlo.get_temp_setpoint(2)
+        # data['pa_temp_ok'] = self._menlo.is_temp_ok(2)  # FIXME not sent yet
+        data['pa_tec_current'] = self._menlo.get_tec_current(2)
 
         return data
