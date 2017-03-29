@@ -198,21 +198,14 @@
     updateIndicator($('td.indicator', container), new_value == '1')
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
+
   function updateIndicator (elm, is_on) {
     elm.html(is_on ? "On" : "Off");
     elm.css('backgroundColor', is_on ? 'green' : 'red');
   }
 
-  function sendFlag(ws, entityId, value) {
-    const message = createMessage({
-      method: 'setflag',
-      args: [entityId, value]
-    });
-    sendMessage(ws, message);
-  }
-
-  function sendMessage(socket, message) {
-    socket.send(message)
+  function sendFlag(socket, entityId, value) {
+    callRemoteMethod(socket, 'setflag', [entityId, value]);
   }
 
   function createMessage(object, type) {
@@ -221,6 +214,14 @@
     wrapper.checksum = '';
     wrapper.data = object;
     return JSON.stringify(wrapper) + '\n\n\n';
+  }
+
+  function callRemoteMethod (socket, methodName, args) {
+    const msg = createMessage({
+      method: method,
+      args: args
+    });
+    socket.send(msg);
   }
 
   function updateIndicators(newValuesObj) {
@@ -292,12 +293,6 @@
             handle.text(ui.value + " °");
           }
         });
-      });
-
-      $('#send_btn').on('click', function() {
-        const message = $('#send_data').val();
-        console.log("Sending: " + message);
-        sendMessage(ws, message);
       });
 
       $('tr[data-flag]').each(function(){

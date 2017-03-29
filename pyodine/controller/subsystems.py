@@ -11,6 +11,7 @@ from ..drivers import menlo_stack
 # Define some custom types.
 DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
 Buffer = List[DataPoint]
+OSC_UNITS = {'mo': 1, 'pa': 2}
 
 
 class Subsystems:
@@ -43,6 +44,16 @@ class Subsystems:
 
     async def set_mo_temp(self, temp: float) -> None:
         await self._menlo.set_temp(1, temp)
+
+    def switch_tec(self, unit_name: str, on: bool) -> None:
+        if unit_name in OSC_UNITS:
+            if type(on) is bool:
+                self._menlo.switch_tec(OSC_UNITS[unit_name], on)
+
+    def switch_ld(self, unit_name: str, on: bool) -> None:
+        if unit_name in OSC_UNITS:
+            if type(on) is bool:
+                self._menlo.switch_ld(OSC_UNITS[unit_name], on)
 
     def get_full_set_of_readings(self) -> Dict[str, Buffer]:
         data = {}  # type: Dict[str, Buffer]

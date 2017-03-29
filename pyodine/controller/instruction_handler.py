@@ -17,7 +17,9 @@ class InstructionHandler:
         self.LEGAL_METHODS = {
                 'set_mo_temp': self._subs.set_mo_temp,
                 'setflag': self._face.set_flag,
-        }
+                'switch_tec': self._subs.switch_tec,
+                'switch_ld': self._subs.switch_ld,
+                }
 
     def handle_instruction(self, message: str) -> None:
         method = None

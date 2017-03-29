@@ -103,14 +103,6 @@ class MenloStack:
         self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
 
-    async def set_temp(self, osc_supply_unit_no: int, temp: float):
-        node = 2 + osc_supply_unit_no
-        if node in LASER_NODES:
-            await self._send_command(node, 1, str(int(temp)))
-        else:
-            LOGGER.warning("Oscillator Supply unit index out of range."
-                           "Refusing to set temperature setpoing.")
-
     def get_adc_voltage(self, channel: int) -> Buffer:
         if channel in ADC_SVC_GET.keys():
             return self._get_latest(self._buffers[16][channel])
@@ -141,6 +133,22 @@ class MenloStack:
 
     def get_tec_current(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 274)
+
+    async def set_temp(self, osc_supply_unit_no: int, temp: float):
+        node = 2 + osc_supply_unit_no
+        if node in LASER_NODES:
+            await self._send_command(node, 1, str(int(temp)))
+        else:
+            LOGGER.warning("Oscillator Supply unit index out of range."
+                           "Refusing to set temperature setpoing.")
+
+    def switch_tec(self, unit: int, on: bool) -> None:
+        if unit + 2 in LASER_NODES:
+            self._send_command(unit+2, 2, '1' if on else '0')
+
+    def switch_ld(self, unit: int, on: bool) -> None:
+        if unit + 2 in LASER_NODES:
+            self._send_command(unit + 2, 5, '1' if on else '0')
 
     ###################
     # Private Methods #
