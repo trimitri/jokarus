@@ -24,42 +24,58 @@ ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
-LASER_SVC_GET = {256: "LD temperature setpoint (found by trying)",
-                 257: "TEC current setpoint",
-                 272: "meas. LD temperature",
-                 273: "Unknown 01 (???)",
-                 274: "meas. TEC current",
-                 275: "meas. LD current",
-                 288: "temp OK status flag"}
-LASER_SVC_SET = {1: "TEC temperature",
-                 2: "enable TEC, active HIGH",
-                 3: "LD current",
-                 5: "enable LD, active HIGH"}
-LOCKBOX_SVC_GET = {272: "lockbox monitor",
-                   273: "P monitor"}
-LOCKBOX_SVC_SET = {0: "disable lock",
-                   1: "disable I1",
-                   2: "disable I2",
-                   3: "activate ramp",
-                   4: "offset in value",
-                   5: "level",
-                   6: "ramp value"}
-ADC_SVC_GET = {0: "ADC channel 0",
-               1: "ADC channel 1",
-               2: "ADC channel 2",
-               3: "ADC channel 3",
-               4: "ADC channel 4",
-               5: "ADC channel 5",
-               6: "ADC channel 6",
-               7: "ADC channel 7",
-               8: "ADC temp 0",
-               9: "ADC temp 1",
-               10: "ADC temp 2",
-               11: "ADC temp 3",
-               12: "ADC temp 4",
-               13: "ADC temp 5",
-               14: "ADC temp 6",
-               15: "ADC temp 7"}
+LASER_SVC_GET = {
+        256: "temp setpoint",
+        257: "TEC current setpoint",
+        272: "meas. LD temperature",
+        273: "UNKNOWN 01",
+        274: "meas. TEC current",
+        275: "meas. LD current",
+        288: "temp OK flag",
+        304: "TEC enabled",
+        305: "LD driver enabled"}
+LASER_SVC_SET = {
+        1: "TEC temperature",
+        2: "enable TEC",
+        3: "LD current",
+        5: "enable LD",
+        255: "update request"}
+LOCKBOX_SVC_GET = {
+        256: "ramp offset",
+        257: "level",
+        258: "ramp value",
+        272: "lockbox monitor",
+        273: "P monitor",
+        304: "lock disabled",
+        305: "I1 disabled",
+        306: "I2 disabled",
+        307: "ramp active"}
+LOCKBOX_SVC_SET = {
+        0: "disable lock",
+        1: "disable I1",
+        2: "disable I2",
+        3: "activate ramp",
+        4: "offset in value",
+        5: "level",
+        6: "ramp value",
+        255: "update request"}
+ADC_SVC_GET = {
+        0: "ADC channel 0",
+        1: "ADC channel 1",
+        2: "ADC channel 2",
+        3: "ADC channel 3",
+        4: "ADC channel 4",
+        5: "ADC channel 5",
+        6: "ADC channel 6",
+        7: "ADC channel 7",
+        8: "ADC temp 0",
+        9: "ADC temp 1",
+        10: "ADC temp 2",
+        11: "ADC temp 3",
+        12: "ADC temp 4",
+        13: "ADC temp 5",
+        14: "ADC temp 6",
+        15: "ADC temp 7"}
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
@@ -231,6 +247,10 @@ class MenloStack:
             parts = resp.split(":")
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
+    async def _request_full_status(self) -> None:
+        for node in LASER_NODES + LOCKBOX_NODES:
+            await self._send_command(node, 255, '0')
+
     @staticmethod
     def _rotate_log(log_list: Buffer, value: str) -> None:
         log_list.insert(0, (time.time(), value))
@@ -242,9 +262,7 @@ class MenloStack:
         # list.
         del(log_list[ROTATE_N:])
 
-    @staticmethod
-    def _get_latest(buffer: Buffer,
-                    since: float=math.nan) -> Buffer:
+    def _get_latest(self, buffer: Buffer, since: float=math.nan) -> Buffer:
         """Returns the latest tuple of time and value from given buffer."""
 
         if math.isnan(since):  # Get single latest data point.
@@ -252,9 +270,11 @@ class MenloStack:
 
                 # In order to be consistent with queries using "since", we
                 # return a length-1 array.
-                return [(buffer[0][0], buffer[0][1])]
-            LOGGER.warning("Returning a dummy, as the given buffer is"
-                           "(still) empty.")
+                return [(buffer[0])]
+            else:
+                asyncio.ensure_future(self._request_full_status())
+                LOGGER.warning("Returning a dummy, as the given buffer is"
+                               "(still) empty.")
         else:
             # FIXME
             LOGGER.error("Getting multiple entries is not yet implemented.")

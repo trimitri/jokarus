@@ -14,7 +14,7 @@ SomeArray = Union[List[float], np.ndarray]  # Either python list or np array.
 
 class FeatureLocator:
 
-    def __init__(self, feature_threshold: float=0.0) -> None:
+    def __init__(self, feature_threshold: float=0.001) -> None:
         self._FEATURE_THRESH = feature_threshold
         self._ref = None  # type: np.ndarray
         self._ref_xvals = None  # type: np.ndarray
@@ -45,7 +45,9 @@ class FeatureLocator:
 
     @sample.setter
     def sample(self, sample: SomeArray) -> None:
-        self._sample = np.array(sample)
+        smpl = np.array(sample)
+        norm = np.linalg.norm(smpl)
+        self._sample = np.divide(smpl, norm)
 
         # Mark quantities that need to be recalculated when a new reference was
         # set.
@@ -124,9 +126,7 @@ class FeatureLocator:
         for f in np.nditer(factors, op_flags=['readwrite']):
 
             # Does this part of the reference spectrum contain actual features?
-            if f > maxval * self._FEATURE_THRESH:
-                f[...] = f / maxval  # Normalize to max() == 1
-            else:
+            if f < maxval * self._FEATURE_THRESH:
                 # There is no feature here. Set a high normalization divisor to
                 # effectively block this section from matching anything. (1.0
                 # is the highest regular divisor, see above.)
