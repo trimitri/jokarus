@@ -51,8 +51,13 @@ class FeatureLocator:
         # set.
         self._corr = None
 
-    def load_reference(self, filename_txt: str='') -> None:
+    def load_reference_from_txt(self, filename_txt: str) -> int:
         self._ref_xvals, self.reference = np.loadtxt(filename_txt, unpack=True)
+        return len(self.reference)
+
+    def load_reference_from_binary(self, filename: str) -> int:
+        self.reference = np.fromfile(filename)
+        return len(self.reference)
 
     def locate_sample(self) -> Tuple[int, float]:
         position = self.correlate().argmax()
@@ -74,44 +79,52 @@ class FeatureLocator:
             confidence = 0  # No maximum was found.
         return (position, confidence)
 
-    def correlate(sf) -> np.ndarray:
-        if sf._corr is not None:
-            return sf._corr
+    def correlate(self) -> np.ndarray:
+        """The (tweaked) cross correlation between sample and reference.
 
-        if sf._ref is not None and sf._sample is not None:
-            sf._corr = signal.correlate(sf._ref, sf._sample,
-                                        mode='valid')
-            sf._corr = np.divide(sf._corr, sf._get_normalization())
-            return sf._corr
+        This may be used for visual control of match quality.
+        """
+        if self._corr is not None:
+            return self._corr
+
+        if self._ref is not None and self._sample is not None:
+            self._corr = signal.correlate(self._ref, self._sample,
+                                          mode='valid')
+            self._corr = np.divide(self._corr, self._get_normalization())
+            return self._corr
         else:
             LOGGER.error("Set reference and sample before correlating.")
             return np.array([])
 
-    def _get_normalization(sf) -> np.ndarray:
-        if len(sf._sample) in sf._norms:
-            return sf._norms[len(sf._sample)]
+    def _get_normalization(self) -> np.ndarray:
+        if len(self._sample) in self._norms:
+            return self._norms[len(self._sample)]
 
         # Normalization wasn't calculated yet for current sample length.
-        sf._calc_normalization()
-        return sf._norms[len(sf.sample)]
+        self._calc_normalization()
+        return self._norms[len(self.sample)]
 
-    def _calc_normalization(sf) -> None:
+    def _calc_normalization(self) -> None:
         # Calculate the reference signal normalization factors for the current
         # sample width.
         # This is necessary in order to avoid ill-fitting, high-amplitude
         # matches overpowering well-fitting low-amplitude ones.
 
         # "Correlate" a sample-sized slice of the reference to itself,
-        # resulting in a scalar product with itself == norm**2.
-        # Repeat this for every possible sample placement.
-        factors = np.array([np.linalg.norm(sf._ref[s:s + len(sf._sample)])
+        # effectively calculating the norm of this section. Repeat this for
+        # every possible sample placement.
+        # PERF: Calculating those norms is ineffective: obviously the same
+        # elements get accounted for over and over again. This is however only
+        # run once for each sample size and thus usually only once at all,
+        # leading to negligible perfomance impact.
+        factors = np.array([np.linalg.norm(self._ref[s:s + len(self._sample)])
                             for s
-                            in range(len(sf._ref) - len(sf._sample) + 1)])
+                            in range(len(self._ref) - len(self._sample) + 1)])
         maxval = factors.max()
         for f in np.nditer(factors, op_flags=['readwrite']):
 
             # Does this part of the reference spectrum contain actual features?
-            if f > maxval * sf._FEATURE_THRESH:
+            if f > maxval * self._FEATURE_THRESH:
                 f[...] = f / maxval  # Normalize to max() == 1
             else:
                 # There is no feature here. Set a high normalization divisor to
@@ -120,4 +133,4 @@ class FeatureLocator:
                 f[...] = 1.11111111
 
         # Cache the result.
-        sf._norms[len(sf._sample)] = factors
+        self._norms[len(self._sample)] = factors
