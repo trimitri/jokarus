@@ -80,6 +80,8 @@
       readingsObj[div.data('temp')].map(convertToPlotPoint);
     const tempSetpoints =
       readingsObj[div.data('tempSet')].map(convertToPlotPoint);
+    const currentSetpoints =
+      readingsObj[div.data('current1Set')].map(convertToPlotPoint);
 
     // Plot exists, update it.
     if (typeof(div.data('chart')) !== 'undefined') {
@@ -94,7 +96,8 @@
       Array.prototype.push.apply(chart.options.data[3].dataPoints,
                                  tempSetpoints);
 
-      // FIXME Update setpoint.
+      chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
+      chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
 
       // Crop off some points if we have too many points in memory.
       const age = (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
@@ -160,8 +163,11 @@
           gridThickness: 1,
           includeZero: false,
           stripLines: [{
-            value: 186,
-            label: "Temp. Setpoint: "
+            value: tempSetpoints[0].y,
+            label: "Temp. Setpoint",
+            labelAlign: 'near',
+            lineDashType: 'dot',
+            showOnTop: true,
           }]
         },
         axisY2: {
@@ -169,6 +175,13 @@
           gridThickness: 1,
           gridDashType: 'dash',
           includeZero: false,
+          stripLines: [{
+            value: currentSetpoints[0].y,
+            label: "Diode Current Setpoint",
+            labelAlign: 'near',
+            lineDashType: 'dot',
+            showOnTop: true,
+          }]
         },
         legend: {},
       });

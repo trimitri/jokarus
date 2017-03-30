@@ -49,3 +49,6 @@ class InstructionHandler:
             LOGGER.warning("Instruction was no valid JSON string")
         except KeyError:
             LOGGER.warning("Instruction package was not of correct structure.")
+        except ValueError:
+            LOGGER.exception("Received value couldn't be converted to correct"
+                             "type.")
