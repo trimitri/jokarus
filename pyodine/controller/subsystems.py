@@ -3,10 +3,14 @@
 This is an interface to the actual things connected to each port of each
 subsystem.
 """
+import logging
 from typing import Dict, List, Tuple
 from ..drivers import menlo_stack
 # from ..drivers import mccdaq
 # from ..drivers import dds9control
+
+LOGGER = logging.getLogger("pyodine.controller.subsystems")
+LOGGER.setLevel(logging.DEBUG)
 
 # Define some custom types.
 DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
@@ -45,15 +49,22 @@ class Subsystems:
     def reset_dds(self) -> None:
         pass  # FIXME
 
-    def set_current(self, unit_name, milliamps: float) -> None:
+    def set_current(self, unit_name: str, milliamps: float) -> None:
+        LOGGER.debug("Setting diode current of unit %s to %s mA",
+                     unit_name, milliamps)
         if (unit_name in OSC_UNITS
                 and type(milliamps) is float
                 and milliamps > 0):
             self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
+        else:
+            LOGGER.error("Illegal setting for diode current.")
 
     def set_temp(self, unit_name, celsius: float) -> None:
+        LOGGER.debug("Setting temp. of unit %s to %s°C", unit_name, celsius)
         if unit_name in OSC_UNITS and type(celsius) is float:
             self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
+        else:
+            LOGGER.error("Illegal setting for temperature setpoint.")
 
     def switch_tec(self, unit_name: str, on: bool) -> None:
         if unit_name in OSC_UNITS:

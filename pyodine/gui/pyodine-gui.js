@@ -78,7 +78,8 @@
       readingsObj[div.data('current2')].map(convertToPlotPoint);
     const temps =
       readingsObj[div.data('temp')].map(convertToPlotPoint);
-    const temp_setpoint = parseFloat(readingsObj[div.data('tempSet')][0][1]);
+    const tempSetpoints =
+      readingsObj[div.data('tempSet')].map(convertToPlotPoint);
 
     // Plot exists, update it.
     if (typeof(div.data('chart')) !== 'undefined') {
@@ -89,8 +90,9 @@
                                  diodeCurrents);
       Array.prototype.push.apply(chart.options.data[1].dataPoints,
                                  tecCurrents);
-      Array.prototype.push.apply(chart.options.data[2].dataPoints,
-                                 temps);
+      Array.prototype.push.apply(chart.options.data[2].dataPoints, temps);
+      Array.prototype.push.apply(chart.options.data[3].dataPoints,
+                                 tempSetpoints);
 
       // FIXME Update setpoint.
 
@@ -135,6 +137,15 @@
             legendText: "Temperature",
             markerType: 'none',
             showInLegend: true,
+            type: 'line',
+          },
+          {  // temperature setpoint
+            axisYType: 'primary',
+            axisYIndex: 1,
+            dataPoints: tempSetpoints,
+            legendText: "Temp. Setpoint",
+            markerType: 'none',
+            showInLegend: true,
             type: 'stepLine',
           }
         ],
@@ -148,6 +159,10 @@
           title: "Temp. in Menlo Units",
           gridThickness: 1,
           includeZero: false,
+          stripLines: [{
+            value: 186,
+            label: "Temp. Setpoint: "
+          }]
         },
         axisY2: {
           title: "Current in Menlo Units",
@@ -215,7 +230,7 @@
 
   function callRemoteMethod (socket, methodName, args) {
     const msg = createMessage({
-      method: method,
+      method: methodName,
       args: args
     });
     socket.send(msg);
@@ -303,10 +318,10 @@
         const qty = this.dataset.qty;
         const trigger = $(this);
         const source = $('input.source[data-qty=' + qty + ']').first();
-        const value = source.val();
         trigger.on('click', function () {
+          const value = source.val();
           if (value != '') {
-            callRemoteMethod(ws, 'set' + qty, value)
+            callRemoteMethod(ws, 'set_' + qty, [value])
           } else {
             alert("No value set. Please set a value.")
           }
