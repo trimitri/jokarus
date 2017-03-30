@@ -36,14 +36,24 @@ class Subsystems:
         self._menlo = menlo_stack.MenloStack()
         await self._menlo.init_async()
 
+    async def refresh_status(self) -> None:
+        await self._menlo.request_full_status()
+
     def reset_daq(self) -> None:
         pass  # FIXME
 
     def reset_dds(self) -> None:
         pass  # FIXME
 
-    async def set_mo_temp(self, temp: float) -> None:
-        await self._menlo.set_temp(1, temp)
+    def set_current(self, unit_name, milliamps: float) -> None:
+        if (unit_name in OSC_UNITS
+                and type(milliamps) is float
+                and milliamps > 0):
+            self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
+
+    def set_temp(self, unit_name, celsius: float) -> None:
+        if unit_name in OSC_UNITS and type(celsius) is float:
+            self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
 
     def switch_tec(self, unit_name: str, on: bool) -> None:
         if unit_name in OSC_UNITS:
@@ -73,7 +83,7 @@ class Subsystems:
         data['mo_tec_enabled'] = self._menlo.is_tec_enabled(1)
         data['mo_temp'] = self._menlo.get_temperature(1)
         data['mo_temp_set'] = self._menlo.get_temp_setpoint(1)
-        # data['mo_temp_ok'] = self._menlo.is_temp_ok(1)  # FIXME not sent yet
+        # data['mo_temp_ok'] = self._menlo.is_temp_ok(1)
         data['mo_tec_current'] = self._menlo.get_tec_current(1)
 
         data['pa_enabled'] = self._menlo.is_current_driver_enabled(2)
@@ -82,7 +92,7 @@ class Subsystems:
         data['pa_tec_enabled'] = self._menlo.is_tec_enabled(2)
         data['pa_temp'] = self._menlo.get_temperature(2)
         data['pa_temp_set'] = self._menlo.get_temp_setpoint(2)
-        # data['pa_temp_ok'] = self._menlo.is_temp_ok(2)  # FIXME not sent yet
+        # data['pa_temp_ok'] = self._menlo.is_temp_ok(2)
         data['pa_tec_current'] = self._menlo.get_tec_current(2)
 
         return data

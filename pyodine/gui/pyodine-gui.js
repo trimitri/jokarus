@@ -109,9 +109,6 @@
     // Plot doesn't exist yet. Create it.
     else {
       const chart = new CanvasJS.Chart(plotDiv, { 
-        // title: {
-        //   text: div.data('title'),
-        // },
         data: [
           {  // diode current
             axisYType: 'secondary',

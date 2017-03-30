@@ -15,15 +15,16 @@ class InstructionHandler:
         self._subs = subsystem_controller
         self._face = interface_controller
         self.LEGAL_METHODS = {
-                'set_mo_temp': self._subs.set_mo_temp,
-                'setflag': self._face.set_flag,
+                'set_mo_current': lambda c: self._subs.set_current('mo', c),
+                'set_mo_temp': lambda t: self._subs.set_temp('mo', t),
+                'set_pa_current': lambda c: self._subs.set_current('pa', c),
+                'set_pa_temp': lambda t: self._subs.set_temp('pa', t),
                 'switch_tec': self._subs.switch_tec,
                 'switch_ld': self._subs.switch_ld,
+                'setflag': self._face.set_flag,
                 }
 
     def handle_instruction(self, message: str) -> None:
-        method = None
-        arguments = None
         try:
             container = json.loads(message)
             method = container['data']['method']

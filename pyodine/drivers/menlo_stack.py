@@ -111,10 +111,10 @@ class MenloStack:
             return self._dummy_point_series()
 
     def is_current_driver_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 305)[:1]
+        return self._get_laser_prop(unit_number, 305)
 
     def is_tec_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 304)[:1]
+        return self._get_laser_prop(unit_number, 304)
 
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 288)
@@ -134,13 +134,21 @@ class MenloStack:
     def get_tec_current(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 274)
 
-    async def set_temp(self, osc_supply_unit_no: int, temp: float):
-        node = 2 + osc_supply_unit_no
+    def set_temp(self, unit_number: int, temp: float):
+        node = 2 + unit_number
         if node in LASER_NODES:
-            await self._send_command(node, 1, str(int(temp)))
+            asyncio.ensure_future(self._send_command(node, 1, str(int(temp))))
         else:
-            LOGGER.warning("Oscillator Supply unit index out of range."
-                           "Refusing to set temperature setpoing.")
+            LOGGER.error("Oscillator Supply unit index out of range."
+                         "Refusing to set temperature setpoint.")
+
+    def set_current(self, unit_number: int, temp: float):
+        node = 2 + unit_number
+        if node in LASER_NODES:
+            asyncio.ensure_future(self._send_command(node, 3, str(int(temp))))
+        else:
+            LOGGER.error("Oscillator Supply unit index out of range."
+                         "Refusing to set current setpoint.")
 
     def switch_tec(self, unit: int, on: bool) -> None:
         if unit + 2 in LASER_NODES:
@@ -252,7 +260,7 @@ class MenloStack:
             parts = resp.split(":")
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
-    async def _request_full_status(self) -> None:
+    async def request_full_status(self) -> None:
         for node in LASER_NODES + LOCKBOX_NODES:
             await self._send_command(node, 255, '0')
 
@@ -277,9 +285,7 @@ class MenloStack:
                 # return a length-1 array.
                 return [(buffer[0])]
             else:
-                asyncio.ensure_future(self._request_full_status())
-                LOGGER.warning("Returning a dummy, as the given buffer is"
-                               "(still) empty.")
+                LOGGER.debug("Returning emtpy buffer.")
         else:
             # FIXME
             LOGGER.error("Getting multiple entries is not yet implemented.")

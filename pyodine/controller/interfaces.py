@@ -45,8 +45,9 @@ class Interfaces:
         # TEXUS flags relay
         self._texus = texus_relay.TexusRelay()
 
-    def start_publishing_regularly(self, readings_interval: float=1,
-                                   flags_interval: float=10) -> None:
+    def start_publishing_regularly(self, readings_interval: float=1.07,
+                                   status_update_interval: float=10.137,
+                                   flags_interval: float=3.03) -> None:
 
         async def serve_readings():
             while True:
@@ -58,8 +59,14 @@ class Interfaces:
                 await self.publish_flags()
                 await asyncio.sleep(flags_interval)
 
+        async def regularly_refresh_status():
+            while True:
+                await self._subs.refresh_status()
+                await asyncio.sleep(status_update_interval)
+
         asyncio.ensure_future(serve_readings())
         asyncio.ensure_future(serve_flags())
+        asyncio.ensure_future(regularly_refresh_status())
 
     async def publish_readings(self) -> None:
         data = self._subs.get_full_set_of_readings()
