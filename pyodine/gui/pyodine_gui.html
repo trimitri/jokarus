@@ -15,19 +15,21 @@
 	</head>
 	<body>
 		<h1>Pyodine Client</h1>
-		<p>
-			<input id="connect_btn" type="button" value="Connect" />
-			to Pyodine server at <input id="host" type="text" value="locarus" />
-			(WS port <input id="ws_port" type="number" value="56320" />)
-		</p>
-		<p>
-			<label title="Try this if empty plots are shown.">
-				Use server clock instead of local clock <input id="use_server_clock" type="checkbox" />
-			</label>
-		</p>
-		<p>
-			Plots show <input id="display_time" type="number" value="120" min="1" max="1000" /> seconds of data.
-		</p>
+		<section class="header">
+			<p>
+				<input id="connect_btn" type="button" value="Connect" />
+				to Pyodine server at <input id="host" type="text" value="locarus" />
+				(WS port <input id="ws_port" type="number" value="56320" />)
+			</p>
+			<p>
+				<label title="Try this if empty plots are shown.">
+					Use server clock instead of local clock <input id="use_server_clock" type="checkbox" />
+				</label>
+			</p>
+			<p>
+				Plots show <input id="display_time" type="number" value="120" min="1" max="1000" /> seconds of data.
+			</p>
+		</section>
 		<div class="tabs">
 			<ul>
 				<li><a href="#tab_logging">Data Logging</a></li>
@@ -70,41 +72,54 @@
 								<p>
 									<label>
 										Unlock controls
-										<input type="checkbox" data-safety-switch="#mo_controls input" />
+										<input type="checkbox" data-safety-switch=".mo_controls input" />
 									</label>
 								</p>
-								<table id="mo_controls">
-									<tr>
-										<td></td>
-										<th>TEC</th>
-										<th>LD Driver</th>
-									</tr>
-									<tr>
-										<th>State</th>
-										<td class="indicator" data-qty="mo_tec_enabled">N/A</td>
-										<td class="indicator" data-qty="mo_enabled">N/A</td>
-									</tr>
-									<tr>
-										<th>Switch</th>
-										<td>
-											<input type="button" class="command" value="On"
-												data-method="switch_tec" data-arguments='["mo", true]' />
-											<input type="button" class="command" value="Off"
-												data-method="switch_tec" data-arguments='["mo", false]' />
-										</td>
-										<td>
-											<input type="button" class="command" value="On"
-												data-method="switch_ld" data-arguments='["mo", true]' />
-											<input type="button" class="command" value="Off"
-												data-method="switch_ld" data-arguments='["mo", false]' />
-										</td>
-									</tr>
-									<tr>
-										<th>Updated</th>
-										<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
-										<td class="update_indicator" data-qty="mo_enabled">Never</td>
-									</tr>
-								</table>
+								<div class="mo_controls">
+									<table>
+										<tr>
+											<td></td>
+											<th>TEC</th>
+											<th>LD Driver</th>
+										</tr>
+										<tr>
+											<th>State</th>
+											<td class="indicator" data-qty="mo_tec_enabled">N/A</td>
+											<td class="indicator" data-qty="mo_enabled">N/A</td>
+										</tr>
+										<tr>
+											<th>Switch</th>
+											<td>
+												<input type="button" class="command" value="On"
+													data-method="switch_tec" data-arguments='["mo", true]' />
+												<input type="button" class="command" value="Off"
+													data-method="switch_tec" data-arguments='["mo", false]' />
+											</td>
+											<td>
+												<input type="button" class="command" value="On"
+													data-method="switch_ld" data-arguments='["mo", true]' />
+												<input type="button" class="command" value="Off"
+													data-method="switch_ld" data-arguments='["mo", false]' />
+											</td>
+										</tr>
+										<tr>
+											<th>Updated</th>
+											<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
+											<td class="update_indicator" data-qty="mo_enabled">Never</td>
+										</tr>
+									</table>
+									<h3>Setpoints</h3>
+									<p>
+										Temperature:
+										<input type="number" class="source" data-qty="mo_temp" step="any" />&thinsp;°C
+										<input type="button" class="setter" data-qty="mo_temp" value="Set" />
+									</p>
+									<p>
+										Diode Current:
+										<input type="number" class="source" data-qty="mo_current" step="any" />&thinsp;mA
+										<input type="button" class="setter" data-qty="mo_current" value="Set" />
+									</p>
+								</div>
 							</div>
 						</div>
 						<div class="layout_block osc">
@@ -288,7 +303,7 @@
 				<p>
 					AOM Frequency (currently <span id="aom_freq"></span>&thinsp;MHz):
 					<input id="aom_freq_setpoint" type="number" value="150.0" />
-					<input type="button" value="set" />
+					<input type="button" class="setter" value="set" />
 				</p>
 				<p>
 					Offset between AOM and Mixer phase (currently <span id="aom_phase"></span>&thinsp;%):

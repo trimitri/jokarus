@@ -302,19 +302,35 @@
         });
       });
 
+      $('input[type=button].setter[data-qty]').each(function () {
+        const qty = this.dataset.qty;
+        const trigger = $(this);
+        const source = $('input.source[data-qty=' + qty + ']').first();
+        const value = source.val();
+        trigger.on('click', function () {
+          if (value != '') {
+            callRemoteMethod(ws, 'set' + qty, value)
+          } else {
+            alert("No value set. Please set a value.")
+          }
+        });
+      });
+
 
       // TOOLS
 
       $('[data-safety-switch]').each(function(){
         const sswitch = $(this);
-        const controls = $(sswitch.data('safetySwitch'));
+        const controls = $(sswitch.data('safetySwitch')).filter('input');
         controls.prop('disabled', true);
         sswitch.on('change', function() {
           controls.prop('disabled', this.checked ? false : true);
         });
         controls.on('click', function() {
-          sswitch.prop('checked', false);
-          sswitch.trigger('change');
+          if (this.type == 'button') {
+            sswitch.prop('checked', false);
+            sswitch.trigger('change');
+          }
         });
       });
     }

@@ -50,3 +50,6 @@ table.flags th {
 label {
 	cursor: pointer;
 }
+input[type=number] {
+	width: 5rem;
+}
