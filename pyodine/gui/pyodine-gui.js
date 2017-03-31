@@ -8,6 +8,22 @@
   const DOM_SCOPE = document.body;  // Optional, for scoping this script.
   const N_KEEP_POINTS = 1000;  // # of plot points to keep in memory.
 
+  function createMessage(object, type) {
+    const wrapper = {};
+    wrapper.type = type;
+    wrapper.checksum = '';
+    wrapper.data = object;
+    return `${JSON.stringify(wrapper)}\n\n\n`;
+  }
+
+  function callRemoteMethod(socket, methodName, args) {
+    const msg = createMessage({
+      method: methodName,
+      args,
+    });
+    socket.send(msg);
+  }
+
   // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
   function convertToPlotPoint(jsonDataPoint) {
     return {
@@ -106,13 +122,10 @@
       }
 
       // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - displayTime * 1000);
+      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
       chart.options.axisX.maximum = now;
       chart.render();
-    }
-
-    // Plot doesn't exist yet. Create it.
-    else {
+    } else {  // Plot doesn't exist yet. Create it.
       const chart = new CanvasJS.Chart(plotDiv, {
         data: [
           {  // diode current
@@ -190,71 +203,55 @@
     }
   }
 
-  function updateAllPlots(new_values_obj) {
+  function updateAllPlots(newValuesObj) {
     // Gather available plot areas.
-    const available_plots = {};
-    $('div.plot', DOM_SCOPE).each(function () {
-      available_plots[this.id] = this;
+    const availablePlots = {};
+    $('div.plot', DOM_SCOPE).each(function register() {
+      availablePlots[this.id] = this;
     });
 
     // Update them.
-    for (const id in available_plots) {
-      if (id in new_values_obj) {
-        updatePlot(available_plots[id], new_values_obj[id]);
+    Object.keys(availablePlots).forEach((id) => {
+      if (id in newValuesObj) {
+        updatePlot(availablePlots[id], newValuesObj[id]);
       } else {
         console.log(`Received message didn't include data to update plot "${id}"`);
       }
-    }
+    });
   }
 
-  function updateTexusFlags(new_values_obj) {
-    for (const key in new_values_obj) {
-      updateFlag(key, new_values_obj[key]);
-    }
+  function updateIndicator(elm, isOn) {
+    elm.html(isOn ? "On" : "Off");
+    elm.css('backgroundColor', isOn ? 'green' : 'red');
   }
 
-  function updateFlag(entity_id, new_value) {
-    const container = $(`tr[data-flag=${entity_id}]`);
-    if (new_value !== container.data('value')) {
-      container.data('value', new_value);
+  function updateFlag(entityId, newValue) {
+    const container = $(`tr[data-flag=${entityId}]`);
+    if (newValue !== container.data('value')) {
+      container.data('value', newValue);
       $('td.changed', container).html((new Date()).toLocaleTimeString());
     }
-    updateIndicator($('td.indicator', container), new_value == '1');
+    updateIndicator($('td.indicator', container), newValue === 1);
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
-  function updateIndicator(elm, is_on) {
-    elm.html(is_on ? "On" : "Off");
-    elm.css('backgroundColor', is_on ? 'green' : 'red');
+  function updateTexusFlags(newValuesObj) {
+    Object.keys(newValuesObj).forEach((key) => {
+      updateFlag(key, newValuesObj[key]);
+    });
   }
 
   function sendFlag(socket, entityId, value) {
     callRemoteMethod(socket, 'setflag', [entityId, value]);
   }
 
-  function createMessage(object, type) {
-    const wrapper = {};
-    wrapper.type = type;
-    wrapper.checksum = '';
-    wrapper.data = object;
-    return `${JSON.stringify(wrapper)}\n\n\n`;
-  }
-
-  function callRemoteMethod(socket, methodName, args) {
-    const msg = createMessage({
-      method: methodName,
-      args,
-    });
-    socket.send(msg);
-  }
-
   function updateIndicators(newValuesObj) {
-    $("td.indicator[data-qty]").each(function () {
+    $("td.indicator[data-qty]").each(function update() {
       const qty = this.dataset.qty;
       if (qty in newValuesObj) {
         if (newValuesObj[qty].length > 0) {
           // Get the value ([1]) of the latest ([0]) data point.
-          updateIndicator($(this), newValuesObj[qty][0][1] == '1');
+          updateIndicator($(this), newValuesObj[qty][0][1] === 1);
 
           // Update "last updated" fields if any are present for qty.
           const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
@@ -266,9 +263,8 @@
   }
 
   $(() => {  // Do things on page load.
-    {  // Setup layout using jQuery UI.
-      $('div.tabs').tabs();
-    }
+    // Setup layout using jQuery UI.
+    $('div.tabs').tabs();
 
     let ws;  // Websocket connection.
     {  // Establish connection to server.
