@@ -8,6 +8,8 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function armCommandBtn (socket, button) {
+  }
   // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
   function convertToPlotPoint(json_data_point) {
     return {x: new Date(json_data_point[0] * 1000),
@@ -171,7 +173,7 @@
           }]
         },
         axisY2: {
-          title: "Current in Menlo Units",
+          title: "I in mA",
           gridThickness: 1,
           gridDashType: 'dash',
           includeZero: false,
@@ -341,6 +343,14 @@
         });
       });
 
+      $('input[type=button][data-method][data-arguments]').each(function() {
+        const button = $(this);
+        button.on('click', function () {
+          const commandName = button.data('method');
+          const args = button.data('arguments');
+          callRemoteMethod(ws, commandName, args);
+        });
+      });
 
       // TOOLS
 

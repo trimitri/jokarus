@@ -162,12 +162,18 @@ class MenloStack:
                          "Refusing to set current setpoint.")
 
     def switch_tec(self, unit: int, on: bool) -> None:
+        LOGGER.info("Switching TEC of unit %s %s.",
+                    unit, "ON" if on else "OFF")
         if unit + 2 in LASER_NODES:
-            self._send_command(unit+2, 2, '1' if on else '0')
+            asyncio.ensure_future(
+                self._send_command(unit + 2, 2, 1 if on else 0))
 
     def switch_ld(self, unit: int, on: bool) -> None:
+        LOGGER.info("Switching current driver of unit %s %s.",
+                    unit, "ON" if on else "OFF")
         if unit + 2 in LASER_NODES:
-            self._send_command(unit + 2, 5, '1' if on else '0')
+            asyncio.ensure_future(
+                    self._send_command(unit + 2, 5, 1 if on else 0))
 
     ###################
     # Private Methods #
@@ -216,7 +222,8 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    async def _send_command(self, node: int, service: int, value: str) -> None:
+    async def _send_command(self, node: int, service: int,
+                            value: Union[MenloUnit, str]) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
         LOGGER.debug("Sending message %d:%d:%s ...", node, service, value)
         await self._connection.send(message)
