@@ -4,7 +4,7 @@ This is an interface to the actual things connected to each port of each
 subsystem.
 """
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 from ..drivers import menlo_stack
 # from ..drivers import mccdaq
 # from ..drivers import dds9control
@@ -13,7 +13,7 @@ LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
 # Define some custom types.
-DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
+DataPoint = Tuple[float, Union[str]]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 OSC_UNITS = {'mo': 1, 'pa': 2}
 

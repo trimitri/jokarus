@@ -8,7 +8,7 @@ import asyncio     # Needed for websockets.
 import logging
 import math
 import time        # To keep track of when replies came in.
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple, Union
 
 import websockets
 
@@ -25,62 +25,62 @@ MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
 LASER_SVC_GET = {
-        256: "temp setpoint",
-        257: "LD current setpoint",
-        272: "meas. LD temperature",
-        273: "UNKNOWN 01",
-        274: "meas. TEC current",
-        275: "meas. LD current",
-        288: "temp OK flag",
-        304: "TEC enabled",
-        305: "LD driver enabled"}
+    256: "temp setpoint",
+    257: "LD current setpoint",
+    272: "meas. LD temperature",
+    273: "UNKNOWN 01",
+    274: "meas. TEC current",
+    275: "meas. LD current",
+    288: "temp OK flag",
+    304: "TEC enabled",
+    305: "LD driver enabled"}
 LASER_SVC_SET = {
-        1: "TEC temperature",
-        2: "enable TEC",
-        3: "LD current",
-        5: "enable LD",
-        255: "update request"}
+    1: "TEC temperature",
+    2: "enable TEC",
+    3: "LD current",
+    5: "enable LD",
+    255: "update request"}
 LOCKBOX_SVC_GET = {
-        256: "ramp offset",
-        257: "level",
-        258: "ramp value",
-        272: "lockbox monitor",
-        273: "P monitor",
-        304: "lock disabled",
-        305: "I1 disabled",
-        306: "I2 disabled",
-        307: "ramp active"}
+    256: "ramp offset",
+    257: "level",
+    258: "ramp value",
+    272: "lockbox monitor",
+    273: "P monitor",
+    304: "lock disabled",
+    305: "I1 disabled",
+    306: "I2 disabled",
+    307: "ramp active"}
 LOCKBOX_SVC_SET = {
-        0: "disable lock",
-        1: "disable I1",
-        2: "disable I2",
-        3: "activate ramp",
-        4: "offset in value",
-        5: "level",
-        6: "ramp value",
-        255: "update request"}
+    0: "disable lock",
+    1: "disable I1",
+    2: "disable I2",
+    3: "activate ramp",
+    4: "offset in value",
+    5: "level",
+    6: "ramp value",
+    255: "update request"}
 ADC_SVC_GET = {
-        0: "ADC channel 0",
-        1: "ADC channel 1",
-        2: "ADC channel 2",
-        3: "ADC channel 3",
-        4: "ADC channel 4",
-        5: "ADC channel 5",
-        6: "ADC channel 6",
-        7: "ADC channel 7",
-        8: "ADC temp 0",
-        9: "ADC temp 1",
-        10: "ADC temp 2",
-        11: "ADC temp 3",
-        12: "ADC temp 4",
-        13: "ADC temp 5",
-        14: "ADC temp 6",
-        15: "ADC temp 7"}
+    0: "ADC channel 0",
+    1: "ADC channel 1",
+    2: "ADC channel 2",
+    3: "ADC channel 3",
+    4: "ADC channel 4",
+    5: "ADC channel 5",
+    6: "ADC channel 6",
+    7: "ADC channel 7",
+    8: "ADC temp 0",
+    9: "ADC temp 1",
+    10: "ADC temp 2",
+    11: "ADC temp 3",
+    12: "ADC temp 4",
+    13: "ADC temp 5",
+    14: "ADC temp 6",
+    15: "ADC temp 7"}
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
 # Define some custom types.
-DataPoint = Tuple[float, str]  # Measurement time (float), value (str)
+DataPoint = Tuple[float, Union[str]]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 Buffers = Dict[int, Dict[int, Buffer]]
 
@@ -126,13 +126,16 @@ class MenloStack:
         return self._get_laser_prop(unit_number, 256)
 
     def get_diode_current(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 275)
+        return [(time, self._to_current(val))
+                for (time, val) in self._get_laser_prop(unit_number, 275)]
 
     def get_diode_current_setpoint(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 257)
+        return [(time, self._to_current(val))
+                for (time, val) in self._get_laser_prop(unit_number, 257)]
 
     def get_tec_current(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 274)
+        return [(time, self._to_current(val))
+                for (time, val) in self._get_laser_prop(unit_number, 274)]
 
     def set_temp(self, unit_number: int, temp: float):
         node = 2 + unit_number
@@ -142,10 +145,12 @@ class MenloStack:
             LOGGER.error("Oscillator Supply unit index out of range."
                          "Refusing to set temperature setpoint.")
 
-    def set_current(self, unit_number: int, temp: float):
+    def set_current(self, unit_number: int, milliamps: float):
         node = 2 + unit_number
         if node in LASER_NODES:
-            asyncio.ensure_future(self._send_command(node, 3, str(int(temp))))
+            asyncio.ensure_future(
+                self._send_command(node, 3,
+                                   str(self._from_current(milliamps))))
         else:
             LOGGER.error("Oscillator Supply unit index out of range."
                          "Refusing to set current setpoint.")
@@ -166,10 +171,11 @@ class MenloStack:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             return self._get_latest(self._buffers[node_id][service_id])
-        else:
-            LOGGER.warning("There is no oscillator supply unit %d. "
-                           "Returning dummy.", unit_number)
-            return self._dummy_point_series()
+
+        # else
+        LOGGER.warning("There is no oscillator supply unit %d. "
+                       "Returning dummy.", unit_number)
+        return self._dummy_point_series()
 
     def _init_buffers(self) -> None:
         """Create empty buffers to store received quantities in."""
@@ -275,7 +281,8 @@ class MenloStack:
         # list.
         del(log_list[ROTATE_N:])
 
-    def _get_latest(self, buffer: Buffer, since: float=math.nan) -> Buffer:
+    @staticmethod
+    def _get_latest(buffer: Buffer, since: float=math.nan) -> Buffer:
         """Returns the latest tuple of time and value from given buffer."""
 
         if math.isnan(since):  # Get single latest data point.
@@ -295,7 +302,6 @@ class MenloStack:
     @staticmethod
     def _dummy_point_series() -> Buffer:
         return []
-        # return [(time.time(), 'nan')]
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:
@@ -315,3 +321,37 @@ class MenloStack:
         # Unknown combination of Node and Service.
         LOGGER.warning("Tried to name unknown service %d:%d.", node, service)
         return "unknown service"
+
+    @staticmethod
+    def _to_current(value: int) -> float:
+        """Takes a menlo current reading and converts in to milliamps."""
+        return float(value / 8.0)
+
+    @staticmethod
+    def _from_current(milliamps: float) -> int:
+        """Takes a menlo current reading and converts in to milliamps."""
+        return int(round(milliamps * 8))
+
+    @staticmethod
+    def _to_temperature(menlos: int) -> float:
+        """Takes a temp. in Celsius and converts in to Menlo units.
+
+        The parameters of the quadratic expansion are read by R. Wilk from a
+        plot in the TEC controller chip datasheet."""
+        factor = 27000
+        a0 = factor * -2.489
+        a1 = factor * 0.1717
+        a2 = factor * -0.0004352
+        return -a1/(2*a2) - math.sqrt((a1/(2*a2))**2 + (menlos - a0)/a2)
+
+    @staticmethod
+    def _from_temperature(celsius: float) -> int:
+        """Takes a menlo current reading and converts in to ° Celsius.
+
+        The parameters of the quadratic expansion are read by R. Wilk from a
+        plot in the TEC controller chip datasheet."""
+        factor = 27000
+        a0 = factor * -2.489
+        a1 = factor * 0.1717
+        a2 = factor * -0.0004352
+        return int(round(a0 + a1 * celsius + a2 * celsius**2))
