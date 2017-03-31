@@ -1,34 +1,33 @@
-(function ($) {  // Require jQuery. Don't use global scope. (IIFE)
+/* eslint-env browser, jquery */
+/* global CanvasJS */
+
+// Require jQuery. Don't use global scope. (IIFE)
+(function jqueryWrapper($) {
   'use strict';
 
   const DOM_SCOPE = document.body;  // Optional, for scoping this script.
   const N_KEEP_POINTS = 1000;  // # of plot points to keep in memory.
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  function armCommandBtn (socket, button) {
-  }
   // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
-  function convertToPlotPoint(json_data_point) {
-    return {x: new Date(json_data_point[0] * 1000),
-            y: parseFloat(json_data_point[1])};
+  function convertToPlotPoint(jsonDataPoint) {
+    return {
+      x: new Date(jsonDataPoint[0] * 1000),
+      y: parseFloat(jsonDataPoint[1]),
+    };
   }
 
-  function updatePlot(plotDiv, points, cropTime=N_KEEP_POINTS) {
-
-    let div = $(plotDiv);
-    const display_time = document.getElementById('display_time').value;
+  function updatePlot(plotDiv, points, cropTime = N_KEEP_POINTS) {
+    const div = $(plotDiv);
+    const displayTime = document.getElementById('display_time').value;
 
     // For now, we are only using the first point of the received dataset, even
     // if it contains more. TODO allow adding more points at once.
     const newPoint = {
       x: new Date(points[0][0] * 1000),
-      y: parseFloat(points[0][1])
+      y: parseFloat(points[0][1]),
     };
 
-    if (typeof(div.data('chart')) !== 'undefined') {  // Plot exists, update it.
+    if (typeof div.data('chart') !== 'undefined') {  // Plot exists, update it.
       const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
@@ -36,15 +35,15 @@
       if (age > cropTime) {
         chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
       }
-      // if (age > display_time) {
-      chart.options.axisX.minimum = new Date(now - display_time * 1000);
+      // if (age > displayTime) {
+      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
       // }
       chart.options.axisX.maximum = now;
       chart.render();
     } else {  // Create new plot.
-      const chart = new CanvasJS.Chart(plotDiv, { 
+      const chart = new CanvasJS.Chart(plotDiv, {
         title: {
-          text: plotDiv.dataset['title'],
+          text: plotDiv.dataset.title,
         },
         data: [{
           type: 'stepLine',
@@ -64,14 +63,13 @@
           includeZero: false,
         },
       });
-      chart.render();	
+      chart.render();
       $(plotDiv).data('chart', chart);
     }
   }
 
   function updateOscPlot(plotDiv, readingsObj, cropTime=N_KEEP_POINTS) {
-
-    let div = $(plotDiv);
+    const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
     const diodeCurrents =
@@ -370,5 +368,4 @@
       });
     }
   });
-
-})(jQuery);
+}(jQuery));
