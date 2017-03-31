@@ -68,7 +68,7 @@
     }
   }
 
-  function updateOscPlot(plotDiv, readingsObj, cropTime=N_KEEP_POINTS) {
+  function updateOscPlot(plotDiv, readingsObj, cropTime = N_KEEP_POINTS) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
@@ -84,7 +84,7 @@
       readingsObj[div.data('current1Set')].map(convertToPlotPoint);
 
     // Plot exists, update it.
-    if (typeof(div.data('chart')) !== 'undefined') {
+    if (typeof (div.data('chart')) !== 'undefined') {
       const now =
         $('#use_server_clock:checked').length ? temps[0].x : new Date();
       const chart = div.data('chart');
@@ -113,7 +113,7 @@
 
     // Plot doesn't exist yet. Create it.
     else {
-      const chart = new CanvasJS.Chart(plotDiv, { 
+      const chart = new CanvasJS.Chart(plotDiv, {
         data: [
           {  // diode current
             axisYType: 'secondary',
@@ -150,7 +150,7 @@
             markerType: 'none',
             showInLegend: true,
             type: 'stepLine',
-          }
+          },
         ],
         interactivityEnabled: true,
         animationEnabled: true,
@@ -168,7 +168,7 @@
             labelAlign: 'near',
             lineDashType: 'dot',
             showOnTop: true,
-          }]
+          }],
         },
         axisY2: {
           title: "I in mA",
@@ -181,20 +181,19 @@
             labelAlign: 'near',
             lineDashType: 'dot',
             showOnTop: true,
-          }]
+          }],
         },
         legend: {},
       });
-      chart.render();	
+      chart.render();
       $(plotDiv).data('chart', chart);
     }
   }
 
   function updateAllPlots(new_values_obj) {
-
     // Gather available plot areas.
-    let available_plots = {};
-    $('div.plot',DOM_SCOPE).each(function(){
+    const available_plots = {};
+    $('div.plot', DOM_SCOPE).each(function () {
       available_plots[this.id] = this;
     });
 
@@ -203,7 +202,7 @@
       if (id in new_values_obj) {
         updatePlot(available_plots[id], new_values_obj[id]);
       } else {
-        console.log(`Received message didn't include data to update plot "${id}"`)
+        console.log(`Received message didn't include data to update plot "${id}"`);
       }
     }
   }
@@ -218,13 +217,13 @@
     const container = $(`tr[data-flag=${entity_id}]`);
     if (new_value !== container.data('value')) {
       container.data('value', new_value);
-      $('td.changed', container).html((new Date()).toLocaleTimeString())
+      $('td.changed', container).html((new Date()).toLocaleTimeString());
     }
-    updateIndicator($('td.indicator', container), new_value == '1')
+    updateIndicator($('td.indicator', container), new_value == '1');
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
-  function updateIndicator (elm, is_on) {
+  function updateIndicator(elm, is_on) {
     elm.html(is_on ? "On" : "Off");
     elm.css('backgroundColor', is_on ? 'green' : 'red');
   }
@@ -238,13 +237,13 @@
     wrapper.type = type;
     wrapper.checksum = '';
     wrapper.data = object;
-    return JSON.stringify(wrapper) + '\n\n\n';
+    return `${JSON.stringify(wrapper)}\n\n\n`;
   }
 
-  function callRemoteMethod (socket, methodName, args) {
+  function callRemoteMethod(socket, methodName, args) {
     const msg = createMessage({
       method: methodName,
-      args: args
+      args,
     });
     socket.send(msg);
   }
@@ -254,29 +253,26 @@
       const qty = this.dataset.qty;
       if (qty in newValuesObj) {
         if (newValuesObj[qty].length > 0) {
-
           // Get the value ([1]) of the latest ([0]) data point.
           updateIndicator($(this), newValuesObj[qty][0][1] == '1');
 
           // Update "last updated" fields if any are present for qty.
           const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
-          $('.update_indicator[data-qty=' + qty + ']').html(
+          $(`.update_indicator[data-qty=${qty}]`).html(
             timeOfMeasurement.toLocaleTimeString());
         }
       }
     });
   }
 
-  $(function(){  // Do things on page load.
-
-
+  $(() => {  // Do things on page load.
     {  // Setup layout using jQuery UI.
       $('div.tabs').tabs();
     }
 
     let ws;  // Websocket connection.
     {  // Establish connection to server.
-      const messageHandler = function(event) {
+      const messageHandler = function (event) {
         const message = JSON.parse(event.data);
         switch (message.type) {
           case 'readings':
@@ -290,39 +286,39 @@
             updateTexusFlags(message.data);
             break;
           default:
-            console.warn('Unknown message type "' + message.type + '".');
+            console.warn(`Unknown message type "${message.type}".`);
         }
       };
 
-      $('#connect_btn').on('click', function() {
+      $('#connect_btn').on('click', () => {
         const host = $('#host').val();
         const ws_port = $('#ws_port').val();
-        ws = new WebSocket('ws://' + host + ':' + ws_port + '/');
+        ws = new WebSocket(`ws://${host}:${ws_port}/`);
         ws.onmessage = messageHandler;
       });
     }
 
 
     {  // Setup interactive UI elements.
-      $('div.slider').each(function() {
+      $('div.slider').each(function () {
         const container = $(this);
         const handle = $('.ui-slider-handle', container);
         container.slider({
           min: 0,
           max: 360,
           step: 0.1,
-          create: function() {
-            handle.text(container.slider("value") + " °");
+          create() {
+            handle.text(`${container.slider("value")} °`);
           },
-          slide: function(event, ui) {
-            handle.text(ui.value + " °");
-          }
+          slide(event, ui) {
+            handle.text(`${ui.value} °`);
+          },
         });
       });
 
-      $('tr[data-flag]').each(function(){
+      $('tr[data-flag]').each(function () {
         const container = $(this);
-        $('.switch', this).on('click', function() {
+        $('.switch', this).on('click', function () {
           sendFlag(ws, container.data('flag'), $(this).hasClass('on'));
         });
       });
@@ -330,20 +326,20 @@
       $('input[type=button].setter[data-qty]').each(function () {
         const qty = this.dataset.qty;
         const trigger = $(this);
-        const source = $('input.source[data-qty=' + qty + ']').first();
-        trigger.on('click', function () {
+        const source = $(`input.source[data-qty=${qty}]`).first();
+        trigger.on('click', () => {
           const value = source.val();
           if (value != '') {
-            callRemoteMethod(ws, 'set_' + qty, [value])
+            callRemoteMethod(ws, `set_${qty}`, [value]);
           } else {
-            alert("No value set. Please set a value.")
+            alert("No value set. Please set a value.");
           }
         });
       });
 
-      $('input[type=button][data-method][data-arguments]').each(function() {
+      $('input[type=button][data-method][data-arguments]').each(function () {
         const button = $(this);
-        button.on('click', function () {
+        button.on('click', () => {
           const commandName = button.data('method');
           const args = button.data('arguments');
           callRemoteMethod(ws, commandName, args);
@@ -352,14 +348,14 @@
 
       // TOOLS
 
-      $('[data-safety-switch]').each(function(){
+      $('[data-safety-switch]').each(function () {
         const sswitch = $(this);
         const controls = $(sswitch.data('safetySwitch')).filter('input');
         controls.prop('disabled', true);
-        sswitch.on('change', function() {
-          controls.prop('disabled', this.checked ? false : true);
+        sswitch.on('change', function () {
+          controls.prop('disabled', !this.checked);
         });
-        controls.on('click', function() {
+        controls.on('click', function () {
           if (this.type == 'button') {
             sswitch.prop('checked', false);
             sswitch.trigger('change');
