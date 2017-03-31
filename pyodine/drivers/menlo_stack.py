@@ -13,6 +13,8 @@ from typing import Dict, List, Tuple, Union
 import websockets
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
+LOGGER.setLevel(logging.INFO)
+
 ROTATE_N = 16  # Keep log of received values smaller than this.
 DEFAULT_URL = 'ws://menlostack:8000'
 
@@ -80,7 +82,8 @@ ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
 # Define some custom types.
-DataPoint = Tuple[float, Union[str]]  # Measurement (time, reading)
+MenloUnit = Union[float, int]
+DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 Buffers = Dict[int, Dict[int, Buffer]]
 
@@ -120,10 +123,12 @@ class MenloStack:
         return self._get_laser_prop(unit_number, 288)
 
     def get_temperature(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 272)
+        return [(time, self._to_temperature(val))
+                for (time, val) in self._get_laser_prop(unit_number, 272)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 256)
+        return [(time, self._to_temperature(val))
+                for (time, val) in self._get_laser_prop(unit_number, 256)]
 
     def get_diode_current(self, unit_number: int) -> Buffer:
         return [(time, self._to_current(val))
@@ -231,7 +236,18 @@ class MenloStack:
                 LOGGER.info("Service %d:%d (%s) alive. First value: %s",
                             node, service, self._name_service(node, service),
                             value)
-            self._rotate_log(self._buffers[node][service], value)
+
+            # Convert the MenloUnit-ish string to a MenloUnit (NaN on error).
+            val = math.nan
+            try:
+                val = int(value)
+            except ValueError:
+                try:
+                    val = float(value)
+                except ValueError:
+                    LOGGER.error("Couldn't convert <%s> to either int or"
+                                 "float.")
+            self._rotate_log(self._buffers[node][service], val)
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),
@@ -271,7 +287,7 @@ class MenloStack:
             await self._send_command(node, 255, '0')
 
     @staticmethod
-    def _rotate_log(log_list: Buffer, value: str) -> None:
+    def _rotate_log(log_list: Buffer, value: MenloUnit) -> None:
         log_list.insert(0, (time.time(), value))
 
         # Shave of some elements in case the list got too long. Be careful to
@@ -323,17 +339,17 @@ class MenloStack:
         return "unknown service"
 
     @staticmethod
-    def _to_current(value: int) -> float:
+    def _to_current(menlos: MenloUnit) -> float:
         """Takes a menlo current reading and converts in to milliamps."""
-        return float(value / 8.0)
+
+        return float(int(menlos) / 8.0)
 
     @staticmethod
     def _from_current(milliamps: float) -> int:
-        """Takes a menlo current reading and converts in to milliamps."""
         return int(round(milliamps * 8))
 
     @staticmethod
-    def _to_temperature(menlos: int) -> float:
+    def _to_temperature(menlos: MenloUnit) -> float:
         """Takes a temp. in Celsius and converts in to Menlo units.
 
         The parameters of the quadratic expansion are read by R. Wilk from a

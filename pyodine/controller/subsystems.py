@@ -13,7 +13,8 @@ LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
 # Define some custom types.
-DataPoint = Tuple[float, Union[str]]  # Measurement (time, reading)
+MenloUnit = Union[float, int]
+DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 OSC_UNITS = {'mo': 1, 'pa': 2}
 
