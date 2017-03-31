@@ -142,15 +142,16 @@ class MenloStack:
         return [(time, self._to_current(val))
                 for (time, val) in self._get_laser_prop(unit_number, 274)]
 
-    def set_temp(self, unit_number: int, temp: float):
+    def set_temp(self, unit_number: int, temp: float) -> None:
         node = 2 + unit_number
         if node in LASER_NODES:
-            asyncio.ensure_future(self._send_command(node, 1, str(int(temp))))
+            asyncio.ensure_future(
+                self._send_command(node, 1, str(self._from_temperature(temp))))
         else:
             LOGGER.error("Oscillator Supply unit index out of range."
                          "Refusing to set temperature setpoint.")
 
-    def set_current(self, unit_number: int, milliamps: float):
+    def set_current(self, unit_number: int, milliamps: float) -> None:
         node = 2 + unit_number
         if node in LASER_NODES:
             asyncio.ensure_future(
