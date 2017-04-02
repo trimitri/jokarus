@@ -1,4 +1,6 @@
-/* eslint-env browser, jquery */
+/* eslint-env es6, browser, jquery */
+/* eslint no-alert: "off" */
+/* eslint no-lone-blocks: "off" */
 /* global CanvasJS */
 
 // Require jQuery. Don't use global scope. (IIFE)
@@ -268,12 +270,12 @@
 
     let ws;  // Websocket connection.
     {  // Establish connection to server.
-      const messageHandler = function (event) {
+      const handler = function messageHandler(event) {
         const message = JSON.parse(event.data);
         switch (message.type) {
           case 'readings':
             updateAllPlots(message.data);
-            $('div.osc_plot').each(function () {
+            $('div.osc_plot').each(function plotUpdater() {
               updateOscPlot(this, message.data);
             });
             updateIndicators(message.data);
@@ -288,15 +290,15 @@
 
       $('#connect_btn').on('click', () => {
         const host = $('#host').val();
-        const ws_port = $('#ws_port').val();
-        ws = new WebSocket(`ws://${host}:${ws_port}/`);
-        ws.onmessage = messageHandler;
+        const wsPort = $('#ws_port').val();
+        ws = new WebSocket(`ws://${host}:${wsPort}/`);
+        ws.onmessage = handler;
       });
     }
 
 
     {  // Setup interactive UI elements.
-      $('div.slider').each(function () {
+      $('div.slider').each(function setupSlider() {
         const container = $(this);
         const handle = $('.ui-slider-handle', container);
         container.slider({
@@ -304,28 +306,29 @@
           max: 360,
           step: 0.1,
           create() {
-            handle.text(`${container.slider("value")} °`);
+            handle.text(`${container.slider("value")} °`);
           },
           slide(event, ui) {
-            handle.text(`${ui.value} °`);
+            handle.text(`${ui.value} °`);
           },
         });
       });
 
-      $('tr[data-flag]').each(function () {
+      // Setup send buttons in special "flag" table rows.
+      $('tr[data-flag]').each(function armSendFlagBtns() {
         const container = $(this);
-        $('.switch', this).on('click', function () {
+        $('.switch', this).on('click', function send() {
           sendFlag(ws, container.data('flag'), $(this).hasClass('on'));
         });
       });
 
-      $('input[type=button].setter[data-qty]').each(function () {
+      $('input[type=button].setter[data-qty]').each(function armSetterBtn() {
         const qty = this.dataset.qty;
         const trigger = $(this);
         const source = $(`input.source[data-qty=${qty}]`).first();
         trigger.on('click', () => {
           const value = source.val();
-          if (value != '') {
+          if (value !== '') {
             callRemoteMethod(ws, `set_${qty}`, [value]);
           } else {
             alert("No value set. Please set a value.");
@@ -333,26 +336,28 @@
         });
       });
 
-      $('input[type=button][data-method][data-arguments]').each(function () {
-        const button = $(this);
-        button.on('click', () => {
-          const commandName = button.data('method');
-          const args = button.data('arguments');
-          callRemoteMethod(ws, commandName, args);
+      $('input[type=button][data-method][data-arguments]').each(
+        function armMethodCallBtn() {
+          const button = $(this);
+          button.on('click', () => {
+            const commandName = button.data('method');
+            const args = button.data('arguments');
+            callRemoteMethod(ws, commandName, args);
+          });
         });
-      });
 
       // TOOLS
 
-      $('[data-safety-switch]').each(function () {
+      $('[data-safety-switch]').each(function armSafetySwitch() {
         const sswitch = $(this);
         const controls = $(sswitch.data('safetySwitch')).filter('input');
         controls.prop('disabled', true);
-        sswitch.on('change', function () {
+        sswitch.on('change', () => {
+          // Outer "this" is accessed, as we are in an arrow function.
           controls.prop('disabled', !this.checked);
         });
-        controls.on('click', function () {
-          if (this.type == 'button') {
+        controls.on('click', function armControlBtn() {
+          if (this.type === 'button') {
             sswitch.prop('checked', false);
             sswitch.trigger('change');
           }
