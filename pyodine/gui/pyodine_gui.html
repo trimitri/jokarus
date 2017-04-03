@@ -123,56 +123,6 @@
 								</div>
 							</div>
 						</div>
-						<div class="layout_block osc">
-							<div class="osc_plot"
-								data-title="Power Amplifier"
-								data-current1="pa_current"
-								data-current1-set="pa_current_set"
-								data-current2="pa_tec_current"
-								data-temp="pa_temp"
-								data-temp-set="pa_temp_set"></div>
-							<div class="controls">
-								<h2>Power Amplifier</h2>
-								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch="#pa_controls input" />
-									</label>
-								</p>
-								<table id="pa_controls">
-									<tr>
-										<td></td>
-										<th>TEC</th>
-										<th>LD Driver</th>
-									</tr>
-									<tr>
-										<th>State</th>
-										<td class="indicator" data-qty="pa_tec_enabled">N/A</td>
-										<td class="indicator" data-qty="pa_enabled">N/A</td>
-									</tr>
-									<tr>
-										<th>Switch</th>
-										<td>
-											<input type="button" class="command" value="On"
-												data-method="switch_tec" data-arguments='["pa", true]' />
-											<input type="button" class="command" value="Off"
-												data-method="switch_tec" data-arguments='["pa", false]' />
-										</td>
-										<td>
-											<input type="button" class="command" value="On"
-												data-method="switch_ld" data-arguments='["pa", true]' />
-											<input type="button" class="command" value="Off"
-												data-method="switch_ld" data-arguments='["pa", false]' />
-										</td>
-									</tr>
-									<tr>
-										<th>Updated</th>
-										<td class="update_indicator" data-qty="pa_tec_enabled">Never</td>
-										<td class="update_indicator" data-qty="pa_enabled">Never</td>
-									</tr>
-								</table>
-							</div>
-						</div>
 					</div>
 					<div id="tab_texus" class="flex_container">
 						<div class="layout_block">
