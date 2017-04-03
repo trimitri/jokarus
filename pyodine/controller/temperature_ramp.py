@@ -30,7 +30,7 @@ class TemperatureRamp:
 
         # Check and store setter callback.
         sig = inspect.signature(set_temp_callback)
-        param_types = sig.parameters.values()
+        param_types = list(sig.parameters.values())
         if len(param_types) == 1 and param_types[0] is float:
             self._set_temp = set_temp_callback
         else:

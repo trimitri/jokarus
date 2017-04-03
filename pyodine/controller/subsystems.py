@@ -6,6 +6,7 @@ subsystem.
 import logging
 from typing import Dict, List, Tuple, Union
 from ..drivers import menlo_stack
+from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
 # from ..drivers import dds9control
 
@@ -23,6 +24,8 @@ class Subsystems:
 
     def __init__(self) -> None:
         self._menlo = None  # type: menlo_stack.MenloStack
+        self._temp_ramps = Dict()  # type: Dict[int, TemperatureRamp]
+        self._init_temp_ramps()
         # self._dds = None
         # self._daq = None
 
@@ -61,7 +64,8 @@ class Subsystems:
             LOGGER.error("Illegal setting for diode current.")
 
     def set_temp(self, unit_name, celsius: float) -> None:
-        LOGGER.debug("Setting temp. of unit %s to %s°C", unit_name, celsius)
+        LOGGER.debug("Setting target temp. of unit %s to %s°C",
+                     unit_name, celsius)
         if unit_name in OSC_UNITS and type(celsius) is float:
             self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
         else:
@@ -108,3 +112,23 @@ class Subsystems:
         data['pa_tec_current'] = self._menlo.get_tec_current(2)
 
         return data
+
+    def _init_temp_ramps(self) -> None:
+        """Initialize one TemperatureRamp instance for every TEC controller."""
+        for unit in OSC_UNITS.values():
+            def getter() -> float:
+                """Get the most recent temperature reading from MenloStack."""
+
+                # We need to bind the loop variable "unit" to a local variable
+                # here, e.g. using lambdas.
+                temp_readings = self._menlo.get_temperature((lambda: unit)())
+                if temp_readings:
+                    return temp_readings[0][1]
+                return float('nan')
+
+            def setter(temp: float) -> None:
+                # Same here (see above).
+                self._menlo.set_temp((lambda: unit)(), temp)
+
+            self._temp_ramps[unit] = TemperatureRamp(get_temp_callback=getter,
+                                                     set_temp_callback=setter)
