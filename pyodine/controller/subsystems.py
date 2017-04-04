@@ -60,13 +60,17 @@ class Subsystems:
         else:
             LOGGER.error("Illegal setting for diode current.")
 
-    def set_temp(self, unit_name, celsius: float) -> None:
+    def set_temp(self, unit_name, celsius: float,
+                 bypass_ramp: bool = False) -> None:
         """Set the target temp. for the temperature ramp."""
         LOGGER.debug("Setting target temp. of unit %s to %s°C",
                      unit_name, celsius)
         if unit_name in OSC_UNITS and isinstance(celsius, float):
-            ramp = self._temp_ramps[OSC_UNITS[unit_name]]
-            ramp.target_temperature = celsius
+            if bypass_ramp:
+                self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
+            else:
+                ramp = self._temp_ramps[OSC_UNITS[unit_name]]
+                ramp.target_temperature = celsius
         else:
             LOGGER.error("Illegal setting for temperature setpoint.")
 

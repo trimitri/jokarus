@@ -25,6 +25,8 @@ class InstructionHandler:
         self._methods = {
             'set_mo_current': lambda c: self._subs.set_current('mo', float(c)),
             'set_mo_temp': lambda t: self._subs.set_temp('mo', float(t)),
+            'set_mo_temp_raw': lambda t: self._subs.set_temp(
+                'mo', float(t), bypass_ramp=True),
             'set_pa_current': lambda c: self._subs.set_current('pa', float(c)),
             'set_pa_temp': lambda t: self._subs.set_temp('pa', float(t)),
             'switch_tec': self._subs.switch_tec,
