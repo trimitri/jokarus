@@ -167,13 +167,17 @@ class MenloStack:
         if unit + 2 in LASER_NODES:
             asyncio.ensure_future(
                 self._send_command(unit + 2, 2, 1 if on else 0))
+        else:
+            LOGGER.error("There is no oscillator supply unit %s", unit)
 
     def switch_ld(self, unit: int, on: bool) -> None:
         LOGGER.info("Switching current driver of unit %s %s.",
                     unit, "ON" if on else "OFF")
         if unit + 2 in LASER_NODES:
             asyncio.ensure_future(
-                    self._send_command(unit + 2, 5, 1 if on else 0))
+                self._send_command(unit + 2, 5, 1 if on else 0))
+        else:
+            LOGGER.error("There is no oscillator supply unit %s", unit)
 
     ###################
     # Private Methods #
