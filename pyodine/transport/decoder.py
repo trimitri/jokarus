@@ -12,7 +12,7 @@ MAX_MESSAGE_LENGTH = 10240  # in bytes
 class Decoder:
     """Collect message chunks until complete JSON string is formed.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self._rcv_buffer = b''
         self._msg_buffer = []  # Complete messages ready to retrieve.
 

@@ -22,6 +22,8 @@ OSC_UNITS = {'mo': 1, 'pa': 2}
 
 
 class Subsystems:
+    """Provides a wrapper for all connected subsystems.
+    Don't access the subsystems directly."""
 
     def __init__(self) -> None:
         self._menlo = None  # type: menlo_stack.MenloStack
@@ -31,14 +33,13 @@ class Subsystems:
         # self._daq = None
 
     async def init_async(self) -> None:
-        await self.initialize_all()
+        """Needs to be awaited after initialization.
 
-    async def initialize_all(self) -> None:
+        It makes sure that all subsystems are ready."""
         await self.reset_menlo()
-        self.reset_daq()
-        self.reset_dds()
 
     async def reset_menlo(self) -> None:
+        """Reset the connection to the Menlo subsystem."""
         if self._menlo is menlo_stack.MenloStack:
             del self._menlo
 
@@ -48,13 +49,8 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    def reset_daq(self) -> None:
-        pass  # FIXME
-
-    def reset_dds(self) -> None:
-        pass  # FIXME
-
     def set_current(self, unit_name: str, milliamps: float) -> None:
+        """Set diode current setpoint of given unit."""
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
         if (unit_name in OSC_UNITS
@@ -74,17 +70,18 @@ class Subsystems:
         else:
             LOGGER.error("Illegal setting for temperature setpoint.")
 
-    def switch_tec(self, unit_name: str, on: bool) -> None:
+    def switch_tec(self, unit_name: str, switch_on: bool) -> None:
         if unit_name in OSC_UNITS:
-            if isinstance(on, bool):
-                self._menlo.switch_tec(OSC_UNITS[unit_name], on)
+            if isinstance(switch_on, bool):
+                self._menlo.switch_tec(OSC_UNITS[unit_name], switch_on)
 
-    def switch_ld(self, unit_name: str, on: bool) -> None:
+    def switch_ld(self, unit_name: str, switch_on: bool) -> None:
         if unit_name in OSC_UNITS:
-            if isinstance(on, bool):
-                self._menlo.switch_ld(OSC_UNITS[unit_name], on)
+            if isinstance(switch_on, bool):
+                self._menlo.switch_ld(OSC_UNITS[unit_name], switch_on)
 
     def get_full_set_of_readings(self) -> Dict[str, Buffer]:
+        """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
 
         # ADC readings

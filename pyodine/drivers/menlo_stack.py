@@ -93,7 +93,7 @@ class MenloStack:
 
     # Laser Diode Driver Control.
 
-    def __init__(self):
+    def __init__(self) -> None:
         """This does not do anything. Make sure to await the init() coro!"""
         self._buffers = None  # type: Buffers
 

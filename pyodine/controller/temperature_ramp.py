@@ -41,8 +41,6 @@ class TemperatureRamp:
         if sig.return_annotation is float and not sig.parameters:
             self._get_temp = get_temp_callback
         else:
-            LOGGER.debug(sig.return_annotation)
-            LOGGER.debug(sig.parameters)
             raise TypeError("Provide a type-annotated callback of proper"
                             "signature.", get_temp_callback)
 
@@ -52,7 +50,6 @@ class TemperatureRamp:
         if len(param_types) == 1 and param_types[0].annotation is float:
             self._set_temp = set_temp_callback
         else:
-            LOGGER.debug(param_types)
             raise TypeError("Provide a type-annotated callback of proper"
                             "signature.", set_temp_callback)
 
@@ -129,6 +126,10 @@ class TemperatureRamp:
     def _update_transitional_setpoint(self) -> None:
         """Set a new intermediate setpoint if the thermal load is following.
         """
+        # Did we just start the ramping?
+        if self._prev_setpt is None:
+            self._init_ramp()
+
         # Exit prematurely if we're there already.
         if self._prev_setpt == self._target:
             LOGGER.debug("Currently at target temperature.")
@@ -136,29 +137,44 @@ class TemperatureRamp:
 
         # Are we close enough to the current setpoint to continue?
         if abs(self._get_temp() - self._current_setpt) < ACCEPTABLE_OFFSET:
-            now = time.time()
-            sign = -1 if self._target < self._get_temp() else 1
-            next_setpt = self._prev_setpt + (
-                (now - self._prev_time) * sign * self._max_grad)
-
-            # Prevent overshoot and set target temperature directly instead.
-            if ((self._prev_setpt - self._target) * (next_setpt - self._target)
-                    < 0):
-                next_setpt = self._target
-                LOGGER.info("Reached target temperature.")
-
-            # Advance time.
-            self._prev_setpt = self._current_setpt
-            self._current_setpt = next_setpt
-            self._prev_time = now
-
-            # Actually set the new temperature in hardware.
-            self._set_temp(self._current_setpt)
-
-            LOGGER.debug("New transitional setpoint is spaced %s Kelvin from"
-                         "last one.", self._current_setpt - self._prev_setpt)
+            self._set_next_setpoint()
         else:
             # Don't do anything and wait until next invocation for the object
             # temperature to settle.
             LOGGER.warning("Thermal load didn't follow ramp. Delaying ramp"
                            "continuation by %s seconds.", UPDATE_INTERVAL)
+
+    def _set_next_setpoint(self) -> None:
+        # Just set the next point, assuming that sanity test have been run.
+
+        now = time.time()
+        sign = -1 if self._target < self._get_temp() else 1
+        next_setpt = self._prev_setpt + (
+            (now - self._prev_time) * sign * self._max_grad)
+
+        # Prevent overshoot and set target temperature directly instead.
+        if ((self._prev_setpt - self._target) * (next_setpt - self._target)
+                < 0):
+            next_setpt = self._target
+            LOGGER.info("Reached target temperature.")
+
+        # Advance time.
+        self._prev_setpt = self._current_setpt
+        self._current_setpt = next_setpt
+        self._prev_time = now
+
+        # Actually set the new temperature in hardware.
+        self._set_temp(self._current_setpt)
+
+        LOGGER.debug("New transitional setpoint is spaced %s Kelvin from"
+                     "last one.", self._current_setpt - self._prev_setpt)
+
+    def _init_ramp(self) -> None:
+        # Initialize internal ramp parameters to allow the iterative update
+        # method to work.
+
+        self._current_setpt = self._get_temp()
+        self._prev_setpt = self._current_setpt
+
+        # Set time back, so ramp does immediately start with a full step.
+        self._prev_time = time.time() - UPDATE_INTERVAL
