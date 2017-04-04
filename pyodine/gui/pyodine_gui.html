@@ -89,6 +89,11 @@
 											<td class="indicator" data-qty="mo_enabled">N/A</td>
 										</tr>
 										<tr>
+											<th>Updated</th>
+											<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
+											<td class="update_indicator" data-qty="mo_enabled">Never</td>
+										</tr>
+										<tr>
 											<th>Switch</th>
 											<td>
 												<input type="button" class="command" value="On"
@@ -104,10 +109,15 @@
 											</td>
 										</tr>
 										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
-											<td class="update_indicator" data-qty="mo_enabled">Never</td>
+											<th>Temp OK</th>
+											<td class="indicator" data-qty="mo_temp_ok" data-text-true="OK"
+												data-text-false="not OK">N/A</td>
 										</tr>
+										<tr>
+											<th>Updated</th>
+											<td class="update_indicator" data-qty="mo_temp_ok">Never</td>
+										</tr>
+
 									</table>
 									<h3>Setpoints</h3>
 									<p>
@@ -257,13 +267,13 @@
 					<input id="aom_freq_setpoint" type="number" value="150.0" />
 					<input type="button" class="setter" value="set" />
 				</p>
-				<p>
+				<div>
 					Offset between AOM and Mixer phase (currently <span id="aom_phase"></span>&thinsp;%):
 					<div id="aom_phase_setpoint" class="slider">
 						<div class="ui-slider-handle"></div>
 					</div>:
 					<input type="number" class="gauge" data-source-slider="#aom_phase_setpoint" />
-				</p>
+				</div>
 			</section>
 		</div>
 	</body>

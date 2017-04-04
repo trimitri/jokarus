@@ -47,6 +47,9 @@ table.flags td,
 table.flags th {
 	text-align:left;
 }
+td.indicator {
+	text-align: center;
+}
 label {
 	cursor: pointer;
 }

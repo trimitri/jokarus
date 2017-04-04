@@ -223,7 +223,9 @@
   }
 
   function updateIndicator(elm, isOn) {
-    elm.html(isOn ? "On" : "Off");
+    const onText = elm.data('textTrue') || "ON";
+    const offText = elm.data('textFalse') || "OFF";
+    elm.html(isOn ? onText : offText);
     elm.css('backgroundColor', isOn ? 'green' : 'red');
   }
 
@@ -260,7 +262,11 @@
           $(`.update_indicator[data-qty=${qty}]`).html(
             timeOfMeasurement.toLocaleTimeString());
         }
+        console.log(
+          `Couldn't update indicator for ${qty}, as empty dataset was received`);
       }
+      console.log(
+        `Couldn't update indicator for ${qty}, as no data was received`);
     });
   }
 
