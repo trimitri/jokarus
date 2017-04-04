@@ -4,6 +4,7 @@ Provides callbacks for start and stop of specific flight phases, etc.
 """
 import logging
 import random
+from typing import Dict
 import serial
 
 LOGGER = logging.getLogger('pyodine.transport.texus_relay')
@@ -11,12 +12,14 @@ LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
 
 
 class TexusRelay:
+    """Manage the data lines representing TEXUS and experiment state."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._port1 = serial.Serial('/dev/ttyUSB2')
         self._port2 = serial.Serial('/dev/ttyUSB3')
 
-    def get_full_set(self) -> dict:
+    def get_full_set(self) -> Dict[str, bool]:
+        """Return a Dict of all signal lines."""
         ret = {'liftoff': self.liftoff,
                'microg': self.microg,
                'tex1': self.tex1,
