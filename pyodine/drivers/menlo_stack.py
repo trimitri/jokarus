@@ -143,8 +143,9 @@ class MenloStack:
                 if readings:
                     offset = sum([r for (t, r) in readings]) / len(readings)
                     self._tec_current_offsets[unit_number] = offset
-                    LOGGER.info("Finished Calibrating TEC unit %s.",
-                                unit_number)
+                    LOGGER.info("Calibrated TEC unit %s like %s -> 0 by using "
+                                "%s readings.",
+                                unit_number, offset, len(readings))
                 else:
                     LOGGER.error("Didn't receive any current readings to "
                                  "calibrate TEC unit %s against.", unit_number)
@@ -216,7 +217,7 @@ class MenloStack:
                 for (time, val) in self._get_laser_prop(unit_number, 257)]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
-        return [(time, self._to_current(val))
+        return [(time, (val / 1000) - self._tec_current_offsets[unit_number])
                 for (time, val)
                 in self._get_laser_prop(unit_number, 274, since=since)]
 
@@ -447,7 +448,7 @@ class MenloStack:
 
     @staticmethod
     def _to_current(menlos: MenloUnit) -> float:
-        """Takes a menlo current reading and converts in to milliamps."""
+        """Takes a menlo LD current reading and converts in to milliamps."""
 
         return float(int(menlos) / 8.0)
 
