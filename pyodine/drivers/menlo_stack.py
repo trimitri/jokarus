@@ -12,11 +12,13 @@ from typing import Dict, List, Tuple, Union
 
 import websockets
 
-LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
-LOGGER.setLevel(logging.INFO)
-
+# Adjust as needed
 ROTATE_N = 16  # Keep log of received values smaller than this.
 DEFAULT_URL = 'ws://menlostack:8000'
+TEC_CALIBRATION_TIME = 10.0
+
+LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
+LOGGER.setLevel(logging.INFO)
 
 # Constants specific to the published Menlo interface.
 
@@ -86,8 +88,12 @@ MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 Buffers = Dict[int, Dict[int, Buffer]]
+Time = float  # Unix timestamp, as returned by time.time()
 
 
+# pylint: disable=too-many-public-methods
+# This is a driver for a lot of connected cards and thus needs a lot of
+# methods.
 class MenloStack:
     """Provides an interface to the Menlo electronics stack."""
 
@@ -96,6 +102,12 @@ class MenloStack:
     def __init__(self) -> None:
         """This does not do anything. Make sure to await the init() coro!"""
         self._buffers = None  # type: Buffers
+        self._connection = (
+            None)  # type: websockets.client.WebSocketClientProtocol
+
+        # Calibratable offsets for TEC current readings. Those are >> 0, thus
+        # calibration is mandatory to get useful readings.
+        self._tec_current_offsets = {unit: 0.0 for unit in range(1, 5)}
 
     async def init_async(self, url: str = DEFAULT_URL) -> None:
         """This replaces the default constructor.
@@ -105,6 +117,47 @@ class MenloStack:
         self._init_buffers()
         self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
+        await self.calibrate_tecs()
+
+    async def calibrate_tec(self, unit_number: int) -> None:
+        """Find zero-crossing of TEC current reading and compensate for it.
+
+        TEC of given unit must be disabled.
+        """
+        node = unit_number + 2
+        if node in LASER_NODES:
+
+            # The user must disable the TEC themselves, as we don't want to be
+            # responsible for possible effects.
+            if not self.is_tec_enabled(unit_number):
+                LOGGER.info("Calibrating TEC unit %s ...", unit_number)
+
+                # Reset current calibration.
+                self._tec_current_offsets[unit_number] = 0
+
+                # Take uncalibrated readings and average them to get a new
+                # calibration offset.
+                now = time.time()
+                await asyncio.sleep(TEC_CALIBRATION_TIME)
+                readings = self.get_tec_current(unit_number, since=now - 10)
+                if readings:
+                    offset = sum([r for (t, r) in readings]) / len(readings)
+                    self._tec_current_offsets[unit_number] = offset
+                    LOGGER.info("Finished Calibrating TEC unit %s.",
+                                unit_number)
+                else:
+                    LOGGER.error("Didn't receive any current readings to "
+                                 "calibrate TEC unit %s against.", unit_number)
+            else:
+                LOGGER.error("Disable TEC %s before calibrating.", unit_number)
+        else:
+            LOGGER.error("There is no oscillator supply unit %s to calibrate "
+                         "the TEC for.", unit_number)
+
+    async def calibrate_tecs(self) -> None:
+        """Calibrate zero-crossings of all TEC units' current readings."""
+        tasks = [self.calibrate_tec(unit) for unit in range(1, 5)]
+        await asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME)
 
     def get_adc_voltage(self, channel: int) -> Buffer:
         if channel in ADC_SVC_GET.keys():
@@ -162,9 +215,10 @@ class MenloStack:
         return [(time, self._to_current(val))
                 for (time, val) in self._get_laser_prop(unit_number, 257)]
 
-    def get_tec_current(self, unit_number: int) -> Buffer:
+    def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, self._to_current(val))
-                for (time, val) in self._get_laser_prop(unit_number, 274)]
+                for (time, val)
+                in self._get_laser_prop(unit_number, 274, since=since)]
 
     def set_temp(self, unit_number: int, temp: float) -> None:
         node = 2 + unit_number
@@ -195,9 +249,9 @@ class MenloStack:
             LOGGER.error("There is no oscillator supply unit %s", unit)
 
     def switch_ld(self, unit: int, on: bool) -> None:
-        LOGGER.info("Switching current driver of unit %s %s.",
-                    unit, "ON" if on else "OFF")
         if unit + 2 in LASER_NODES:
+            LOGGER.info("Switching current driver of unit %s %s.",
+                        unit, "ON" if on else "OFF")
             asyncio.ensure_future(
                 self._send_command(unit + 2, 5, 1 if on else 0))
         else:
@@ -207,10 +261,12 @@ class MenloStack:
     # Private Methods #
     ###################
 
-    def _get_laser_prop(self, unit_number: int, service_id: int) -> Buffer:
+    def _get_laser_prop(self, unit_number: int, service_id: int,
+                        since: Time=None) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
-            return self._get_latest(self._buffers[node_id][service_id])
+            since = since if isinstance(since, float) else math.nan
+            return self._get_latest(self._buffers[node_id][service_id], since)
 
         # else
         LOGGER.warning("There is no oscillator supply unit %d. "
@@ -278,7 +334,7 @@ class MenloStack:
             pass  # buffer = None
 
         if isinstance(buffer, list):
-            if len(buffer) == 0:
+            if not buffer:
                 LOGGER.info("Service %d:%d (%s) alive. First value: %s",
                             node, service, self._name_service(node, service),
                             value)
@@ -346,21 +402,24 @@ class MenloStack:
         del(log_list[ROTATE_N:])
 
     @staticmethod
-    def _get_latest(buffer: Buffer, since: float=math.nan) -> Buffer:
-        """Returns the latest tuple of time and value from given buffer."""
+    def _get_latest(buffer: Buffer, since: float = math.nan) -> Buffer:
+        """Returns all tuples of time and value since "since" from given buffer.
+        """
 
-        if math.isnan(since):  # Get single latest data point.
-            if len(buffer) > 0:
+        if buffer:
+            if math.isnan(since):  # Get single latest data point.
 
                 # In order to be consistent with queries using "since", we
                 # return a length-1 array.
-                return [(buffer[0])]
-            else:
-                LOGGER.debug("Returning emtpy buffer.")
-        else:
-            # FIXME
-            LOGGER.error("Getting multiple entries is not yet implemented.")
+                return buffer[:1]
 
+            # Get a timeline of recent data points whose timestamp is larger
+            # than "since"
+            oldest_index = next((i for i, dp in enumerate(buffer)
+                                 if dp[0] < since), len(buffer))
+            return buffer[:oldest_index]
+
+        LOGGER.debug("Returning emtpy buffer.")
         return MenloStack._dummy_point_series()
 
     @staticmethod

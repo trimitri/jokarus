@@ -14,7 +14,9 @@ class Decoder:
     """
     def __init__(self) -> None:
         self._rcv_buffer = b''
-        self._msg_buffer = []  # Complete messages ready to retrieve.
+
+        # Complete messages, ready to be retrieved.
+        self._msg_buffer = []  # type: List[str]
 
     def feed(self, data: bytes) -> None:
         """Feed the next chunk of bytes into the collecting mechanism."""
