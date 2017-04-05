@@ -21,7 +21,7 @@ DEFAULT_URL = 'ws://menlostack:8000'
 # Constants specific to the published Menlo interface.
 
 LASER_NODES = [3, 4, 5, 6]  # node IDs of laser units 1 through 4
-LOCKBOX_NODES = [1, 2]      # node IDs of lockboxes 1 and 2
+PII_NODES = [1, 2]      # node IDs of lockboxes 1 and 2
 ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
@@ -42,7 +42,7 @@ LASER_SVC_SET = {
     3: "LD current",
     5: "enable LD",
     255: "update request"}
-LOCKBOX_SVC_GET = {
+PII_SVC_GET = {
     256: "ramp offset",
     257: "level",
     258: "ramp value",
@@ -52,7 +52,7 @@ LOCKBOX_SVC_GET = {
     305: "I1 disabled",
     306: "I2 disabled",
     307: "ramp active"}
-LOCKBOX_SVC_SET = {
+PII_SVC_SET = {
     0: "disable lock",
     1: "disable I1",
     2: "disable I2",
@@ -97,7 +97,7 @@ class MenloStack:
         """This does not do anything. Make sure to await the init() coro!"""
         self._buffers = None  # type: Buffers
 
-    async def init_async(self, url: str=DEFAULT_URL) -> None:
+    async def init_async(self, url: str = DEFAULT_URL) -> None:
         """This replaces the default constructor.
 
         Be sure to await this coroutine before using the class.
@@ -118,6 +118,30 @@ class MenloStack:
 
     def is_tec_enabled(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 304)
+
+    def is_lock_enabled(self, unit_number: int) -> Buffer:
+        return self._get_pii_prop(unit_number, 304)
+
+    def is_integrator_enabled(self, unit_number: int, stage: int) -> Buffer:
+        """Is the given unit's integrator stage "stage" shorted or not?
+        0: It is shorted / disabled
+        1: Enabled
+        """
+        if stage == 1:
+            return self._get_pii_prop(unit_number, 305)
+        if stage == 2:
+            return self._get_pii_prop(unit_number, 306)
+        LOGGER.error("Please choose integrator stage 1 or 2. Returning Dummy")
+        return self._dummy_point_series()
+
+    def is_ramp_enabled(self, unit_number: int) -> Buffer:
+        return self._get_pii_prop(unit_number, 307)
+
+    def get_pii_prop_factor(self, unit_number: int) -> Buffer:
+        return self._get_pii_prop(unit_number, 257)
+
+    def get_pii_offset(self, unit_number: int) -> Buffer:
+        return self._get_pii_prop(unit_number, 256)
 
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 288)
@@ -193,6 +217,16 @@ class MenloStack:
                        "Returning dummy.", unit_number)
         return self._dummy_point_series()
 
+    def _get_pii_prop(self, unit_number: int, service_id: int) -> Buffer:
+        node_id = unit_number
+        if node_id in PII_NODES:
+            return self._get_latest(self._buffers[node_id][service_id])
+
+        # else
+        LOGGER.warning("There is no pii controller unit %d. "
+                       "Returning dummy.", unit_number)
+        return self._dummy_point_series()
+
     def _init_buffers(self) -> None:
         """Create empty buffers to store received quantities in."""
 
@@ -212,8 +246,8 @@ class MenloStack:
                                    for svc_id in LASER_SVC_GET}
                          for node_id in LASER_NODES}  # type: Buffers
         lockbox_buffers = {node_id: {svc_id: []
-                                     for svc_id in LOCKBOX_SVC_GET}
-                           for node_id in LOCKBOX_NODES}  # type: Buffers
+                                     for svc_id in PII_SVC_GET}
+                           for node_id in PII_NODES}  # type: Buffers
         adc_buffers = {ADC_NODE: {svc_id: []
                                   for svc_id in ADC_SVC_GET}}  # type: Buffers
         muc_buffers = {MUC_NODE: {svc_id: []
@@ -295,11 +329,13 @@ class MenloStack:
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     async def request_full_status(self) -> None:
-        for node in LASER_NODES + LOCKBOX_NODES:
+        for node in LASER_NODES + PII_NODES:
             await self._send_command(node, 255, '0')
 
     @staticmethod
     def _rotate_log(log_list: Buffer, value: MenloUnit) -> None:
+        # Inserts value into log_list, making sure it's length stays capped.
+
         log_list.insert(0, (time.time(), value))
 
         # Shave of some elements in case the list got too long. Be careful to
@@ -336,9 +372,9 @@ class MenloStack:
         if node in LASER_NODES:
             if service in LASER_SVC_GET.keys():
                 return LASER_SVC_GET[service]
-        elif node in LOCKBOX_NODES:
-            if service in LOCKBOX_SVC_GET.keys():
-                return LOCKBOX_SVC_GET[service]
+        elif node in PII_NODES:
+            if service in PII_SVC_GET.keys():
+                return PII_SVC_GET[service]
         elif node == 16:  # ADC
             if service in ADC_SVC_GET.keys():
                 return ADC_SVC_GET[service]

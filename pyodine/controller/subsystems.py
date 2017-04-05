@@ -19,6 +19,7 @@ MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 OSC_UNITS = {'mo': 1, 'pa': 2}
+PII_UNITS = {'nu': 1}
 
 
 class Subsystems:
@@ -109,6 +110,14 @@ class Subsystems:
             self._temp_ramps[1].is_running)
         data['mo_temp_ok'] = self._menlo.is_temp_ok(1)
         data['mo_tec_current'] = self._menlo.get_tec_current(1)
+
+        # PII Controllers
+        data['nu_lock_enabled'] = self._menlo.is_lock_enabled(1)
+        data['nu_i1_enabled'] = self._menlo.is_integrator_enabled(1, 1)
+        data['nu_i2_enabled'] = self._menlo.is_integrator_enabled(1, 2)
+        data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(1)
+        data['nu_prop'] = self._menlo.get_pii_prop_factor(1)
+        data['nu_offset'] = self._menlo.get_pii_offset(1)
 
         return data
 
