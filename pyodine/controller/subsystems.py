@@ -103,8 +103,8 @@ class Subsystems:
         data['mo_current_set'] = self._menlo.get_diode_current_setpoint(1)
         data['mo_tec_enabled'] = self._menlo.is_tec_enabled(1)
         data['mo_temp'] = self._menlo.get_temperature(1)
-        data['mo_temp_set'] = self._menlo.get_temp_setpoint(1)
-        data['mo_temp_ramp_set'] = self._wrap_into_buffer(
+        data['mo_temp_raw_set'] = self._menlo.get_temp_setpoint(1)
+        data['mo_temp_set'] = self._wrap_into_buffer(
             self._temp_ramps[1].target_temperature)
         data['mo_temp_ramp_active'] = self._wrap_into_buffer(
             self._temp_ramps[1].is_running)

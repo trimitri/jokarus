@@ -68,7 +68,8 @@
 								data-current1-set="mo_current_set"
 								data-current2="mo_tec_current"
 								data-temp="mo_temp"
-								data-temp-set="mo_temp_set"></div>
+								data-temp-set="mo_temp_set"
+								data-temp-raw-set="mo_temp_raw_set"></div>
 							<div class="controls">
 								<h2>Master Oscillator</h2>
 								<p>
@@ -122,8 +123,13 @@
 									</table>
 									<h3>Setpoints</h3>
 									<p>
-										Temperature:
-										<input type="number" class="source" data-qty="mo_temp_raw" step="any" />&thinsp;°C
+										Temperature Setpoint:
+										<input type="number" class="source" data-qty="mo_temp" step="0.01" />&thinsp;°C
+										<input type="button" class="setter" data-qty="mo_temp" value="Set" />
+									</p>
+									<p>
+										Temperature (raw, use caution!):
+										<input type="number" class="source" data-qty="mo_temp_raw" step="0.01" />&thinsp;°C
 										<input type="button" class="setter" data-qty="mo_temp_raw" value="Set" />
 									</p>
 									<p>

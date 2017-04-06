@@ -38,6 +38,8 @@
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
+    if (!points.length) return;
+
     // For now, we are only using the first point of the received dataset, even
     // if it contains more. TODO allow adding more points at once.
     const newPoint = {
@@ -98,6 +100,8 @@
       readingsObj[div.data('temp')].map(convertToPlotPoint);
     const tempSetpoints =
       readingsObj[div.data('tempSet')].map(convertToPlotPoint);
+    const tempRawSetpoints =
+      readingsObj[div.data('tempRawSet')].map(convertToPlotPoint);
     const currentSetpoints =
       readingsObj[div.data('current1Set')].map(convertToPlotPoint);
 
@@ -112,10 +116,14 @@
                                  tecCurrents);
       Array.prototype.push.apply(chart.options.data[2].dataPoints, temps);
       Array.prototype.push.apply(chart.options.data[3].dataPoints,
-                                 tempSetpoints);
+                                 tempRawSetpoints);
 
-      chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
-      chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
+      if (tempSetpoints.length) {
+        chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
+      }
+      if (currentSetpoints.length) {
+        chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
+      }
 
       // Crop off some points if we have too many points in memory.
       const age = (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
@@ -160,7 +168,7 @@
           {  // temperature setpoint
             axisYType: 'primary',
             axisYIndex: 1,
-            dataPoints: tempSetpoints,
+            dataPoints: tempRawSetpoints,
             legendText: "Temp. Setpoint",
             markerType: 'none',
             showInLegend: true,
@@ -178,7 +186,7 @@
           gridThickness: 1,
           includeZero: false,
           stripLines: [{
-            value: tempSetpoints[0].y,
+            value: tempSetpoints.length ? tempSetpoints[0].y : null,
             label: "Temp. Setpoint",
             labelAlign: 'near',
             lineDashType: 'dot',
@@ -250,7 +258,8 @@
   }
 
   function updateIndicators(newValuesObj) {
-    $("td.indicator[data-qty]").each(function update() {
+    const booleanIndicators = $("td.indicator[data-qty]");
+    booleanIndicators.each(function update() {
       const qty = this.dataset.qty;
       if (qty in newValuesObj) {
         if (newValuesObj[qty].length > 0) {
@@ -267,6 +276,20 @@
       }
       console.log(
         `Couldn't update indicator for ${qty}, as no data was received`);
+    });
+
+    const setPointFields = document.querySelectorAll('input.source[data-qty]');
+    setPointFields.forEach((input) => {
+      if (input.disabled) {
+        const setQtyKey = `${input.dataset.qty}_set`;
+
+        // Timeline of recent values for this specific setpoint.
+        // @type {Buffer}
+        const setpoints = newValuesObj[setQtyKey];
+        if (setpoints && setpoints.length) {
+          input.value = setpoints[0][1];
+        }
+      }
     });
   }
 
