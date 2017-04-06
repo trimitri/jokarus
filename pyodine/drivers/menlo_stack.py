@@ -13,7 +13,7 @@ from typing import Dict, List, Tuple, Union
 import websockets
 
 # Adjust as needed
-ROTATE_N = 16  # Keep log of received values smaller than this.
+ROTATE_N = 128  # Keep log of received values smaller than this.
 DEFAULT_URL = 'ws://menlostack:8000'
 TEC_CALIBRATION_TIME = 10.0
 
@@ -197,6 +197,10 @@ class MenloStack:
     def get_pii_offset(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 256)
 
+    def get_pii_monitor(self,
+                        unit_number: int, p_only: bool = False) -> Buffer:
+        return self._get_pii_prop(unit_number, 273 if p_only else 272)
+
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 288)
 
@@ -205,19 +209,18 @@ class MenloStack:
                 for (time, val) in self._get_laser_prop(unit_number, 272)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
-        return [(time, self._to_temperature(val))
+        return [(time, self._to_temperature(val, is_setpoint=True))
                 for (time, val) in self._get_laser_prop(unit_number, 256)]
 
     def get_diode_current(self, unit_number: int) -> Buffer:
-        return [(time, self._to_current(val))
-                for (time, val) in self._get_laser_prop(unit_number, 275)]
+        return self._get_laser_prop(unit_number, 275)
 
     def get_diode_current_setpoint(self, unit_number: int) -> Buffer:
-        return [(time, self._to_current(val))
+        return [(time, val / 8.)
                 for (time, val) in self._get_laser_prop(unit_number, 257)]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
-        return [(time, (val / 1000) - self._tec_current_offsets[unit_number])
+        return [(time, val - self._tec_current_offsets[unit_number])
                 for (time, val)
                 in self._get_laser_prop(unit_number, 274, since=since)]
 
@@ -225,7 +228,8 @@ class MenloStack:
         node = 2 + unit_number
         if node in LASER_NODES:
             asyncio.ensure_future(
-                self._send_command(node, 1, str(self._from_temperature(temp))))
+                self._send_command(node, 1, str(
+                    self._from_temperature(temp, is_setpoint=True))))
         else:
             LOGGER.error("Oscillator Supply unit index out of range."
                          "Refusing to set temperature setpoint.")
@@ -234,8 +238,7 @@ class MenloStack:
         node = 2 + unit_number
         if node in LASER_NODES:
             asyncio.ensure_future(
-                self._send_command(node, 3,
-                                   str(self._from_current(milliamps))))
+                self._send_command(node, 3, str(milliamps * 8)))
         else:
             LOGGER.error("Oscillator Supply unit index out of range."
                          "Refusing to set current setpoint.")
@@ -447,34 +450,24 @@ class MenloStack:
         return "unknown service"
 
     @staticmethod
-    def _to_current(menlos: MenloUnit) -> float:
-        """Takes a menlo LD current reading and converts in to milliamps."""
-
-        return float(int(menlos) / 8.0)
-
-    @staticmethod
-    def _from_current(milliamps: float) -> int:
-        return int(round(milliamps * 8))
-
-    @staticmethod
-    def _to_temperature(menlos: MenloUnit) -> float:
+    def _to_temperature(menlos: MenloUnit, is_setpoint: bool = False) -> float:
         """Takes a temp. in Celsius and converts in to Menlo units.
 
-        The parameters of the quadratic expansion are read by R. Wilk from a
-        plot in the TEC controller chip datasheet."""
-        factor = 27000
+        The parameters of the quadratic expansion were approximated by R. Wilk
+        based on a plot in the TEC controller chip datasheet."""
+        factor = 27000 if is_setpoint else 1000
         a0 = factor * -2.489
         a1 = factor * 0.1717
         a2 = factor * -0.0004352
         return -a1/(2*a2) - math.sqrt((a1/(2*a2))**2 + (menlos - a0)/a2)
 
     @staticmethod
-    def _from_temperature(celsius: float) -> int:
+    def _from_temperature(celsius: float, is_setpoint: bool = False) -> int:
         """Takes a menlo current reading and converts in to ° Celsius.
 
         The parameters of the quadratic expansion are read by R. Wilk from a
         plot in the TEC controller chip datasheet."""
-        factor = 27000
+        factor = 27000 if is_setpoint else 1000
         a0 = factor * -2.489
         a1 = factor * 0.1717
         a2 = factor * -0.0004352

@@ -118,6 +118,8 @@ class Subsystems:
         data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(1)
         data['nu_prop'] = self._menlo.get_pii_prop_factor(1)
         data['nu_offset'] = self._menlo.get_pii_offset(1)
+        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only = True)
+        data['nu_monitor'] = self._menlo.get_pii_monitor(1)
 
         return data
 
