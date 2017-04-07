@@ -123,10 +123,16 @@
 									</table>
 									<h3>Setpoints</h3>
 									<p>
-										Temperature Setpoint:
+										Temperature Ramp:
 										<input type="number" class="source" data-qty="mo_temp" step="0.01" />&thinsp;°C
 										<input type="button" class="setter" data-qty="mo_temp" value="Set" />
 									</p>
+									<p>
+										Ramp:
+										<input type="button" class="command" value="Resume/Start"
+											data-method="switch_ramp" data-arguments='["mo", true]' />
+										<input type="button" class="command" value="Stop"
+											data-method="switch_ramp" data-arguments='["mo", false]' />
 									<p>
 										Temperature (raw, use caution!):
 										<input type="number" class="source" data-qty="mo_temp_raw" step="0.01" />&thinsp;°C

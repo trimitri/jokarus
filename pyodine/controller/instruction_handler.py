@@ -29,8 +29,9 @@ class InstructionHandler:
                 'mo', float(t), bypass_ramp=True),
             'set_pa_current': lambda c: self._subs.set_current('pa', float(c)),
             'set_pa_temp': lambda t: self._subs.set_temp('pa', float(t)),
-            'switch_tec': self._subs.switch_tec,
             'switch_ld': self._subs.switch_ld,
+            'switch_ramp': self._subs.switch_ramp,
+            'switch_tec': self._subs.switch_tec,
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 
     def handle_instruction(self, message: str) -> None:

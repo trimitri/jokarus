@@ -105,6 +105,16 @@ class TemperatureRamp:
 
     def start_ramp(self) -> None:
         """Start/resume pediodically setting the temp. setpoint."""
+
+        # Ensure prerequisites.
+        if self._keep_running:
+            LOGGER.warning("%s ramp is already running.", self.name)
+            return
+        if not math.isfinite(self._target):
+            LOGGER.error(
+                "Set target temperature before starting ramp %s", self.name)
+            return
+
         LOGGER.debug("Starting to ramp temperature.")
 
         # Create a "runner" coroutine and then schedule it for running.

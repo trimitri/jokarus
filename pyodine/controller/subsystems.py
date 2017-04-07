@@ -50,41 +50,6 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    def set_current(self, unit_name: str, milliamps: float) -> None:
-        """Set diode current setpoint of given unit."""
-        LOGGER.debug("Setting diode current of unit %s to %s mA",
-                     unit_name, milliamps)
-        if (unit_name in OSC_UNITS
-                and isinstance(milliamps, float)
-                and milliamps > 0):
-            self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
-        else:
-            LOGGER.error("Illegal setting for diode current.")
-
-    def set_temp(self, unit_name, celsius: float,
-                 bypass_ramp: bool = False) -> None:
-        """Set the target temp. for the temperature ramp."""
-        LOGGER.debug("Setting target temp. of unit %s to %s°C",
-                     unit_name, celsius)
-        if unit_name in OSC_UNITS and isinstance(celsius, float):
-            if bypass_ramp:
-                self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
-            else:
-                ramp = self._temp_ramps[OSC_UNITS[unit_name]]
-                ramp.target_temperature = celsius
-        else:
-            LOGGER.error("Illegal setting for temperature setpoint.")
-
-    def switch_tec(self, unit_name: str, switch_on: bool) -> None:
-        if unit_name in OSC_UNITS:
-            if isinstance(switch_on, bool):
-                self._menlo.switch_tec(OSC_UNITS[unit_name], switch_on)
-
-    def switch_ld(self, unit_name: str, switch_on: bool) -> None:
-        if unit_name in OSC_UNITS:
-            if isinstance(switch_on, bool):
-                self._menlo.switch_ld(OSC_UNITS[unit_name], switch_on)
-
     def get_full_set_of_readings(self) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
@@ -118,10 +83,58 @@ class Subsystems:
         data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(1)
         data['nu_prop'] = self._menlo.get_pii_prop_factor(1)
         data['nu_offset'] = self._menlo.get_pii_offset(1)
-        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only = True)
+        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True)
         data['nu_monitor'] = self._menlo.get_pii_monitor(1)
 
         return data
+
+    def set_current(self, unit_name: str, milliamps: float) -> None:
+        """Set diode current setpoint of given unit."""
+        LOGGER.debug("Setting diode current of unit %s to %s mA",
+                     unit_name, milliamps)
+        if (unit_name in OSC_UNITS
+                and isinstance(milliamps, float)
+                and milliamps > 0):
+            self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
+        else:
+            LOGGER.error("Illegal setting for diode current.")
+
+    def set_temp(self, unit_name, celsius: float,
+                 bypass_ramp: bool = False) -> None:
+        """Set the target temp. for the temperature ramp."""
+        if isinstance(celsius, float):
+            if bypass_ramp:
+                LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
+                             unit_name, celsius)
+                self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
+            else:
+                LOGGER.debug("Setting ramp target temp. of unit %s to %s°C",
+                             unit_name, celsius)
+                ramp = self._temp_ramps[OSC_UNITS[unit_name]]
+                ramp.target_temperature = celsius
+        else:
+            LOGGER.error("Illegal setting for temperature setpoint.")
+
+    def switch_ramp(self, unit_name: str, enable: bool) -> None:
+        """Start or halt ramping the temperature setpoint."""
+        if self._is_osc_unit(unit_name):
+            ramp = self._temp_ramps[OSC_UNITS[unit_name]]
+            if enable:
+                ramp.start_ramp()
+            else:
+                ramp.pause_ramp()
+
+    def switch_tec(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_osc_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_tec(OSC_UNITS[unit_name], switch_on)
+
+    def switch_ld(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_osc_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_ld(OSC_UNITS[unit_name], switch_on)
+
+    # Private Methods
 
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
@@ -163,3 +176,10 @@ class Subsystems:
         LOGGER.error("Type %s is not convertible into a MenloUnit.",
                      type(value))
         return []
+
+    @staticmethod
+    def _is_osc_unit(name: str) -> bool:
+        if name not in OSC_UNITS:
+            LOGGER.error('There is no oscillator supply unit "%s".', name)
+            return False
+        return True
