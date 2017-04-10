@@ -46,7 +46,7 @@ class InstructionHandler:
                                      method, arguments)
                         (self._methods[method])(*arguments)
                     except TypeError:
-                        LOGGER.error("Wrong type/number of arguments.")
+                        LOGGER.exception("Wrong type/number of arguments.")
                 else:
                     LOGGER.error('"arguments" has to be an array (list)')
             else:
