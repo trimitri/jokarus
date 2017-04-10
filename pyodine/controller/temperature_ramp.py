@@ -117,6 +117,9 @@ class TemperatureRamp:
 
         LOGGER.debug("Starting to ramp temperature.")
 
+        # Reflect actual system status into this ramp's internal state.
+        self._
+
         # Create a "runner" coroutine and then schedule it for running.
         async def run_ramp() -> None:
             while self._keep_running:
@@ -129,7 +132,12 @@ class TemperatureRamp:
         """Stop setting new temp. setpoints, stay at current value."""
         LOGGER.debug("Pausing temperature ramp, staying at %s.",
                      self._current_setpt)
+
+        # Reset the instance state to the same state as if the ramp wouldn't
+        # have been started yet.  This makes sure that the resume procedure has
+        # to check for actual current system state.
         self._keep_running = False
+        self._current_setpt = None
         self._prev_setpt = None
         self._prev_time = None
 
