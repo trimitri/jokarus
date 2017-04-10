@@ -114,11 +114,7 @@ class TemperatureRamp:
             LOGGER.error(
                 "Set target temperature before starting ramp %s", self.name)
             return
-
         LOGGER.debug("Starting to ramp temperature.")
-
-        # Reflect actual system status into this ramp's internal state.
-        self._
 
         # Create a "runner" coroutine and then schedule it for running.
         async def run_ramp() -> None:
@@ -165,7 +161,7 @@ class TemperatureRamp:
     def _set_next_setpoint(self) -> None:
         # Just set the next point, assuming that sanity test have been run.
 
-	# Calculate a candidate for next transitional setpoint.
+        # Calculate a candidate for next transitional setpoint.
         now = time.time()
         sign = -1 if self._target < self._get_temp() else 1
         next_setpt = self._current_setpt + (
