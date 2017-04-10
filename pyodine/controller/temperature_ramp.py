@@ -141,8 +141,8 @@ class TemperatureRamp:
             self._init_ramp()
 
         # Exit prematurely if we're there already.
-        if self._prev_setpt == self._target:
-            LOGGER.debug("Currently at target temperature.")
+        if self._current_setpt == self._target:
+            LOGGER.debug("Current setpoint equals target temperature.")
             return
 
         # Are we close enough to the current setpoint to continue?
@@ -151,15 +151,16 @@ class TemperatureRamp:
         else:
             # Don't do anything and wait until next invocation for the object
             # temperature to settle.
-            LOGGER.warning("Thermal load didn't follow ramp. Delaying ramp"
+            LOGGER.warning("Thermal load didn't follow ramp. Delaying ramp "
                            "continuation by %s seconds.", UPDATE_INTERVAL)
 
     def _set_next_setpoint(self) -> None:
         # Just set the next point, assuming that sanity test have been run.
 
+	# Calculate a candidate for next transitional setpoint.
         now = time.time()
         sign = -1 if self._target < self._get_temp() else 1
-        next_setpt = self._prev_setpt + (
+        next_setpt = self._current_setpt + (
             (now - self._prev_time) * sign * self._max_grad)
 
         # Prevent overshoot and set target temperature directly instead.
@@ -175,9 +176,8 @@ class TemperatureRamp:
 
         # Actually set the new temperature in hardware.
         self._set_temp(self._current_setpt)
-
-        LOGGER.debug("New transitional setpoint is spaced %s Kelvin from"
-                     "last one.", self._current_setpt - self._prev_setpt)
+        LOGGER.debug("Setpoint new: %s, old: %s.",
+                     self._current_setpt, self._prev_setpt)
 
     def _init_ramp(self) -> None:
         # Initialize internal ramp parameters to allow the iterative update
