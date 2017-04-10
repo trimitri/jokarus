@@ -182,7 +182,7 @@
           gridThickness: 1,
         },
         axisY: {
-          title: "Temp. in Menlo or °C",
+          title: "Temp. in °C",
           gridThickness: 1,
           includeZero: false,
           stripLines: [{
