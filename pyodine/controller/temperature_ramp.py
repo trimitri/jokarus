@@ -7,7 +7,6 @@ import asyncio
 import inspect
 import logging
 import math
-import time
 from typing import Callable
 
 LOGGER = logging.getLogger("pyodine.controller.temperature_ramp")
@@ -31,18 +30,26 @@ class TemperatureRamp:
     # Pylint doesn't recognize typing's subscriptable metaclasses.
     # pylint: disable=unsubscriptable-object
     def __init__(self, get_temp_callback: Callable[[], float],
+                 get_temp_setpt_callback: Callable[[], float],
                  set_temp_callback: Callable[[float], None],
                  name: str) -> None:
 
         self.name = name  # descriptive name for this instance
 
-        # Validate and store getter callback.
+        # Validate and store getter callbacks.
         sig = inspect.signature(get_temp_callback)
         if sig.return_annotation is float and not sig.parameters:
             self._get_temp = get_temp_callback
         else:
             raise TypeError("Provide a type-annotated callback of proper"
                             "signature.", get_temp_callback)
+
+        sig = inspect.signature(get_temp_setpt_callback)
+        if sig.return_annotation is float and not sig.parameters:
+            self._get_temp_set = get_temp_setpt_callback
+        else:
+            raise TypeError("Provide a type-annotated callback of proper"
+                            "signature.", get_temp_setpt_callback)
 
         # Validate and store setter callback.
         sig = inspect.signature(set_temp_callback)
@@ -61,10 +68,6 @@ class TemperatureRamp:
 
         # Previous transitional setpoint (in deg. Celsius).
         self._prev_setpt = None  # type: float
-
-        # Last update of transitional setpoint was at that time (unix
-        # timestamp).
-        self._prev_time = None  # type: float
 
         self._keep_running = False  # Is used to break the loop when runnning.
 
@@ -110,7 +113,7 @@ class TemperatureRamp:
         if self._keep_running:
             LOGGER.warning("%s ramp is already running.", self.name)
             return
-        if not math.isfinite(self._target):
+        if self._target is None or not math.isfinite(self._target):
             LOGGER.error(
                 "Set target temperature before starting ramp %s", self.name)
             return
@@ -118,6 +121,7 @@ class TemperatureRamp:
 
         # Create a "runner" coroutine and then schedule it for running.
         async def run_ramp() -> None:
+            self._init_ramp()
             while self._keep_running:
                 self._update_transitional_setpoint()
                 await asyncio.sleep(UPDATE_INTERVAL)
@@ -135,15 +139,10 @@ class TemperatureRamp:
         self._keep_running = False
         self._current_setpt = None
         self._prev_setpt = None
-        self._prev_time = None
 
     def _update_transitional_setpoint(self) -> None:
         """Set a new intermediate setpoint if the thermal load is following.
         """
-        # Did we just start the ramping?
-        if self._prev_setpt is None:
-            self._init_ramp()
-
         # Exit prematurely if we're there already.
         if self._current_setpt == self._target:
             LOGGER.debug("Current setpoint equals target temperature.")
@@ -162,10 +161,9 @@ class TemperatureRamp:
         # Just set the next point, assuming that sanity test have been run.
 
         # Calculate a candidate for next transitional setpoint.
-        now = time.time()
         sign = -1 if self._target < self._get_temp() else 1
         next_setpt = self._current_setpt + (
-            (now - self._prev_time) * sign * self._max_grad)
+            UPDATE_INTERVAL * sign * self._max_grad)
 
         # Prevent overshoot and set target temperature directly instead.
         if ((self._prev_setpt - self._target) * (next_setpt - self._target)
@@ -176,7 +174,6 @@ class TemperatureRamp:
         # Advance time.
         self._prev_setpt = self._current_setpt
         self._current_setpt = next_setpt
-        self._prev_time = now
 
         # Actually set the new temperature in hardware.
         self._set_temp(self._current_setpt)
@@ -187,8 +184,5 @@ class TemperatureRamp:
         # Initialize internal ramp parameters to allow the iterative update
         # method to work.
 
-        self._current_setpt = self._get_temp()
+        self._current_setpt = self._get_temp_set()
         self._prev_setpt = self._current_setpt
-
-        # Set time back, so ramp does immediately start with a full step.
-        self._prev_time = time.time() - UPDATE_INTERVAL

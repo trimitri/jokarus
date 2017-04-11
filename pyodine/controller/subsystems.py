@@ -16,7 +16,9 @@ LOGGER.setLevel(logging.DEBUG)
 
 # Define some custom types.
 MenloUnit = Union[float, int]
-DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
+
+# Measurement (time, reading)
+DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
 OSC_UNITS = {'mo': 1, 'pa': 2}
 PII_UNITS = {'nu': 1}
@@ -150,15 +152,25 @@ class Subsystems:
                 temp_readings = self._menlo.get_temperature((lambda: unit)())
                 if temp_readings:
                     return temp_readings[0][1]
+
+                LOGGER.error("Couldn't determine temperature.")
+                return float('nan')
+
+            def setpt_getter() -> float:
+                temp_setpts = self._menlo.get_temp_setpoint((lambda: unit)())
+                if temp_setpts:
+                    return temp_setpts[0][1]
+
+                LOGGER.error("Couldn't determine temp. setpoint.")
                 return float('nan')
 
             def setter(temp: float) -> None:
                 # Same here (see above).
                 self._menlo.set_temp((lambda: unit)(), temp)
 
-            self._temp_ramps[unit] = TemperatureRamp(get_temp_callback=getter,
-                                                     set_temp_callback=setter,
-                                                     name=name)
+            self._temp_ramps[unit] = TemperatureRamp(
+                get_temp_callback=getter, get_temp_setpt_callback=setpt_getter,
+                set_temp_callback=setter, name=name)
 
     @staticmethod
     def _wrap_into_buffer(value: Union[MenloUnit, bool]) -> Buffer:
