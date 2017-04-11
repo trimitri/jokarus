@@ -198,3 +198,10 @@ class Subsystems:
             LOGGER.error('There is no oscillator supply unit "%s".', name)
             return False
         return True
+
+    @staticmethod
+    def _is_pii_unit(name: str) -> bool:
+        if name not in OSC_UNITS:
+            LOGGER.error('There is no Lockbox "%s".', name)
+            return False
+        return True
