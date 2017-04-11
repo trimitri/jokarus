@@ -50,31 +50,33 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    def get_full_set_of_readings(self) -> Dict[str, Buffer]:
+    def get_full_set_of_readings(self,
+                                 since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
 
         # ADC readings
         for channel in range(8):
-            data['adc' + str(channel)] = self._menlo.get_adc_voltage(channel)
+            data['adc' + str(channel)] = self._menlo.get_adc_voltage(channel,
+                                                                     since)
 
         # TEC controller temperature readings
         for unit in [1, 2, 3, 4]:
-            data['temp'+str(unit)] = self._menlo.get_temperature(unit)
+            data['temp'+str(unit)] = self._menlo.get_temperature(unit, since)
 
         # Oscillator Supplies
         data['mo_enabled'] = self._menlo.is_current_driver_enabled(1)
-        data['mo_current'] = self._menlo.get_diode_current(1)
+        data['mo_current'] = self._menlo.get_diode_current(1, since)
         data['mo_current_set'] = self._menlo.get_diode_current_setpoint(1)
         data['mo_tec_enabled'] = self._menlo.is_tec_enabled(1)
-        data['mo_temp'] = self._menlo.get_temperature(1)
+        data['mo_temp'] = self._menlo.get_temperature(1, since)
         data['mo_temp_raw_set'] = self._menlo.get_temp_setpoint(1)
         data['mo_temp_set'] = self._wrap_into_buffer(
             self._temp_ramps[1].target_temperature)
         data['mo_temp_ramp_active'] = self._wrap_into_buffer(
             self._temp_ramps[1].is_running)
         data['mo_temp_ok'] = self._menlo.is_temp_ok(1)
-        data['mo_tec_current'] = self._menlo.get_tec_current(1)
+        data['mo_tec_current'] = self._menlo.get_tec_current(1, since)
 
         # PII Controllers
         data['nu_lock_enabled'] = self._menlo.is_lock_enabled(1)
@@ -83,8 +85,9 @@ class Subsystems:
         data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(1)
         data['nu_prop'] = self._menlo.get_pii_prop_factor(1)
         data['nu_offset'] = self._menlo.get_pii_offset(1)
-        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True)
-        data['nu_monitor'] = self._menlo.get_pii_monitor(1)
+        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True,
+                                                           since=since)
+        data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
 
         return data
 

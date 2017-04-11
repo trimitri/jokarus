@@ -160,12 +160,12 @@ class MenloStack:
         tasks = [self.calibrate_tec(unit) for unit in range(1, 5)]
         await asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME)
 
-    def get_adc_voltage(self, channel: int) -> Buffer:
+    def get_adc_voltage(self, channel: int, since: Time = None) -> Buffer:
         if channel in ADC_SVC_GET.keys():
-            return self._get_latest(self._buffers[16][channel])
-        else:
-            LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
-            return self._dummy_point_series()
+            return self._get_latest(self._buffers[16][channel], since)
+
+        LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
+        return self._dummy_point_series()
 
     def is_current_driver_enabled(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 305)
@@ -197,27 +197,31 @@ class MenloStack:
     def get_pii_offset(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 256)
 
-    def get_pii_monitor(self,
-                        unit_number: int, p_only: bool = False) -> Buffer:
-        return self._get_pii_prop(unit_number, 273 if p_only else 272)
+    def get_pii_monitor(self, unit_number: int, p_only: bool = False,
+                        since: Time = None) -> Buffer:
+        return self._get_pii_prop(unit_number, 273 if p_only else 272, since)
 
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_laser_prop(unit_number, 288)
 
-    def get_temperature(self, unit_number: int) -> Buffer:
+    def get_temperature(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, self._to_temperature(val))
-                for (time, val) in self._get_laser_prop(unit_number, 272)]
+                for (time, val)
+                in self._get_laser_prop(unit_number, 272, since)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
         return [(time, self._to_temperature(val, is_setpoint=True))
                 for (time, val) in self._get_laser_prop(unit_number, 256)]
 
-    def get_diode_current(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 275)
+    def get_diode_current(self,
+                          unit_number: int, since: Time = None) -> Buffer:
+        return self._get_laser_prop(unit_number, 275, since)
 
-    def get_diode_current_setpoint(self, unit_number: int) -> Buffer:
+    def get_diode_current_setpoint(self, unit_number: int,
+                                   since: Time = None) -> Buffer:
         return [(time, val / 8.)
-                for (time, val) in self._get_laser_prop(unit_number, 257)]
+                for (time, val)
+                in self._get_laser_prop(unit_number, 257, since)]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, val - self._tec_current_offsets[unit_number])
@@ -266,7 +270,7 @@ class MenloStack:
     ###################
 
     def _get_laser_prop(self, unit_number: int, service_id: int,
-                        since: Time=None) -> Buffer:
+                        since: Time = None) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in LASER_NODES:
             since = since if isinstance(since, float) else math.nan
@@ -277,10 +281,12 @@ class MenloStack:
                        "Returning dummy.", unit_number)
         return self._dummy_point_series()
 
-    def _get_pii_prop(self, unit_number: int, service_id: int) -> Buffer:
+    def _get_pii_prop(self, unit_number: int, service_id: int,
+                      since: Time = None) -> Buffer:
+        since = since if isinstance(since, float) else math.nan
         node_id = unit_number
         if node_id in PII_NODES:
-            return self._get_latest(self._buffers[node_id][service_id])
+            return self._get_latest(self._buffers[node_id][service_id], since)
 
         # else
         LOGGER.warning("There is no pii controller unit %d. "
@@ -403,13 +409,14 @@ class MenloStack:
         #     list = list[0:foo_end]
         # which does NOT work, as it doesn't modify the passed-by-reference
         # list.
-        del(log_list[ROTATE_N:])
+        del log_list[ROTATE_N:]
 
     @staticmethod
-    def _get_latest(buffer: Buffer, since: float = math.nan) -> Buffer:
+    def _get_latest(buffer: Buffer, since: float = None) -> Buffer:
         """Returns all tuples of time and value since "since" from given buffer.
         """
-
+        if not isinstance(since, float):
+            since = math.nan
         if buffer:
             if math.isnan(since):  # Get single latest data point.
 
