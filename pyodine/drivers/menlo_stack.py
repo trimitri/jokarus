@@ -428,7 +428,14 @@ class MenloStack:
             # than "since"
             oldest_index = next((i for i, dp in enumerate(buffer)
                                  if dp[0] < since), len(buffer))
-            return buffer[:oldest_index]
+
+            # Take all elements until oldest_index and return them in reversed
+            # order (oldest item last) to simplify plotting.
+            # Due to the async nature of this class, we must return a copy of
+            # those elements. The original buffer will keep being modified
+            # which will interfere with the caller's actions.
+            # Hence this leads to PROBLEMS: return buffer[oldest_index - 1::-1]
+            return list(reversed(buffer[:oldest_index]))
 
         LOGGER.debug("Returning emtpy buffer.")
         return MenloStack._dummy_point_series()

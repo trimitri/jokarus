@@ -126,9 +126,12 @@
       }
 
       // Crop off some points if we have too many points in memory.
-      const age = (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      if (age > cropTime) {
-        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+      if (temps.length) {
+        const age =
+          (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
+        if (age > cropTime) {
+          chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
+        }
       }
 
       // Render (visually update) plot.

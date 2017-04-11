@@ -91,11 +91,13 @@ class Interfaces:
         prev = self._readings_published_at
         self._readings_published_at = time.time()
         data = self._subs.get_full_set_of_readings(since=prev)
-        await self._publish_message(packer.create_message(data, 'readings'))
+        asyncio.ensure_future(
+            self._publish_message(packer.create_message(data, 'readings')))
 
     async def publish_flags(self) -> None:
         data = self._texus.get_full_set()
-        await self._publish_message(packer.create_message(data, 'texus'))
+        asyncio.ensure_future(
+                self._publish_message(packer.create_message(data, 'texus')))
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         if entity_id in texus_relay.LEGAL_SETTERS and isinstance(value, bool):
