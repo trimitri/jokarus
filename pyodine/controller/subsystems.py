@@ -120,7 +120,7 @@ class Subsystems:
         else:
             LOGGER.error("Illegal setting for temperature setpoint.")
 
-    def switch_ramp(self, unit_name: str, enable: bool) -> None:
+    def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""
         if self._is_osc_unit(unit_name):
             ramp = self._temp_ramps[OSC_UNITS[unit_name]]
@@ -133,6 +133,15 @@ class Subsystems:
         if self._is_osc_unit(unit_name):
             if isinstance(switch_on, bool):
                 self._menlo.switch_tec(OSC_UNITS[unit_name], switch_on)
+
+    def switch_pii_ramp(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_pii_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_ramp(PII_UNITS[unit_name], switch_on)
+            else:
+                LOGGER.error('Please provide boolean "on" argument when '
+                             'switching pii ramp generation of unit %s.',
+                             unit_name)
 
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
         if self._is_osc_unit(unit_name):
@@ -157,6 +166,7 @@ class Subsystems:
                 return float('nan')
 
             def setpt_getter() -> float:
+                """Gets the current TEC setpoint."""
                 temp_setpts = self._menlo.get_temp_setpoint((lambda: unit)())
                 if temp_setpts:
                     return temp_setpts[0][1]

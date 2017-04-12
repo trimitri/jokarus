@@ -6,7 +6,7 @@ from typing import Callable, Dict
 from .subsystems import Subsystems
 from .interfaces import Interfaces
 
-LegalCall = Callable[..., None]
+LegalCall = Callable[..., None]  # pylint: disable=unsubscriptable-object
 
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
@@ -30,7 +30,8 @@ class InstructionHandler:
             'set_pa_current': lambda c: self._subs.set_current('pa', float(c)),
             'set_pa_temp': lambda t: self._subs.set_temp('pa', float(t)),
             'switch_ld': self._subs.switch_ld,
-            'switch_ramp': self._subs.switch_ramp,
+            'switch_pii_ramp': self._subs.switch_pii_ramp,
+            'switch_temp_ramp': self._subs.switch_temp_ramp,
             'switch_tec': self._subs.switch_tec,
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 

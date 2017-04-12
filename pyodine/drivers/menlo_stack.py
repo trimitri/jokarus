@@ -265,6 +265,16 @@ class MenloStack:
         else:
             LOGGER.error("There is no oscillator supply unit %s", unit)
 
+    def switch_ramp(self, unit: int, on: bool) -> None:
+        """Switch the ramp generation of given PII unit on or off."""
+        if unit in PII_NODES:
+            LOGGER.info("Switching ramp generation of PII unit %s %s.",
+                        unit, "ON" if on else "OFF")
+            asyncio.ensure_future(
+                self._send_command(unit, 3, 1 if on else 0))
+        else:
+            LOGGER.error("There is no PII unit %s", unit)
+
     ###################
     # Private Methods #
     ###################
