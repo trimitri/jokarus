@@ -225,7 +225,7 @@
   function updatePiiPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
-    const prefix = plotDiv.dataset['unit-name'];
+    const prefix = plotDiv.dataset['unitName'];
     if (!prefix) return;
     const monitorVals = readingsObj[`${prefix}_monitor`].map(
       convertToPlotPoint);
@@ -290,8 +290,6 @@
     Object.keys(availablePlots).forEach((id) => {
       if (id in newValuesObj) {
         updatePlot(availablePlots[id], newValuesObj[id]);
-      } else {
-        console.log(`Received message didn't include data to update plot "${id}"`);
       }
     });
   }
@@ -373,6 +371,8 @@
             $('div.osc_plot').each(function plotUpdater() {
               updateOscPlot(this, message.data);
             });
+            document.querySelectorAll('div.pii.plot[data-unit-name]').forEach(
+              plotDiv => updatePiiPlot(plotDiv, message.data));
             updateIndicators(message.data);
             break;
           case 'texus':
