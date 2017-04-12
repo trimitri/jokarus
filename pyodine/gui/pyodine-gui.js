@@ -8,7 +8,7 @@
   'use strict';
 
   const DOM_SCOPE = document.body;  // Optional, for scoping this script.
-  const N_KEEP_POINTS = 1000;  // # of plot points to keep in memory.
+  const N_KEEP_POINTS = 2000;  // # of plot points to keep in memory.
 
   function createMessage(object, type) {
     const wrapper = {};
@@ -34,7 +34,20 @@
     };
   }
 
-  function updatePlot(plotDiv, points, cropTime = N_KEEP_POINTS) {
+  // Crop off some points if we have too many points in memory.
+  function truncatePlotDataToSaveMemory(chart, nKeep = N_KEEP_POINTS) {
+    chart.options.data.forEach((dataSet) => {
+      const excess = dataSet.dataPoints.length - nKeep;
+
+      // Do not truncate on every iteration but allow for a 20% overflow
+      // instead.
+      if (excess > nKeep * 0.2) {
+        dataSet.dataPoints = dataSet.dataPoints.slice(excess);
+      }
+    });
+  }
+
+  function updatePlot(plotDiv, points) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
@@ -51,10 +64,9 @@
       const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
-      const age = (newPoint.x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-      if (age > cropTime) {
-        chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
-      }
+
+      truncatePlotDataToSaveMemory(chart);
+
       // if (age > displayTime) {
       chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
       // }
@@ -88,7 +100,7 @@
     }
   }
 
-  function updateOscPlot(plotDiv, readingsObj, cropTime = N_KEEP_POINTS) {
+  function updateOscPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
@@ -118,6 +130,7 @@
       Array.prototype.push.apply(chart.options.data[3].dataPoints,
                                  tempRawSetpoints);
 
+      // Upate setpoint indicator lines.
       if (tempSetpoints.length) {
         chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
       }
@@ -125,14 +138,7 @@
         chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
       }
 
-      // Crop off some points if we have too many points in memory.
-      if (temps.length) {
-        const age =
-          (temps[0].x - chart.options.data[0].dataPoints[0].x) / 1000.0;
-        if (age > cropTime) {
-          chart.options.data[0].dataPoints = chart.options.data[0].dataPoints.slice(11);
-        }
-      }
+      truncatePlotDataToSaveMemory(chart);
 
       // Render (visually update) plot.
       chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
@@ -213,6 +219,63 @@
       });
       chart.render();
       $(plotDiv).data('chart', chart);
+    }
+  }
+
+  function updatePiiPlot(plotDiv, readingsObj) {
+    const div = $(plotDiv);
+    const displayTime = document.getElementById('display_time').value;
+    const prefix = plotDiv.dataset['unit-name'];
+    if (!prefix) return;
+    const monitorVals = readingsObj[`${prefix}_monitor`].map(
+      convertToPlotPoint);
+    const pMonitorVals = readingsObj[`${prefix}_p_monitor`].map(
+      convertToPlotPoint);
+    if (typeof div.data('chart') === 'undefined') {
+      // Create a new plot.
+      const chart = new CanvasJS.Chart(plotDiv, {
+        data: [
+          {  // Monitor
+            dataPoints: monitorVals,
+            legendText: "Full Loop Monitor",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'stepLine',
+          },
+          {  // P Monitor
+            dataPoints: pMonitorVals,
+            legendText: "P Monitor",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'stepLine',
+          },
+        ],
+        axisX: {
+          labelAngle: 30,
+          gridThickness: 1,
+        },
+        axisY: {
+          title: "Amplitude in mV",
+          gridThickness: 1,
+        },
+        legend: {},
+      });
+      chart.render();
+      $(plotDiv).data('chart', chart);
+    } else {  // Update the existing plot.
+      const useRemoteTime =
+        $('#use_server_clock:checked').length && monitorVals.length;
+      const now = useRemoteTime ? monitorVals[0].x : new Date();
+      const chart = div.data('chart');
+      Array.prototype.push.apply(chart.options.data[0].dataPoints, monitorVals);
+      Array.prototype.push.apply(chart.options.data[1].dataPoints, pMonitorVals);
+
+      truncatePlotDataToSaveMemory(chart);
+
+      // Render (visually update) plot.
+      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
+      chart.options.axisX.maximum = now;
+      chart.render();
     }
   }
 

@@ -381,18 +381,6 @@ class MenloStack:
             # message = await self._mock_reply()
             self._parse_reply(message)
 
-    @staticmethod
-    async def _mock_reply() -> str:
-        await asyncio.sleep(.002)  # Simulate websocket wait.
-        replies = ["5:288:0", "3:274:1488", "3:275:-12", "5:272:-29",
-                   "5:274:-39", "5:275:-56", "5:274:-65",
-                   "255:1:1481101784.216184", "4:288:0", "4:272:-2",
-                   "5:272:-427", "4:274:1488", "4:275:0", "5:272:-34",
-                   "6:288:0", "6:272:-9", "6:274:1490",
-                   "255:1:1481101784.716533"]
-        import random
-        return replies[random.randint(0, len(replies) - 1)]
-
     def _parse_reply(self, received_string: str) -> None:
         LOGGER.debug("Parsing reply '%s'", received_string)
 
