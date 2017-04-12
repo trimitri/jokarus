@@ -29,6 +29,8 @@ class InstructionHandler:
                 'mo', float(t), bypass_ramp=True),
             'set_pa_current': lambda c: self._subs.set_current('pa', float(c)),
             'set_pa_temp': lambda t: self._subs.set_temp('pa', float(t)),
+            'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
+                'nu', int(a)),
             'switch_ld': self._subs.switch_ld,
             'switch_pii_ramp': self._subs.switch_pii_ramp,
             'switch_temp_ramp': self._subs.switch_temp_ramp,

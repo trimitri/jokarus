@@ -90,6 +90,7 @@ class Subsystems:
         data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True,
                                                            since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
+        data['nu_ramp_amplitude_set'] = self._menlo.get_ramp_amplitude(1)
 
         return data
 
@@ -119,6 +120,14 @@ class Subsystems:
                 ramp.target_temperature = celsius
         else:
             LOGGER.error("Illegal setting for temperature setpoint.")
+
+    def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
+        if not isinstance(millivolts, int):
+            LOGGER.error("Please give ramp amplitude in millivolts (int).")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+        self._menlo.set_ramp_amplitude(PII_UNITS[unit_name], millivolts)
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

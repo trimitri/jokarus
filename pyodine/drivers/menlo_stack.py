@@ -275,6 +275,28 @@ class MenloStack:
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
+    def set_ramp_amplitude(self, unit: int, millivolts: int) -> None:
+        if unit not in PII_NODES:
+            LOGGER.error("Can't set ramp amplitude of unit %s, as there is no "
+                         "such unit.", unit)
+            return
+        if millivolts < -2500 or millivolts > 2500:
+            LOGGER.error("Ramp amplitude out of bounds (-2500...2500, %s "
+                         "given).", millivolts)
+            return
+        LOGGER.info("Setting ramp amplitude of PII unit %s to %s mV",
+                    unit, millivolts)
+        asyncio.ensure_future(
+                self._send_command(unit, 6, millivolts))
+
+    def get_ramp_amplitude(self, unit: int) -> Buffer:
+        if unit not in PII_NODES:
+            LOGGER.error("Can't set ramp amplitude of unit %s, as there is no "
+                         "such unit.", unit)
+            return self._dummy_point_series()
+        return self._get_pii_prop(unit, 258)
+
+
     ###################
     # Private Methods #
     ###################
