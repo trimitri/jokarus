@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple, Union
 from ..drivers import menlo_stack
 from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
-# from ..drivers import dds9control
+from ..drivers.dds9_control import Dds9Control
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -22,6 +22,7 @@ DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
 OSC_UNITS = {'mo': 1, 'pa': 2}
 PII_UNITS = {'nu': 1}
+DDS_CHANNELS = {'AOM': 0, 'mixer': 1, 'EOM': 2}
 
 
 class Subsystems:
@@ -32,7 +33,7 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
-        # self._dds = None
+        self._dds = Dds9Control('/dev/ttyUSB1')
         # self._daq = None
 
     async def init_async(self) -> None:
@@ -94,6 +95,19 @@ class Subsystems:
 
         return data
 
+    def get_setup_parameters(self) -> Dict[str, float]:
+        """Return a dict of all setup parameters.
+
+        These are the ones that don't usually change."""
+        data = {}  # type: Dict[str, float]
+
+        freqs = self._dds.frequencies
+        data['eom_freq'] = freqs[DDS_CHANNELS['EOM']]
+        data['aom_freq'] = freqs[DDS_CHANNELS['AOM']]
+        data['mixer_phase'] = self._dds.phases[DDS_CHANNELS['mixer']]
+
+        return data
+
     def set_current(self, unit_name: str, milliamps: float) -> None:
         """Set diode current setpoint of given unit."""
         LOGGER.debug("Setting diode current of unit %s to %s mA",
@@ -128,6 +142,12 @@ class Subsystems:
         if not self._is_pii_unit(unit_name):
             return
         self._menlo.set_ramp_amplitude(PII_UNITS[unit_name], millivolts)
+
+    def set_mixer_phase(self, degrees: float) -> None:
+        if not isinstance(degrees, float):
+            LOGGER.error("Provide a float for mixer phase in degrees.")
+            return
+        self._dds.set_phase(degrees, DDS_CHANNELS['mixer'])
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

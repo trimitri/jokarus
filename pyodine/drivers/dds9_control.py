@@ -13,13 +13,14 @@ dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 
 del(dds)  # close connection, device keeps running
 """
-import logging  # DEBUG, INFO, WARN, ERROR etc.
+import logging
+import time
+from typing import List
 import serial  # serial port communication
-import time  # sometimes we need to wait for the device
 
 __author__ = 'Franz Gutsch'
 
-logger = logging.getLogger('pyodine.drivers.dds9_control')
+LOGGER = logging.getLogger('pyodine.drivers.dds9_control')
 
 
 class Dds9Setting:
@@ -37,7 +38,7 @@ class Dds9Setting:
         self.phases = phases
         self.ampls = amplitudes
         if not self.validate():
-            logger.warning("Invalid settings object, defaulting to all-zero.")
+            LOGGER.warning("Invalid settings object, defaulting to all-zero.")
             self.freqs, self.phases, self.ampls = [4*[0] for x in range(3)]
 
     def validate(self) -> bool:
@@ -52,12 +53,12 @@ class Dds9Setting:
 
             # All lists contain only integers.
             if all(
-                    all(type(x) is int and x >= 0 for x in quantity)
+                    all(isinstance(x, int) and x >= 0 for x in quantity)
                     for quantity in [self.freqs, self.phases, self.ampls]):
                 return True
-            logger.debug("Settings constituents must be positive integers.")
+            LOGGER.debug("Settings constituents must be positive integers.")
         else:
-            logger.debug("Settings constituents must have four items each.")
+            LOGGER.debug("Settings constituents must have four items each.")
         return False
 
     def is_zero(self) -> bool:
@@ -100,7 +101,7 @@ class Dds9Control:
         'ext_clock_multiplier_setting': '84'
         }
 
-    def __init__(self, port: str=None):
+    def __init__(self, port: str = None) -> None:
         """Set the device connection up and set some basic device parameters.
 
         Depending on the device state, calling this constructor may actually
@@ -117,7 +118,7 @@ class Dds9Control:
         self._settings = self.default_settings
 
         # Overwrite default port setting in case port was given by caller.
-        if type(port) is str and len(port) > 0:
+        if isinstance(port, str) and port:
             self._settings['port'] = port
 
         self._paused_amplitudes = None  # Will be set by pause().
@@ -172,7 +173,7 @@ class Dds9Control:
 
         if not self.ping():  # ensure proper device connection
             raise ConnectionError("Unexpected DDS9m behaviour.")
-        logger.info("Connection to DDS9m established.")
+        LOGGER.info("Connection to DDS9m established.")
 
     # public methods
 
@@ -191,7 +192,7 @@ class Dds9Control:
         try:
             freq = float(freq)
         except (ValueError, TypeError):
-            logger.error("Could not parse given frequency. Resetting to 0 Hz.")
+            LOGGER.error("Could not parse given frequency. Resetting to 0 Hz.")
             freq = 0.0
 
         scaled_freq = freq * self._clock_mult
@@ -200,7 +201,7 @@ class Dds9Control:
         # MHz.
         max_value = self._settings['max_freq_value']
         if scaled_freq > max_value:
-            logger.warning("Capping requested frequency to {}"
+            LOGGER.warning("Capping requested frequency to {}"
                            "MHz.".format(max_value/self._clock_mult))
             scaled_freq = max_value
 
@@ -209,11 +210,12 @@ class Dds9Control:
         if channel in range(4):
             set_channel(channel, encoded_value)
         else:
-            for channel in range(4):
-                set_channel(channel, encoded_value)
+            for chan in range(4):
+                set_channel(chan, encoded_value)
         self._update_state()
 
-    def get_frequencies(self) -> list:
+    @property
+    def frequencies(self) -> List[float]:
         """Returns the frequency of each channel in MHz.
 
         When running on external reference clock, this may only yield the
@@ -235,20 +237,20 @@ class Dds9Control:
 
         encoded_value = int(float(ampl) * 1023)
         if encoded_value > 1023:
-            logger.warning("Amplitude capped to 1")
+            LOGGER.warning("Amplitude capped to 1")
             encoded_value = 1023
         if encoded_value < 0:
-            logger.warning("Can't set amplitude < 0, resetting to 0.")
+            LOGGER.warning("Can't set amplitude < 0, resetting to 0.")
             encoded_value = 0
 
         if channel > 3:
-            logger.warning("set_amplitude: Only channels 0-3 may be specified."
+            LOGGER.warning("set_amplitude: Only channels 0-3 may be specified."
                            " Setting all channels.")
         if channel in range(4):
             set_channel(channel, encoded_value)
         else:
-            for channel in range(4):
-                set_channel(channel, encoded_value)
+            for chan in range(4):
+                set_channel(chan, encoded_value)
         self._update_state()
 
     def get_amplitudes(self) -> list:
@@ -271,20 +273,21 @@ class Dds9Control:
         try:
             encoded_value = int(float(phase % 360) * 16383/360)
         except (ValueError, TypeError):
-            logger.error("Invalid phase value received. Setting phase to 0.")
+            LOGGER.error("Invalid phase value received. Setting phase to 0.")
             encoded_value = 0
 
         if channel > 3:
-            logger.warning("set_phase: Only channels 0-3 may be specified. "
+            LOGGER.warning("set_phase: Only channels 0-3 may be specified. "
                            "Setting all channels.")
         if channel in range(4):
             set_channel(channel, encoded_value)
         else:
-            for channel in range(4):
-                set_channel(channel, encoded_value)
+            for chan in range(4):
+                set_channel(chan, encoded_value)
         self._update_state()
 
-    def get_phases(self) -> list:
+    @property
+    def phases(self) -> List[float]:
         return [p*360/16384 for p in self._state.phases]
 
     def get_settings(self) -> dict:
@@ -303,11 +306,11 @@ class Dds9Control:
 
     def resume(self) -> None:
         """Resume frequency generation with previously used amplitudes."""
-        if type(self._paused_amplitudes) is list:
+        if isinstance(self._paused_amplitudes, list):
             for channel in range(4):
                 self.set_amplitude(self._paused_amplitudes[channel], channel)
         else:
-            logger.error("Can't resume as we didn't pause() before.")
+            LOGGER.error("Can't resume as we didn't pause() before.")
 
     def switch_to_external_frequency_reference(
             self, adjust_frequencies: bool=True) -> None:
@@ -322,7 +325,7 @@ class Dds9Control:
         """
         if self._runs_on_ext is False or self._runs_on_ext is None:
             if adjust_frequencies:
-                former_freqs = self.get_frequencies()
+                former_freqs = self.frequencies
                 print(former_freqs)
             self._send_command(
                     'Kp ' + self._settings['ext_clock_multiplier_setting'])
@@ -338,7 +341,7 @@ class Dds9Control:
                     self.set_frequency(former_freqs[i], i)
             self._runs_on_ext = True
         else:
-            logger.info("Already set to use ext. clock reference. "
+            LOGGER.info("Already set to use ext. clock reference. "
                         "Doing nothing.")
 
     def switch_to_internal_frequency_reference(
@@ -354,7 +357,7 @@ class Dds9Control:
         """
         if self._runs_on_ext is True or self._runs_on_ext is None:
             if adjust_frequencies:
-                former_freqs = self.get_frequencies()
+                former_freqs = self.frequencies
 
             # Reset clock multiplier to default value (0f hex. == 15 dec.)
             self._send_command('Kp 0f')
@@ -370,7 +373,7 @@ class Dds9Control:
                 for i in range(4):
                     self.set_frequency(former_freqs[i], i)
         else:
-            logger.info("Already set to use int. clock reference. "
+            LOGGER.info("Already set to use int. clock reference. "
                         "Doing nothing.")
 
     def save(self) -> None:
@@ -418,7 +421,7 @@ class Dds9Control:
         state = self._parse_query_result(response)
         self._state = state
         if state.is_zero():
-            logger.warning("Device was in zero state.")
+            LOGGER.warning("Device was in zero state.")
 
     def _send_command(self, command: str='') -> str:
         """Prepare a command string and send it to the device."""
@@ -450,7 +453,7 @@ class Dds9Control:
         self._port = serial.Serial(port)
         self._port.baudrate = self._settings['baudrate']
         self._port.timeout = self._settings['timeout']
-        logger.info("Connected to serial port " + self._port.name)
+        LOGGER.info("Connected to serial port " + self._port.name)
 
     @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
@@ -462,7 +465,7 @@ class Dds9Control:
 
         # Replace with dummy data if illegal string was passed.
         if len(relevant_lines) != 4:
-            logger.error("Too few valid lines in QUE response.")
+            LOGGER.error("Too few valid lines in QUE response.")
             relevant_lines = ['0 0 0 0 0 0 0' for i in range(4)]
         channels = [l.split() for l in relevant_lines]
 
@@ -473,4 +476,3 @@ class Dds9Control:
         phases = [int(f, 16) for f in params[1]]
         amplitudes = [int(f, 16) for f in params[2]]
         return Dds9Setting(frequencies, phases, amplitudes)
-

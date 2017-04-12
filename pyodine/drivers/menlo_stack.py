@@ -287,7 +287,7 @@ class MenloStack:
         LOGGER.info("Setting ramp amplitude of PII unit %s to %s mV",
                     unit, millivolts)
         asyncio.ensure_future(
-                self._send_command(unit, 6, millivolts))
+            self._send_command(unit, 6, millivolts))
 
     def get_ramp_amplitude(self, unit: int) -> Buffer:
         if unit not in PII_NODES:
@@ -295,7 +295,6 @@ class MenloStack:
                          "such unit.", unit)
             return self._dummy_point_series()
         return self._get_pii_prop(unit, 258)
-
 
     ###################
     # Private Methods #

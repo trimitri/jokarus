@@ -123,8 +123,8 @@
 									<h3>Setpoints</h3>
 									<p>
 										Temperature Ramp:
-										<input type="number" class="source" data-qty="mo_temp" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="mo_temp" value="Set" />
+										<input type="number" class="source" data-qty="mo_temp_set" step="0.01" />&thinsp;°C
+										<input type="button" class="setter" data-qty="mo_temp_set" value="Set" />
 									</p>
 									<div>
 										Ramp:
@@ -360,16 +360,25 @@
 			<section id="tab_setup">
 				<h2>AOM and Mixer</h2>
 				<p>
-					AOM Frequency (currently <span id="aom_freq"></span>&thinsp;MHz):
-					<input id="aom_freq_setpoint" type="number" value="150.0" />
-					<input type="button" class="setter" value="set" />
+					AOM Frequency:
+					<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz
+					<input type="button" class="setter" data-qty="aom_freq" value="Set" />
+				</p>
+				<p>
+					EOM Frequency:
+					<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz
+					<input type="button" class="setter" data-qty="eom_freq" value="Set" />
+				</p>
+				<p>
+					Mixer Phase:
+					<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°
+					<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
 				</p>
 				<div>
-					Offset between AOM and Mixer phase (currently <span id="aom_phase"></span>&thinsp;%):
-					<div id="aom_phase_setpoint" class="slider">
+					<div class="slider" data-qty="mixer_phase"
+						data-min="0" data-max="360" data-step="0.1" data-unit="°">
 						<div class="ui-slider-handle"></div>
-					</div>:
-					<input type="number" class="gauge" data-source-slider="#aom_phase_setpoint" />
+					</div>
 				</div>
 			</section>
 		</div>

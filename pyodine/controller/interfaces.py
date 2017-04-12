@@ -66,12 +66,12 @@ class Interfaces:
 
         async def serve_readings():
             while True:
-                await self.publish_readings()
+                self.publish_readings()
                 await asyncio.sleep(readings_interval)
 
         async def serve_flags():
             while True:
-                await self.publish_flags()
+                self.publish_flags()
                 await asyncio.sleep(flags_interval)
 
         async def regularly_refresh_status():
@@ -83,7 +83,7 @@ class Interfaces:
         asyncio.ensure_future(serve_flags())
         asyncio.ensure_future(regularly_refresh_status())
 
-    async def publish_readings(self) -> None:
+    def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
 
         # We need to use a transitional variable here to make sure that we
@@ -94,18 +94,24 @@ class Interfaces:
         asyncio.ensure_future(
             self._publish_message(packer.create_message(data, 'readings')))
 
-    async def publish_flags(self) -> None:
+    def publish_flags(self) -> None:
         data = self._texus.get_full_set()
         asyncio.ensure_future(
-                self._publish_message(packer.create_message(data, 'texus')))
+            self._publish_message(packer.create_message(data, 'texus')))
+
+    def publish_setup_parameters(self) -> None:
+        data = self._subs.get_setup_parameters()
+        asyncio.ensure_future(
+            self._publish_message(packer.create_message(data, 'setup')))
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         if entity_id in texus_relay.LEGAL_SETTERS and isinstance(value, bool):
             setattr(self._texus, entity_id, value)
 
-    def on_receive(self, callback: Callable[[str], None]) -> None:
+    def register_on_receive_callback(
+            self, callback: Callable[[str], None]) -> None:
         # pylint: disable=unsubscriptable-object
-        # Callable is in subscriptable, pylint fails to detect that.
+        # Callable is indeed subscriptable, pylint fails to detect that.
 
         self._rcv_callback = callback
 
@@ -118,3 +124,10 @@ class Interfaces:
     def _parse_reply(self, message: str) -> None:
         if callable(self._rcv_callback):
             self._rcv_callback(message)
+
+    def _on_client_connect(self) -> None:
+        """Is called everytime a new client connects to the TCP/IP interface.
+
+        Attention: As there might be RS232 clients as well, this might not get
+        called at all."""
+        self.publish_setup_parameters()

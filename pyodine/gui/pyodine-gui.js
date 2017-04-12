@@ -225,7 +225,7 @@
   function updatePiiPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
-    const prefix = plotDiv.dataset['unitName'];
+    const prefix = plotDiv.dataset.unitName;
     if (!prefix) return;
     const monitorVals = readingsObj[`${prefix}_monitor`].map(
       convertToPlotPoint);
@@ -342,14 +342,11 @@
         `Couldn't update indicator for ${qty}, as no data was received`);
     });
 
-    const setPointFields = document.querySelectorAll('input.source[data-qty]');
-    setPointFields.forEach((input) => {
+    document.querySelectorAll('input.source[data-qty]').forEach((input) => {
       if (input.disabled) {
-        const setQtyKey = `${input.dataset.qty}_set`;
-
         // Timeline of recent values for this specific setpoint.
         // @type {Buffer}
-        const setpoints = newValuesObj[setQtyKey];
+        const setpoints = newValuesObj[input.dataset.qty];
         if (setpoints && setpoints.length) {
           input.value = setpoints[0][1];
         }

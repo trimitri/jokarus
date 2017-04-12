@@ -23,12 +23,12 @@ class InstructionHandler:
         self._face = interface_controller
 
         self._methods = {
-            'set_mo_current': lambda c: self._subs.set_current('mo', float(c)),
-            'set_mo_temp': lambda t: self._subs.set_temp('mo', float(t)),
-            'set_mo_temp_raw': lambda t: self._subs.set_temp(
+            'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
+            'set_mo_current_set': lambda c: self._subs.set_current(
+                'mo', float(c)),
+            'set_mo_temp_set': lambda t: self._subs.set_temp('mo', float(t)),
+            'set_mo_temp_raw_set': lambda t: self._subs.set_temp(
                 'mo', float(t), bypass_ramp=True),
-            'set_pa_current': lambda c: self._subs.set_current('pa', float(c)),
-            'set_pa_temp': lambda t: self._subs.set_temp('pa', float(t)),
             'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
                 'nu', int(a)),
             'switch_ld': self._subs.switch_ld,
