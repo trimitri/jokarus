@@ -211,7 +211,7 @@ class Subsystems:
 
     @staticmethod
     def _is_pii_unit(name: str) -> bool:
-        if name not in OSC_UNITS:
+        if name not in PII_UNITS:
             LOGGER.error('There is no Lockbox "%s".', name)
             return False
         return True
