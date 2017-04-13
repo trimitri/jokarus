@@ -321,27 +321,34 @@
     callRemoteMethod(socket, 'setflag', [entityId, value]);
   }
 
+  /**
+   * Update all indicators for which there are new values in the given data.
+   */
   function updateIndicators(newValuesObj) {
+    // Boolean indicators
     const booleanIndicators = $("td.indicator[data-qty]");
     booleanIndicators.each(function update() {
       const qty = this.dataset.qty;
-      if (qty in newValuesObj) {
-        if (newValuesObj[qty].length > 0) {
-          // Get the value ([1]) of the latest ([0]) data point.
-          updateIndicator($(this), newValuesObj[qty][0][1] === 1);
-
-          // Update "last updated" fields if any are present for qty.
-          const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
-          $(`.update_indicator[data-qty=${qty}]`).html(
-            timeOfMeasurement.toLocaleTimeString());
-        }
+      if (!(qty in newValuesObj)) {
+        console.log(
+          `Couldn't update indicator for ${qty}, as no data was received`);
+        return;
+      }
+      if (newValuesObj[qty].length === 0) {
         console.log(
           `Couldn't update indicator for ${qty}, as empty dataset was received`);
+        return;
       }
-      console.log(
-        `Couldn't update indicator for ${qty}, as no data was received`);
+      // Get the value ([1]) of the latest ([0]) data point.
+      updateIndicator($(this), newValuesObj[qty][0][1] === 1);
+
+      // Update "last updated" fields if any are present for qty.
+      const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
+      $(`.update_indicator[data-qty=${qty}]`).html(
+        timeOfMeasurement.toLocaleTimeString());
     });
 
+    // General indicators
     document.querySelectorAll('input.source[data-qty]').forEach((input) => {
       if (input.disabled) {
         // Timeline of recent values for this specific setpoint.
@@ -354,40 +361,41 @@
     });
   }
 
+  function messageHandler(event) {
+    const message = JSON.parse(event.data);
+    switch (message.type) {
+      case 'readings':
+        updateAllPlots(message.data);
+        $('div.osc_plot').each(function plotUpdater() {
+          updateOscPlot(this, message.data);
+        });
+        document.querySelectorAll('div.pii.plot[data-unit-name]').forEach(
+          plotDiv => updatePiiPlot(plotDiv, message.data));
+        updateIndicators(message.data);
+        break;
+      case 'setup':
+        updateIndicators(message.data);
+        break;
+      case 'texus':
+        updateTexusFlags(message.data);
+        break;
+      default:
+        console.warn(`Unknown message type "${message.type}".`);
+    }
+  }
+
   $(() => {  // Do things on page load.
     // Setup layout using jQuery UI.
     $('div.tabs').tabs();
 
+    // Establish connection to server.
     let ws;  // Websocket connection.
-    {  // Establish connection to server.
-      const handler = function messageHandler(event) {
-        const message = JSON.parse(event.data);
-        switch (message.type) {
-          case 'readings':
-            updateAllPlots(message.data);
-            $('div.osc_plot').each(function plotUpdater() {
-              updateOscPlot(this, message.data);
-            });
-            document.querySelectorAll('div.pii.plot[data-unit-name]').forEach(
-              plotDiv => updatePiiPlot(plotDiv, message.data));
-            updateIndicators(message.data);
-            break;
-          case 'texus':
-            updateTexusFlags(message.data);
-            break;
-          default:
-            console.warn(`Unknown message type "${message.type}".`);
-        }
-      };
-
-      $('#connect_btn').on('click', () => {
-        const host = $('#host').val();
-        const wsPort = $('#ws_port').val();
-        ws = new WebSocket(`ws://${host}:${wsPort}/`);
-        ws.onmessage = handler;
-      });
-    }
-
+    $('#connect_btn').on('click', () => {
+      const host = $('#host').val();
+      const wsPort = $('#ws_port').val();
+      ws = new WebSocket(`ws://${host}:${wsPort}/`);
+      ws.onmessage = messageHandler;
+    });
 
     {  // Setup interactive UI elements.
       $('div.slider').each(function setupSlider() {

@@ -99,19 +99,18 @@ class Subsystems:
                                                            since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
         data['nu_ramp_amplitude'] = self._menlo.get_ramp_amplitude(1)
-
-
         return data
 
-    def get_setup_parameters(self) -> Dict[str, float]:
+    def get_setup_parameters(self) -> Dict[str, Buffer]:
         """Return a dict of all setup parameters.
 
         These are the ones that don't usually change."""
-        data = {}  # type: Dict[str, float]
+        data = {}  # type: Dict[str, Buffer]
         freqs = self._dds.frequencies
-        data['eom_freq'] = freqs[DdsChannel.EOM]
-        data['aom_freq'] = freqs[DdsChannel.AOM]
-        data['mixer_phase'] = self._dds.phases[DdsChannel.MIXER]
+        data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
+        data['aom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.AOM])
+        data['mixer_phase'] = self._wrap_into_buffer(
+            self._dds.phases[DdsChannel.MIXER])
         return data
 
     def set_current(self, unit_name: str, milliamps: float) -> None:
@@ -153,7 +152,23 @@ class Subsystems:
         if not isinstance(degrees, float):
             LOGGER.error("Provide a float for mixer phase in degrees.")
             return
-        self._dds.set_phase(degrees, DdsChannel.MIXER)
+        LOGGER.debug("Setting mixer phase to %s°", degrees)
+        self._dds.set_phase(degrees, int(DdsChannel.MIXER))
+
+    def set_aom_frequency(self, freq: float) -> None:
+        if not isinstance(freq, float) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for AOM.")
+            return
+        LOGGER.debug("Setting AOM frequency to %s MHz.", freq)
+        self._dds.set_frequency(freq, int(DdsChannel.AOM))
+
+    def set_eom_frequency(self, freq: float) -> None:
+        if not isinstance(freq, float) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for EOM.")
+            return
+        LOGGER.debug("Setting EOM frequency to %s MHz.", freq)
+        self._dds.set_frequency(freq, int(DdsChannel.EOM))
+        self._dds.set_frequency(freq, int(DdsChannel.MIXER))
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

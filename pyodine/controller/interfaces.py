@@ -14,7 +14,7 @@ from ..transport import packer
 from ..controller.subsystems import Subsystems
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
-LOGGER.setLevel(logging.DEBUG)
+# LOGGER.setLevel(logging.DEBUG)
 
 
 class Interfaces:
@@ -62,9 +62,10 @@ class Interfaces:
         # TEXUS flags relay
         self._texus = texus_relay.TexusRelay()
 
-    def start_publishing_regularly(self, readings_interval: float = 1.07,
-                                   status_update_interval: float = 10.137,
-                                   flags_interval: float = 3.03) -> None:
+    def start_publishing_regularly(
+            self, readings_interval: float = 1.07,
+            status_update_interval: float = 10.137,
+            flags_interval: float = 3.03) -> None:
         """Schedule asyncio tasks to publish data regularly."""
 
         async def serve_readings():
@@ -82,8 +83,14 @@ class Interfaces:
                 await self._subs.refresh_status()
                 await asyncio.sleep(status_update_interval)
 
+        async def serve_setup_params():
+            while True:
+                self.publish_setup_parameters()
+                await asyncio.sleep(2)  # FIXME
+
         asyncio.ensure_future(serve_readings())
         asyncio.ensure_future(serve_flags())
+        asyncio.ensure_future(serve_setup_params())
         asyncio.ensure_future(regularly_refresh_status())
 
     def publish_readings(self) -> None:
@@ -139,3 +146,5 @@ class Interfaces:
         Attention: As there might be RS232 clients as well, this might not get
         called at all."""
         self.publish_setup_parameters()
+        self.publish_readings()
+        self.publish_flags()

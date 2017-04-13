@@ -22,6 +22,7 @@ import serial  # serial port communication
 __author__ = 'Franz Gutsch'
 
 LOGGER = logging.getLogger('pyodine.drivers.dds9_control')
+LOGGER.setLevel(logging.DEBUG)
 
 
 class Dds9Setting:
@@ -188,6 +189,12 @@ class Dds9Control:
 
     def set_frequency(self, freq: float, channel: int = -1) -> None:
         """Set frequency in MHz for one or all (-1) channels.  """
+
+        if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
+            LOGGER.error('"channel" must cast to str like an int and hence '
+                         'has to be an actual int.')
+            return
+
         def set_channel(channel, encoded_value):
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
@@ -211,10 +218,15 @@ class Dds9Control:
         encoded_value = '{0:.7f}'.format(scaled_freq)
 
         if channel in range(4):
+            LOGGER.debug("Setting frequency of channel %s to %s MHz.",
+                         channel, freq)
             set_channel(channel, encoded_value)
-        else:
+        elif channel == -1:
+            LOGGER.debug("Setting frequency of all channels to %s MHz.", freq)
             for chan in range(4):
                 set_channel(chan, encoded_value)
+        else:
+            LOGGER.error("Provide channel in [0, 1, 2, 3].")
         self._update_state()
 
     @property
@@ -229,6 +241,11 @@ class Dds9Control:
 
         If argument "channel" is omitted, all channels are set.
         """
+        if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
+            LOGGER.error('"channel" must cast to str like an int and hence '
+                         'has to be an actual int.')
+            return
+
         def set_channel(channel, encoded_value):
             command_string = 'V' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
@@ -264,9 +281,16 @@ class Dds9Control:
 
         If argument "channel" is omitted, all channels are set.
         """
+        if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
+            LOGGER.error('"channel" must cast to str like an int and hence '
+                         'has to be an actual int.')
+            return
+
         def set_channel(channel, encoded_value):
             command_string = 'P' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
+
+        LOGGER.debug("Setting phase to %s°.", phase)
 
         # Note that the modulo automatically shifts any float into legal range.
         try:
@@ -422,6 +446,8 @@ class Dds9Control:
         self._state = state
         if state.is_zero():
             LOGGER.warning("Device was in zero state.")
+            return
+        LOGGER.debug("Queried new state. New Freq/s are %s", state.freqs)
 
     def _send_command(self, command: str = '') -> str:
         """Prepare a command string and send it to the device."""

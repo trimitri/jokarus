@@ -24,6 +24,8 @@ class InstructionHandler:
 
         self._methods = {
             'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
+            'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
+            'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
             'set_mo_current_set': lambda c: self._subs.set_current(
                 'mo', float(c)),
             'set_mo_temp_set': lambda t: self._subs.set_temp('mo', float(t)),
