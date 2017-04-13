@@ -4,36 +4,47 @@ It manages a list of subscribers to whom it can publish data.
 It can forward received messages to a callback handler.
 """
 import asyncio
-import websockets
 import logging
+from typing import Callable
+import websockets
 
 LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 
 class WebsocketServer:
+    """Sets up a listening WebSocket server on given TCP port.
 
-    def __init__(self, port: int=56320, received_msg_callback=None) -> None:
+    This class loosely follows the publish/subscribe pattern, while also
+    allowing clients to send messages.
+    """
+
+    def __init__(self, port: int = 56320,
+                 on_msg_receive: Callable[[str], None] = None,
+                 on_client_connect: Callable[[], None] = None) -> None:
         """Mustn't be run alone. Be sure to await the async_init() coroutine
         afterwards.
         The default port number is inspired by the 56(32)-0 iodine hyperfine
         transition. If you want to use lower port numbers, the OS will probably
         ask you for superuser privileges.
         """
+        # pylint: disable=unsubscriptable-object
+
         self.port = port
         self.subscribers = set()  # type: set
-        self._rcv_callback = received_msg_callback
+        self._rcv_callback = on_msg_receive
+        self._client_connected_callback = on_client_connect
         LOGGER.info("Creating instance. Do call the async_init() fcn.")
 
     async def async_init(self) -> None:
+        """This must be awaited after instantiation."""
         LOGGER.info("async_init() called.")
         LOGGER.info("Starting server on port %d.", self.port)
-        asyncio.ensure_future(websockets.serve(self._register_subscriber,
-                                               port=self.port))
+        asyncio.ensure_future(websockets.serve(
+            lambda ws, _: self._register_subscriber(ws), port=self.port))
 
     async def publish(self, data: str) -> None:
         LOGGER.debug("Trying to publish: %s", data[:30])
-        if len(self.subscribers) > 0:
-
+        if self.subscribers:
             # Send data to every subscriber.
             await asyncio.wait([ws.send(data) for ws in self.subscribers])
         else:
@@ -46,9 +57,14 @@ class WebsocketServer:
             received_msg = await socket.recv()
             await socket.send(received_msg)
 
-    async def _register_subscriber(self, socket, path):
+    async def _register_subscriber(self, socket):
+        """Register a subscriber.
+
+        This also launches a task that maintains the connection to them.
+        """
         self.subscribers.add(socket)
-        LOGGER.info("Subscribed client. %d connected clients.",
+        self._client_connected_callback()
+        LOGGER.info("Subscribed a client. There are %d connected clients.",
                     len(self.subscribers))
         try:
             while True:
@@ -62,5 +78,5 @@ class WebsocketServer:
                 LOGGER.debug("Received message: %s", message)
         except (websockets.exceptions.ConnectionClosed, ConnectionError):
             self.subscribers.remove(socket)
-            LOGGER.info("Unsubscribed client. %d clients left.",
+            LOGGER.info("Unsubscribed a client. %d clients left.",
                         len(self.subscribers))

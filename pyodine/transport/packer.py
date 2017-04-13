@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any
 
 LOGGER = logging.getLogger('pyodine.transport.packer')
-MESSAGE_TYPES = ['readings', 'texus']
+MESSAGE_TYPES = ['readings', 'texus', 'setup']
 
 
 def create_message(payload: dict, msg_type: str) -> str:

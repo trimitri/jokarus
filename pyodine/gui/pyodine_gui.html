@@ -134,13 +134,14 @@
 											data-method="switch_temp_ramp" data-arguments='["mo", false]' />
 										<p>
 											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="mo_temp_raw" step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="mo_temp_raw" value="Set" />
+											<input type="number" class="source" data-qty="mo_temp_raw_set"
+												step="0.01" />&thinsp;°C
+											<input type="button" class="setter" data-qty="mo_temp_raw_set" value="Set" />
 										</p>
 										<p>
 											Diode Current:
-											<input type="number" class="source" data-qty="mo_current" step="any" />&thinsp;mA
-											<input type="button" class="setter" data-qty="mo_current" value="Set" />
+											<input type="number" class="source" data-qty="mo_current_set" step="any" />&thinsp;mA
+											<input type="button" class="setter" data-qty="mo_current_set" value="Set" />
 										</p>
 									</div>
 								</div>
@@ -360,24 +361,32 @@
 			<section id="tab_setup">
 				<h2>AOM and Mixer</h2>
 				<p>
-					AOM Frequency:
-					<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz
-					<input type="button" class="setter" data-qty="aom_freq" value="Set" />
+					<label>
+						Unlock controls
+						<input type="checkbox" data-safety-switch=".setup_controls input" />
+					</label>
 				</p>
-				<p>
-					EOM Frequency:
-					<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz
-					<input type="button" class="setter" data-qty="eom_freq" value="Set" />
-				</p>
-				<p>
-					Mixer Phase:
-					<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°
-					<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
-				</p>
-				<div>
-					<div class="slider" data-qty="mixer_phase"
-						data-min="0" data-max="360" data-step="0.1" data-unit="°">
-						<div class="ui-slider-handle"></div>
+				<div class="setup_controls">
+					<p>
+						AOM Frequency:
+						<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz
+						<input type="button" class="setter" data-qty="aom_freq" value="Set" />
+					</p>
+					<p>
+						EOM Frequency:
+						<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz
+						<input type="button" class="setter" data-qty="eom_freq" value="Set" />
+					</p>
+					<p>
+						Mixer Phase:
+						<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°
+						<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
+					</p>
+					<div>
+						<div class="slider" data-qty="mixer_phase"
+							data-min="0" data-max="360" data-step="0.1" data-unit="°">
+							<div class="ui-slider-handle"></div>
+						</div>
 					</div>
 				</div>
 			</section>

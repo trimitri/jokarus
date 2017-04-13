@@ -3,6 +3,7 @@
 This is an interface to the actual things connected to each port of each
 subsystem.
 """
+import enum
 import logging
 import time
 from typing import Dict, List, Tuple, Union
@@ -14,15 +15,21 @@ from ..drivers.dds9_control import Dds9Control
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
+OSC_UNITS = {'mo': 1, 'pa': 2}
+PII_UNITS = {'nu': 1}
+
 # Define some custom types.
+
 MenloUnit = Union[float, int]
 
 # Measurement (time, reading)
 DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
-OSC_UNITS = {'mo': 1, 'pa': 2}
-PII_UNITS = {'nu': 1}
-DDS_CHANNELS = {'AOM': 0, 'mixer': 1, 'EOM': 2}
+class DdsChannel(enum.IntEnum):  # noqa: E302
+    # pylint: disable=missing-docstring
+    AOM = 0
+    EOM = 2
+    MIXER = 1
 
 
 class Subsystems:
@@ -91,7 +98,8 @@ class Subsystems:
         data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True,
                                                            since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
-        data['nu_ramp_amplitude_set'] = self._menlo.get_ramp_amplitude(1)
+        data['nu_ramp_amplitude'] = self._menlo.get_ramp_amplitude(1)
+
 
         return data
 
@@ -100,12 +108,10 @@ class Subsystems:
 
         These are the ones that don't usually change."""
         data = {}  # type: Dict[str, float]
-
         freqs = self._dds.frequencies
-        data['eom_freq'] = freqs[DDS_CHANNELS['EOM']]
-        data['aom_freq'] = freqs[DDS_CHANNELS['AOM']]
-        data['mixer_phase'] = self._dds.phases[DDS_CHANNELS['mixer']]
-
+        data['eom_freq'] = freqs[DdsChannel.EOM]
+        data['aom_freq'] = freqs[DdsChannel.AOM]
+        data['mixer_phase'] = self._dds.phases[DdsChannel.MIXER]
         return data
 
     def set_current(self, unit_name: str, milliamps: float) -> None:
@@ -147,7 +153,7 @@ class Subsystems:
         if not isinstance(degrees, float):
             LOGGER.error("Provide a float for mixer phase in degrees.")
             return
-        self._dds.set_phase(degrees, DDS_CHANNELS['mixer'])
+        self._dds.set_phase(degrees, DdsChannel.MIXER)
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

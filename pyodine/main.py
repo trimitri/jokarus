@@ -17,17 +17,18 @@ from .controller import instruction_handler
 
 
 async def main():
-    logger.info("Running Pyodine...")
+    """Start the pyodine server."""
+    LOGGER.info("Running Pyodine...")
 
     subs = subsystems.Subsystems()
     await subs.init_async()
 
     face = interfaces.Interfaces(subs, start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly(readings_interval=5, flags_interval=5)
+    face.start_publishing_regularly(readings_interval=2, flags_interval=5)
 
     handler = instruction_handler.InstructionHandler(subs, face)
-    face.on_receive(handler.handle_instruction)
+    face.register_on_receive_callback(handler.handle_instruction)
 
     while True:
         await asyncio.sleep(1)
@@ -35,14 +36,14 @@ async def main():
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
-    logger = logging.getLogger('pyodine.main')
+    LOGGER = logging.getLogger('pyodine.main')
     logging.basicConfig(level=logging.INFO)
 
-    loop = asyncio.get_event_loop()
-    # loop.set_debug(True)
+    event_loop = asyncio.get_event_loop()
+    # event_loop.set_debug(True)
 
     # Schedule main program for running and start central event loop.
     try:
-        loop.run_until_complete(main())
+        event_loop.run_until_complete(main())
     except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received. Exiting.")
+        LOGGER.info("Keyboard interrupt received. Exiting.")

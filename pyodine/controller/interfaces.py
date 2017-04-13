@@ -14,6 +14,7 @@ from ..transport import packer
 from ..controller.subsystems import Subsystems
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
+LOGGER.setLevel(logging.DEBUG)
 
 
 class Interfaces:
@@ -47,7 +48,9 @@ class Interfaces:
 
         # Websocket server
         if self._use_ws:
-            self._ws = WebsocketServer(received_msg_callback=self._parse_reply)
+            self._ws = WebsocketServer(
+                on_msg_receive=self._parse_reply,
+                on_client_connect=self._on_client_connect)
             await self._ws.async_init()
 
         # Serial server
@@ -100,6 +103,7 @@ class Interfaces:
             self._publish_message(packer.create_message(data, 'texus')))
 
     def publish_setup_parameters(self) -> None:
+        LOGGER.debug("Scheduling setup parameter publication.")
         data = self._subs.get_setup_parameters()
         asyncio.ensure_future(
             self._publish_message(packer.create_message(data, 'setup')))
@@ -110,6 +114,10 @@ class Interfaces:
 
     def register_on_receive_callback(
             self, callback: Callable[[str], None]) -> None:
+        """Provide a callback that is called each time a data packet arrives.
+
+        The callback must take the data payload (string) as an argument.
+        """
         # pylint: disable=unsubscriptable-object
         # Callable is indeed subscriptable, pylint fails to detect that.
 
