@@ -174,10 +174,10 @@ class Dds9Control:
 
         # Unfortunately, I didn't find a way to get information about which
         # clock source is currently in use from the device. We thus need to set
-        # a clock source to have that information.
-        # The internal source is preferred for stability reasons. As far as
-        # this driver is concerned, ext. clock source would work here just as
-        # well.
+        # a clock source to have that information. The internal source is
+        # preferred as it is considered failsafe. But setting to ext. here
+        # should work just as well, given that an external clock source is
+        # connected.
         self.switch_to_ext_reference(adjust_frequencies=False)
 
         # Conduct a basic health test.
@@ -187,13 +187,7 @@ class Dds9Control:
         LOGGER.info("Connection to DDS9m established.")
 
     def set_frequency(self, freq: float, channel: int = -1) -> None:
-        """Set frequency in MHz for one or all channels.
-
-        If the method is called without "channel", all channels are set.
-        When running on external reference clock, this may only set the
-        correct frequency values if the external clock frequency is set
-        correctly; check by calling .get_settings()['ext_clock'].
-        """
+        """Set frequency in MHz for one or all (-1) channels.  """
         def set_channel(channel, encoded_value):
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
@@ -225,12 +219,7 @@ class Dds9Control:
 
     @property
     def frequencies(self) -> List[float]:
-        """Returns the frequency of each channel in MHz.
-
-        When running on external reference clock, this may only yield the
-        correct frequency values, if the external clock frequency is set
-        correctly; check by calling .get_settings().
-        """
+        """Returns the frequency of each channel in MHz."""
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
         return [f / self._freq_scale_factor * 1e-7 for f in self._state.freqs]
@@ -300,7 +289,7 @@ class Dds9Control:
         return [p*360/16384 for p in self._state.phases]
 
     def get_settings(self) -> SetupParameters:
-        """Returns a copy of the internal "_settings" object."""
+        """Returns a copy of the general setup parameters."""
         return copy.deepcopy(self._settings)
 
     def ping(self) -> bool:
@@ -319,7 +308,7 @@ class Dds9Control:
             for channel in range(4):
                 self.set_amplitude(self._paused_amplitudes[channel], channel)
         else:
-            LOGGER.error("Can't resume as we didn't pause() before.")
+            LOGGER.error("Can't resume as device wasn't pause()d before.")
 
     def switch_to_ext_reference(
             self, adjust_frequencies: bool = True) -> None:
@@ -354,8 +343,7 @@ class Dds9Control:
                 self.set_frequency(former_freqs[i], i)
         self._ref_clock = 'ext'
 
-    def switch_to_int_reference(
-            self, adjust_frequencies: bool = True) -> None:
+    def switch_to_int_reference(self, adjust_frequencies: bool = True) -> None:
         """Base generated frequencies on internal clock source.
 
         As the internal frequency calculations will be changed by that, we need
