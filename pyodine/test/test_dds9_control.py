@@ -13,9 +13,9 @@ from pyodine.drivers.dds9_control import Dds9Control
 
 __author__ = 'Franz Gutsch'
 
-wrong_port = '/dev/tty0'    # port must not be accessible (ConnectionError)
+wrong_port = '/dev/tty0'    # Port must not be accessible (ConnectionError).
 dead_port = '/dev/ttyUSB3'  # must be accessible, but no device is connected
-live_port = '/dev/ttyUSB0'  # DDS9m must be connected to that port
+live_port = '/dev/ttyUSB1'  # DDS9m must be connected to that port
 
 # Most tests can only be performed when there is a live DDS9m device available.
 # We create a marker here to skip those tests automatically if there is no
@@ -94,7 +94,7 @@ def test_set_phase(dds9: Dds9Control):
     dds9.set_phase(99, 1)
     dds9.set_phase(0, 2)
     expected = [111, 99, 0, 111]
-    actual = dds9.get_phases()
+    actual = dds9.phases
     diff = [expected[i] - actual[i] for i in range(4)]
     assert max(diff) < 1
 
@@ -107,7 +107,7 @@ def test_set_amplitudes(dds9: Dds9Control):
     dds9.set_amplitude(1, 1)  # reset some
     dds9.set_amplitude(0, 2)
     expected = [.777, 1, 0, .777]
-    actual = dds9.get_amplitudes()
+    actual = dds9.amplitudes
     diff = [expected[i] - actual[i] for i in range(4)]
     assert max(diff) < 0.01
 
@@ -120,7 +120,7 @@ def test_set_frequency(dds9: Dds9Control):
     dds9.set_frequency(0.007, 1)
     dds9.set_frequency(1000, 2)  # will be capped to 171 MHz!
     expected = [123, 7e-3, 171, 123]
-    actual = dds9.get_frequencies()
+    actual = dds9.frequencies
     print(expected)
     print(actual)
     diff = [expected[i] - actual[i] for i in range(4)]
@@ -135,13 +135,13 @@ def test_pause_resume(dds9: Dds9Control):
     dds9.reset()
     assert dds9.ping() is True
     dds9.set_amplitude(1)
-    assert dds9.get_amplitudes() == 4*[1]
+    assert dds9.amplitudes == 4*[1]
     dds9.pause()
-    assert dds9.get_amplitudes() == 4*[0]
+    assert dds9.amplitudes == 4*[0]
     dds9.set_amplitude(.5)
-    assert max([abs(dds9.get_amplitudes()[i] - .5) for i in range(4)]) < .01
+    assert max([abs(dds9.amplitudes[i] - .5) for i in range(4)]) < .01
     dds9.resume()
-    assert dds9.get_amplitudes() == 4*[1]
+    assert dds9.amplitudes == 4*[1]
 
 
 @needs_live_device
@@ -151,11 +151,11 @@ def test_switch_reference_source(dds9: Dds9Control):
     It also must not alter the set up frequency values.
     """
     dds9.reset()
-    freq1 = dds9.get_frequencies()
-    dds9.switch_to_external_frequency_reference()
-    freq2 = dds9.get_frequencies()
-    dds9.switch_to_internal_frequency_reference()
-    freq3 = dds9.get_frequencies()
+    freq1 = dds9.frequencies
+    dds9.switch_to_ext_reference()
+    freq2 = dds9.frequencies
+    dds9.switch_to_int_reference()
+    freq3 = dds9.frequencies
     assert max([abs(freq1[i] - freq2[i]) for i in range(4)]) < 1e-6
     assert max([abs(freq1[i] - freq3[i]) for i in range(4)]) < 1e-6
 
@@ -164,20 +164,17 @@ def test_switch_reference_source(dds9: Dds9Control):
 def test_set_frequency_on_external_clock(dds9: Dds9Control):
     """Device accepts and applies frequency settings when on ext. clock."""
     dds9.reset()
-    dds9.switch_to_external_frequency_reference()
+    dds9.switch_to_ext_reference()
     dds9.set_frequency(123)
     dds9.set_frequency(0.007, 1)
     dds9.set_frequency(1000, 2)  # will be capped!
-    cap_frequency = dds9._settings['max_freq_value'] / dds9._clock_mult
+    cap_frequency = dds9._settings.max_freq_value / dds9._freq_scale_factor
 
     # The last channel is supposed to have the same frequency as the first one,
     # as the very first set_ command acts on all channels.
     expected = [123, 7e-3, cap_frequency, 123]
 
-    actual = dds9.get_frequencies()
-    print(dds9._clock_mult)
-    print(expected)
-    print(actual)
+    actual = dds9.frequencies
     diff = [expected[i] - actual[i] for i in range(4)]
 
     # Internally, the chip works with 0.1Hz steps:
@@ -193,13 +190,13 @@ def test_get_settings(dds9: Dds9Control):
     settings = dds9.get_settings()
 
     # Run basic sanity test on all setting's values.
-    assert float(settings['max_freq_value']) > 0
-    assert int(settings['baudrate']) % 10 == 0
-    assert float(settings['timeout']) >= 0 and float(settings['timeout']) < 100
-    assert type(settings['port']) is str and len(settings['port']) > 0
-    assert float(settings['ext_clock']) > 0
-    assert len(settings['ext_clock_multiplier_setting']) == 2
+    assert float(settings.max_freq_value) > 0
+    assert int(settings.baudrate) % 10 == 0
+    assert float(settings.timeout) >= 0 and float(settings.timeout) < 100
+    assert isinstance(settings.port, str) and settings.port
+    assert float(settings.ext_clock) > 0
+    assert len(settings.ext_clock_multiplier_setting) == 2
 
     # Make sure settings can't be modified.
-    settings['max_freq_value'] = -1
-    assert dds9.get_settings()['max_freq_value'] != -1
+    settings.max_freq_value = -1
+    assert dds9.get_settings().max_freq_value != -1

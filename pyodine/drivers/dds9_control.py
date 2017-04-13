@@ -251,7 +251,8 @@ class Dds9Control:
                 set_channel(chan, encoded_value)
         self._update_state()
 
-    def get_amplitudes(self) -> List[float]:
+    @property
+    def amplitudes(self) -> List[float]:
         """Returns a list of relative amplitudes for all channels.
 
         The amplitudes are returned as a list of floats in [0,1].
@@ -299,7 +300,7 @@ class Dds9Control:
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
-        self._paused_amplitudes = self.get_amplitudes()
+        self._paused_amplitudes = self.amplitudes
         self.set_amplitude(0)
 
     def resume(self) -> None:
