@@ -358,7 +358,7 @@ class Dds9Control:
         time.sleep(0.2)
         self._send_command('C E')
         self._freq_scale_factor = (
-            self._settings.ext_clock / self._settings.int_clock)
+            self._settings.int_clock / self._settings.ext_clock)
         time.sleep(0.2)
 
         if adjust_frequencies:
