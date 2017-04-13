@@ -13,6 +13,7 @@ dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 
 del(dds)  # close connection, device keeps running
 """
+import copy
 import logging
 import time
 from typing import List
@@ -68,6 +69,33 @@ class Dds9Setting:
         return is_zero
 
 
+class SetupParameters:
+    """A set of default parameters, can be changed in main class constructor.
+    """
+
+    # This is just an object for data storage, it exposes no methods.
+    # pylint: disable=too-few-public-methods
+    def __init__(self) -> None:
+        self.baudrate = 19200   # as stated in the device manual
+        self.timeout = 1        # If we have to wait, something went wrong.
+
+        # DDS9's internal circtuitry imposes a cap on the saved frequency's
+        # numeric value. This, however, does not have to match the actual
+        # highest output frequency, especially when using an external reference
+        # clock.  See manual for details.
+        self.max_freq_value = 171.1
+        self.port = '/dev/ttyUSB1'  # Can be reset by constructor.
+        self.ext_clock = 400  # 100MHz native clock * 4 for K_p multiplier
+        self.int_clock = 2**32 * 1e-7  # 430 MHz internal OCXO clock
+
+        # We set the chip's reference clock multiplier to 4, to achieve 400MHz
+        # reference clock in conjunction with the connected 100MHz external
+        # clock.
+        # This is a hex value of 04, shifted by a hex 80 to set an internal
+        # gain bit. See manual for details.
+        self.ext_clock_multiplier_setting = '84'
+
+
 class Dds9Control:
     """A stateful controller for the DDS9m frequency generator.
 
@@ -79,28 +107,8 @@ class Dds9Control:
     to free the serial port) and then try again.
     """
 
-    # This is a class variable; instances must derive their own set of settings
+    # instances must derive their own set of settings
     # from this, see __init__ below.
-    class _default_settings:
-        baudrate = 19200   # as stated in the device manual for default value
-        timeout = 1        # If we have to wait, something went wrong.
-
-        # DDS9's internal circtuitry imposes a cap on the saved frequency's
-        # numeric value. This, however, does not have to match the actual
-        # highest output frequency, especially when using an external reference
-        # clock.  See manual for details.
-        max_freq_value = 171.1
-        port = '/dev/ttyUSB1'  # Can be reset by constructor.
-        ext_clock = 400  # 100MHz actual clock * 4 for K_p multiplier chip
-        int_clock = 2**32 * 1e-7  # 430 MHz internal OCXO clock
-
-        # We set the chip's reference clock multiplier to 4, to achieve 400MHz
-        # reference clock in conjunction with the connected 100MHz external
-        # clock.
-        # This is a hex value of 04, shifted by a hex 80 to set an internal
-        # gain bit. See manual for details.
-        ext_clock_multiplier_setting = '84'
-
 
     def __init__(self, port: str = None) -> None:
         """Set the device connection up and set some basic device parameters.
@@ -114,11 +122,11 @@ class Dds9Control:
         retry.
         """
 
-        self._settings = self._default_settings
+        self._settings = SetupParameters()
 
         # Change port if it was given.
         if isinstance(port, str) and port:
-            self._settings['port'] = port
+            self._settings.port = port
 
         # Will be set by pause() in order to be able to resume with the same
         # amplitudes afterwards.
@@ -133,12 +141,14 @@ class Dds9Control:
         # when on the internal clock source is just one. But when switching to
         # an external clock source, the internal clock divided  by external
         # clock has to be used.
-        self._freq_scale_factor = None  # will be set the switch_... commands.
+        # Variable will be set by the switch_... commands.
+        self._freq_scale_factor = None  # type: float
+
+        self._state = None  # type: Dds9Setting
 
         # Initialize device.
-
-        self._port = None        # Connection has not been opened yet.
-        self._open_connection()  # Open it. Sets above variable.
+        self._conn = None  # type: serial.Serial
+        self._open_connection()  # Sets above variable.
 
         # Immediately execute any sent command, instead of waiting for an
         # explicit "Execute commands!" command.
@@ -160,7 +170,6 @@ class Dds9Control:
         self._send_command('M a')
 
         # Save actual device state into class instance variable.
-        self._state = None
         self._update_state()
 
         # Unfortunately, I didn't find a way to get information about which
@@ -199,7 +208,7 @@ class Dds9Control:
 
         # The internal freq. generation chip only stores freq. values up to 171
         # MHz.
-        max_value = self._settings['max_freq_value']
+        max_value = self._settings.max_freq_value
         if scaled_freq > max_value:
             LOGGER.error("Capping requested frequency to %s MHz.",
                          max_value/self._freq_scale_factor)
@@ -290,9 +299,9 @@ class Dds9Control:
     def phases(self) -> List[float]:
         return [p*360/16384 for p in self._state.phases]
 
-    def get_settings(self) -> dict:
+    def get_settings(self) -> SetupParameters:
         """Returns a copy of the internal "_settings" object."""
-        return self._settings.copy()  # Don't let the user change our settings.
+        return copy.deepcopy(self._settings)
 
     def ping(self) -> bool:
         """Device is accessible and in non-zero state."""
@@ -331,11 +340,11 @@ class Dds9Control:
         if adjust_frequencies:
             former_freqs = self.frequencies
         self._send_command(
-            'Kp ' + self._settings['ext_clock_multiplier_setting'])
+            'Kp ' + self._settings.ext_clock_multiplier_setting)
         time.sleep(0.2)
         self._send_command('C E')
         self._freq_scale_factor = (
-            self._settings['ext_clock'] / self._settings['int_clock'])
+            self._settings.ext_clock / self._settings.int_clock)
         time.sleep(0.2)
 
         if adjust_frequencies:
@@ -432,9 +441,9 @@ class Dds9Control:
             """Gets response from device through serial connection."""
 
             # recommended way of reading response, as of pySerial developer
-            data = self._port.read(1)
-            data += self._port.read(self._port.inWaiting())
-            self._port.reset_output_buffer()
+            data = self._conn.read(1)
+            data += self._conn.read(self._conn.inWaiting())
+            self._conn.reset_output_buffer()
 
             # decode byte string to Unicode
             return data.decode(encoding='utf-8', errors='ignore')
@@ -443,7 +452,7 @@ class Dds9Control:
         command_string = '\n' + command + '\n'
 
         # convert the query string to bytecode and send it through the port.
-        self._port.write(command_string.encode())
+        self._conn.write(command_string.encode())
         response = read_response()
         logging.debug("sent: " + command + ", got: ")
         logging.debug(response)
@@ -451,11 +460,10 @@ class Dds9Control:
 
     def _open_connection(self) -> None:
         """Opens the device connection for reading and writing."""
-        port = self._settings['port']
-        self._port = serial.Serial(port)
-        self._port.baudrate = self._settings['baudrate']
-        self._port.timeout = self._settings['timeout']
-        LOGGER.info("Connected to serial port " + self._port.name)
+        self._conn = serial.Serial(self._settings.port)
+        self._conn.baudrate = self._settings.baudrate
+        self._conn.timeout = self._settings.timeout
+        LOGGER.info("Connected to serial port " + self._conn.name)
 
     @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
