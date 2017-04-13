@@ -30,6 +30,7 @@ class DdsChannel(enum.IntEnum):  # noqa: E302
     AOM = 0
     EOM = 2
     MIXER = 1
+    FREE = 3  # not in use
 
 
 class Subsystems:

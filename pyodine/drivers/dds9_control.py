@@ -179,7 +179,7 @@ class Dds9Control:
         # preferred as it is considered failsafe. But setting to ext. here
         # should work just as well, given that an external clock source is
         # connected.
-        self.switch_to_ext_reference(adjust_frequencies=False)
+        self.switch_to_int_reference(adjust_frequencies=False)
 
         # Conduct a basic health test.
 
@@ -346,7 +346,7 @@ class Dds9Control:
         Set adjust_frequencies to False if you want to disable the adjustment
         altogether.
         """
-        if self._ref_clock == 'int':
+        if self._ref_clock == 'ext':
             LOGGER.info("Already set to use ext. clock reference. "
                         "Doing nothing.")
             return
