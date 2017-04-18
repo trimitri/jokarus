@@ -326,7 +326,7 @@
    */
   function updateIndicators(newValuesObj) {
     // Boolean indicators
-    const booleanIndicators = $("td.indicator[data-qty]");
+    const booleanIndicators = $(".indicator[data-qty]");
     booleanIndicators.each(function update() {
       const qty = this.dataset.qty;
       if (!(qty in newValuesObj)) {

@@ -49,8 +49,11 @@ table.flags td,
 table.flags th {
 	text-align:left;
 }
-td.indicator {
+td.indicator, div.indicator {
 	text-align: center;
+}
+span.indicator {
+	display: inline-block;
 }
 label {
 	cursor: pointer;

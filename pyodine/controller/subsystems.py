@@ -108,10 +108,22 @@ class Subsystems:
         These are the ones that don't usually change."""
         data = {}  # type: Dict[str, Buffer]
         freqs = self._dds.frequencies
+        amplitudes = self._dds.amplitudes
         data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
         data['aom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.AOM])
+        data['aom_amplitude'] = self._wrap_into_buffer(
+            amplitudes[DdsChannel.AOM])
+        data['eom_amplitude'] = self._wrap_into_buffer(
+            amplitudes[DdsChannel.EOM])
+        data['mixer_amplitude'] = self._wrap_into_buffer(
+            amplitudes[DdsChannel.MIXER])
         data['mixer_phase'] = self._wrap_into_buffer(
             self._dds.phases[DdsChannel.MIXER])
+
+        # Clock source may be unknown (None).
+        if isinstance(self._dds.runs_on_ext_clock_source, bool):
+            data['rf_use_external_clock'] = self._wrap_into_buffer(
+                self._dds.runs_on_ext_clock_source)
         return data
 
     def set_current(self, unit_name: str, milliamps: float) -> None:
@@ -150,6 +162,7 @@ class Subsystems:
         self._menlo.set_ramp_amplitude(PII_UNITS[unit_name], millivolts)
 
     def set_mixer_phase(self, degrees: float) -> None:
+        """Set the phase offset between EOM and mixer drivers in degrees."""
         if not isinstance(degrees, float):
             LOGGER.error("Provide a float for mixer phase in degrees.")
             return
@@ -157,6 +170,7 @@ class Subsystems:
         self._dds.set_phase(degrees, int(DdsChannel.MIXER))
 
     def set_aom_frequency(self, freq: float) -> None:
+        """Set the acousto-optic modulator driver frequency in MHz."""
         if not isinstance(freq, float) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for AOM.")
             return
@@ -164,12 +178,48 @@ class Subsystems:
         self._dds.set_frequency(freq, int(DdsChannel.AOM))
 
     def set_eom_frequency(self, freq: float) -> None:
+        """Set the EOM and mixer frequency in MHz."""
         if not isinstance(freq, float) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for EOM.")
             return
         LOGGER.debug("Setting EOM frequency to %s MHz.", freq)
         self._dds.set_frequency(freq, int(DdsChannel.EOM))
         self._dds.set_frequency(freq, int(DdsChannel.MIXER))
+
+    def set_aom_amplitude(self, amplitude: float) -> None:
+        """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, float) or not amplitude > 0:
+            LOGGER.error("Provide valid amplitude (float) for AOM.")
+            return
+        LOGGER.debug("Setting AOM amplitude to %s %%.", amplitude * 100)
+        self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
+
+    def set_eom_amplitude(self, amplitude: float) -> None:
+        """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, float) or not amplitude > 0:
+            LOGGER.error("Provide valid amplitude (float) for EOM.")
+            return
+        LOGGER.debug("Setting EOM amplitude to %s %%.", amplitude * 100)
+        self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
+
+    def set_mixer_amplitude(self, amplitude: float) -> None:
+        """Set the mixer driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, float) or not amplitude > 0:
+            LOGGER.error("Provide valid amplitude (float) for mixer.")
+            return
+        LOGGER.debug("Setting mixer amplitude to %s %%.", amplitude * 100)
+        self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
+
+    def switch_rf_clock_source(self, which: str) -> None:
+        """Pass "external" or "internal" to switch RF clock source."""
+        if which not in ['external', 'internal']:
+            LOGGER.error('Can only switch to "external" or "internal" '
+                         'reference, "%s" given.', which)
+            return
+        if which == 'external':
+            self._dds.switch_to_ext_reference()
+        else:  # str == 'internal'
+            self._dds.switch_to_int_reference()
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

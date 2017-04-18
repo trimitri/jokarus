@@ -16,7 +16,7 @@ del(dds)  # close connection, device keeps running
 import copy
 import logging
 import time
-from typing import List
+from typing import List, Union
 import serial  # serial port communication
 
 __author__ = 'Franz Gutsch'
@@ -312,6 +312,15 @@ class Dds9Control:
     @property
     def phases(self) -> List[float]:
         return [p*360/16384 for p in self._state.phases]
+
+    @property
+    def runs_on_ext_clock_source(self) -> Union[bool, None]:
+        "Is the external clock source in use? Returns None if unknown."""
+        if self._ref_clock == 'ext':
+            return True
+        if self._ref_clock == 'int':
+            return False
+        return None  # We don't know which source is in use.
 
     def get_settings(self) -> SetupParameters:
         """Returns a copy of the general setup parameters."""

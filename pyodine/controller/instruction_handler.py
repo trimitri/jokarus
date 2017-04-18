@@ -26,6 +26,12 @@ class InstructionHandler:
             'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
             'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
+            'set_aom_amplitude': lambda a: self._subs.set_aom_amplitude(
+                float(a)),
+            'set_eom_amplitude': lambda a: self._subs.set_eom_amplitude(
+                float(a)),
+            'set_mixer_amplitude': lambda a: self._subs.set_mixer_amplitude(
+                float(a)),
             'set_mo_current_set': lambda c: self._subs.set_current(
                 'mo', float(c)),
             'set_mo_temp_set': lambda t: self._subs.set_temp('mo', float(t)),
@@ -33,6 +39,7 @@ class InstructionHandler:
                 'mo', float(t), bypass_ramp=True),
             'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
                 'nu', int(a)),
+            'switch_rf_clock_source': self._subs.switch_rf_clock_source,
             'switch_ld': self._subs.switch_ld,
             'switch_pii_ramp': self._subs.switch_pii_ramp,
             'switch_temp_ramp': self._subs.switch_temp_ramp,
