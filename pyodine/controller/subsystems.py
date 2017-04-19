@@ -163,8 +163,9 @@ class Subsystems:
 
     def set_mixer_phase(self, degrees: float) -> None:
         """Set the phase offset between EOM and mixer drivers in degrees."""
-        if not isinstance(degrees, float):
-            LOGGER.error("Provide a float for mixer phase in degrees.")
+        if not isinstance(degrees, (float, int)):
+            LOGGER.error("Provide a mixer phase in degrees (%s given).",
+                         degrees)
             return
         LOGGER.debug("Setting mixer phase to %s°", degrees)
 
@@ -174,7 +175,7 @@ class Subsystems:
 
     def set_aom_frequency(self, freq: float) -> None:
         """Set the acousto-optic modulator driver frequency in MHz."""
-        if not isinstance(freq, float) or not freq > 0:
+        if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for AOM.")
             return
         LOGGER.debug("Setting AOM frequency to %s MHz.", freq)
@@ -182,7 +183,7 @@ class Subsystems:
 
     def set_eom_frequency(self, freq: float) -> None:
         """Set the EOM and mixer frequency in MHz."""
-        if not isinstance(freq, float) or not freq > 0:
+        if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for EOM.")
             return
         LOGGER.debug("Setting EOM frequency to %s MHz.", freq)
@@ -191,7 +192,7 @@ class Subsystems:
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, float) or not amplitude > 0:
+        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
             LOGGER.error("Provide valid amplitude (float) for AOM.")
             return
         LOGGER.debug("Setting AOM amplitude to %s %%.", amplitude * 100)
@@ -199,7 +200,7 @@ class Subsystems:
 
     def set_eom_amplitude(self, amplitude: float) -> None:
         """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, float) or not amplitude > 0:
+        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
             LOGGER.error("Provide valid amplitude (float) for EOM.")
             return
         LOGGER.debug("Setting EOM amplitude to %s %%.", amplitude * 100)
@@ -207,7 +208,7 @@ class Subsystems:
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, float) or not amplitude > 0:
+        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
             LOGGER.error("Provide valid amplitude (float) for mixer.")
             return
         LOGGER.debug("Setting mixer amplitude to %s %%.", amplitude * 100)
