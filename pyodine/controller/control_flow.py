@@ -23,6 +23,7 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
 
     This provides EOM, AOM and mixer with the correct driving signals.
     """
+    LOGGER.info("Initializing RF chain.")
     try:
         subs.switch_rf_clock_source('external')  # use dedicated OCXO
         subs.set_aom_amplitude(1)
