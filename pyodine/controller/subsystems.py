@@ -167,6 +167,9 @@ class Subsystems:
             LOGGER.error("Provide a float for mixer phase in degrees.")
             return
         LOGGER.debug("Setting mixer phase to %s°", degrees)
+
+        # To set the phase difference, we need to set phases of both channels.
+        self._dds.set_phase(0, int(DdsChannel.EOM))
         self._dds.set_phase(degrees, int(DdsChannel.MIXER))
 
     def set_aom_frequency(self, freq: float) -> None:

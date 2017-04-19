@@ -10,10 +10,8 @@ way as discussed in PEP328.
 """
 import logging
 import asyncio
-
-from .controller import interfaces
-from .controller import subsystems
-from .controller import instruction_handler
+from .controller import interfaces, subsystems, instruction_handler
+from .controller import control_flow as flow
 
 
 async def main():
@@ -29,6 +27,8 @@ async def main():
 
     handler = instruction_handler.InstructionHandler(subs, face)
     face.register_on_receive_callback(handler.handle_instruction)
+
+    flow.hot_start(subs)
 
     while True:
         await asyncio.sleep(1)
