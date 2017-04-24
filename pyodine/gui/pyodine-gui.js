@@ -2,13 +2,11 @@
 /* eslint no-alert: "off" */
 /* eslint no-lone-blocks: "off" */
 /* global CanvasJS */
+/* global Plotter */
 
 // Require jQuery. Don't use global scope. (IIFE)
 (function jqueryWrapper($) {
   'use strict';
-
-  const DOM_SCOPE = document.body;  // Optional, for scoping this script.
-  const N_KEEP_POINTS = 2000;  // # of plot points to keep in memory.
 
   function createMessage(object, type) {
     const wrapper = {};
@@ -24,274 +22,6 @@
       args,
     });
     socket.send(msg);
-  }
-
-  // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
-  function convertToPlotPoint(jsonDataPoint) {
-    return {
-      x: new Date(jsonDataPoint[0] * 1000),
-      y: parseFloat(jsonDataPoint[1]),
-    };
-  }
-
-  // Crop off some points if we have too many points in memory.
-  function truncatePlotDataToSaveMemory(chart, nKeep = N_KEEP_POINTS) {
-    chart.options.data.forEach((dataSet) => {
-      const excess = dataSet.dataPoints.length - nKeep;
-
-      // Do not truncate on every iteration but allow for a 20% overflow
-      // instead.
-      if (excess > nKeep * 0.2) {
-        dataSet.dataPoints = dataSet.dataPoints.slice(excess);
-      }
-    });
-  }
-
-  function updatePlot(plotDiv, points) {
-    const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
-
-    if (!points.length) return;
-
-    // For now, we are only using the first point of the received dataset, even
-    // if it contains more. TODO allow adding more points at once.
-    const newPoint = {
-      x: new Date(points[0][0] * 1000),
-      y: parseFloat(points[0][1]),
-    };
-
-    if (typeof div.data('chart') !== 'undefined') {  // Plot exists, update it.
-      const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
-      const chart = div.data('chart');
-      chart.options.data[0].dataPoints.push(newPoint);
-
-      truncatePlotDataToSaveMemory(chart);
-
-      // if (age > displayTime) {
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      // }
-      chart.options.axisX.maximum = now;
-      chart.render();
-    } else {  // Create new plot.
-      const chart = new CanvasJS.Chart(plotDiv, {
-        title: {
-          text: plotDiv.dataset.title,
-        },
-        data: [{
-          type: 'stepLine',
-          axisYType: 'secondary',
-          dataPoints: [newPoint],
-          markerType: 'none',
-        }],
-        interactivityEnabled: true,
-        animationEnabled: true,
-        axisX: {
-          labelAngle: 30,
-          gridThickness: 1,
-        },
-        axisY2: {
-          title: div.data('ylabel'),
-          gridThickness: 1,
-          includeZero: false,
-        },
-      });
-      chart.render();
-      $(plotDiv).data('chart', chart);
-    }
-  }
-
-  function updateOscPlot(plotDiv, readingsObj) {
-    const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
-
-    const diodeCurrents =
-      readingsObj[div.data('current1')].map(convertToPlotPoint);
-    const tecCurrents =
-      readingsObj[div.data('current2')].map(convertToPlotPoint);
-    const temps =
-      readingsObj[div.data('temp')].map(convertToPlotPoint);
-    const tempSetpoints =
-      readingsObj[div.data('tempSet')].map(convertToPlotPoint);
-    const tempRawSetpoints =
-      readingsObj[div.data('tempRawSet')].map(convertToPlotPoint);
-    const currentSetpoints =
-      readingsObj[div.data('current1Set')].map(convertToPlotPoint);
-
-    // Plot exists, update it.
-    if (typeof (div.data('chart')) !== 'undefined') {
-      const now =
-        $('#use_server_clock:checked').length ? temps[0].x : new Date();
-      const chart = div.data('chart');
-      Array.prototype.push.apply(chart.options.data[0].dataPoints,
-                                 diodeCurrents);
-      Array.prototype.push.apply(chart.options.data[1].dataPoints,
-                                 tecCurrents);
-      Array.prototype.push.apply(chart.options.data[2].dataPoints, temps);
-      Array.prototype.push.apply(chart.options.data[3].dataPoints,
-                                 tempRawSetpoints);
-
-      // Upate setpoint indicator lines.
-      if (tempSetpoints.length) {
-        chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
-      }
-      if (currentSetpoints.length) {
-        chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
-      }
-
-      truncatePlotDataToSaveMemory(chart);
-
-      // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      chart.options.axisX.maximum = now;
-      chart.render();
-    } else {  // Plot doesn't exist yet. Create it.
-      const chart = new CanvasJS.Chart(plotDiv, {
-        data: [
-          {  // diode current
-            axisYType: 'secondary',
-            axisYIndex: 0,
-            dataPoints: diodeCurrents,
-            legendText: "Diode current",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-          {  // tec current
-            axisYType: 'secondary',
-            axisYIndex: 0,
-            dataPoints: tecCurrents,
-            legendText: "Peltier current",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-          {  // temperature
-            axisYType: 'primary',
-            axisYIndex: 1,
-            dataPoints: temps,
-            legendText: "Temperature",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'line',
-          },
-          {  // temperature setpoint
-            axisYType: 'primary',
-            axisYIndex: 1,
-            dataPoints: tempRawSetpoints,
-            legendText: "Temp. Setpoint",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-        ],
-        interactivityEnabled: true,
-        animationEnabled: true,
-        axisX: {
-          labelAngle: 30,
-          gridThickness: 1,
-        },
-        axisY: {
-          title: "Temp. in °C",
-          gridThickness: 1,
-          includeZero: false,
-          stripLines: [{
-            value: tempSetpoints.length ? tempSetpoints[0].y : null,
-            label: "Temp. Setpoint",
-            labelAlign: 'near',
-            lineDashType: 'dot',
-            showOnTop: true,
-          }],
-        },
-        axisY2: {
-          title: "I in mA",
-          gridThickness: 1,
-          gridDashType: 'dash',
-          includeZero: false,
-          stripLines: [{
-            value: currentSetpoints[0].y,
-            label: "Diode Current Setpoint",
-            labelAlign: 'near',
-            lineDashType: 'dot',
-            showOnTop: true,
-          }],
-        },
-        legend: {},
-      });
-      chart.render();
-      $(plotDiv).data('chart', chart);
-    }
-  }
-
-  function updatePiiPlot(plotDiv, readingsObj) {
-    const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
-    const prefix = plotDiv.dataset.unitName;
-    if (!prefix) return;
-    const monitorVals = readingsObj[`${prefix}_monitor`].map(
-      convertToPlotPoint);
-    const pMonitorVals = readingsObj[`${prefix}_p_monitor`].map(
-      convertToPlotPoint);
-    if (typeof div.data('chart') === 'undefined') {
-      // Create a new plot.
-      const chart = new CanvasJS.Chart(plotDiv, {
-        data: [
-          {  // Monitor
-            dataPoints: monitorVals,
-            legendText: "Full Loop Monitor",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-          {  // P Monitor
-            dataPoints: pMonitorVals,
-            legendText: "P Monitor",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-        ],
-        axisX: {
-          labelAngle: 30,
-          gridThickness: 1,
-        },
-        axisY: {
-          title: "Amplitude in mV",
-          gridThickness: 1,
-        },
-        legend: {},
-      });
-      chart.render();
-      $(plotDiv).data('chart', chart);
-    } else {  // Update the existing plot.
-      const useRemoteTime =
-        $('#use_server_clock:checked').length && monitorVals.length;
-      const now = useRemoteTime ? monitorVals[0].x : new Date();
-      const chart = div.data('chart');
-      Array.prototype.push.apply(chart.options.data[0].dataPoints, monitorVals);
-      Array.prototype.push.apply(chart.options.data[1].dataPoints, pMonitorVals);
-
-      truncatePlotDataToSaveMemory(chart);
-
-      // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      chart.options.axisX.maximum = now;
-      chart.render();
-    }
-  }
-
-  function updateAllPlots(newValuesObj) {
-    // Gather available plot areas.
-    const availablePlots = {};
-    $('div.plot', DOM_SCOPE).each(function register() {
-      availablePlots[this.id] = this;
-    });
-
-    // Update them.
-    Object.keys(availablePlots).forEach((id) => {
-      if (id in newValuesObj) {
-        updatePlot(availablePlots[id], newValuesObj[id]);
-      }
-    });
   }
 
   function updateIndicator(elm, isOn) {
@@ -365,12 +95,12 @@
     const message = JSON.parse(event.data);
     switch (message.type) {
       case 'readings':
-        updateAllPlots(message.data);
+        Plotter.updateAllPlots(message.data);
         $('div.osc_plot').each(function plotUpdater() {
-          updateOscPlot(this, message.data);
+          Plotter.updateOscPlot(this, message.data);
         });
         document.querySelectorAll('div.pii.plot[data-unit-name]').forEach(
-          plotDiv => updatePiiPlot(plotDiv, message.data));
+          plotDiv => Plotter.updatePiiPlot(plotDiv, message.data));
         updateIndicators(message.data);
         break;
       case 'setup':

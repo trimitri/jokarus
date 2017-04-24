@@ -33,14 +33,15 @@
 		</section>
 		<div class="tabs">
 			<ul>
-				<li><a href="#tab_logging">Data Logging</a></li>
-				<li><a href="#tab_control">Experiment Control</a></li>
-				<li><a href="#tab_setup">Setup Parameters</a></li>
+				<li><a href="#tab_logging">Logging and I/O</a></li>
+				<li><a href="#tab_control">Runtime Control</a></li>
+				<li><a href="#tab_setup">Setup and State</a></li>
 			</ul>
 			<section id="tab_logging">
 				<div class="tabs">
 					<ul>
 						<li><a href="#tab_adc">ADC Chip</a></li>
+						<li><a href="#tab_texus">TEXUS Relay</a></li>
 					</ul>
 					<div id="tab_adc" class="flex_container">
 						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc0"></div>
@@ -52,6 +53,125 @@
 						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc6"></div>
 						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc7"></div>
 					</div>
+					<div id="tab_texus" class="flex_container">
+						<div class="layout_block">
+							<h2>Incoming Flags</h2>
+							<table id="incoming_flags" class="flags">
+								<tr>
+									<th>Signal</th>
+									<th>State</th>
+									<th>Changed</th>
+									<th>Updated</th>
+								</tr>
+								<tr data-flag="liftoff">
+									<th class="title">LiftOff</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="microg">
+									<th class="title">3-Axis Go</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex1">
+									<th class="title">TEXUS 1</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex2">
+									<th class="title">TEXUS 2</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex3">
+									<th class="title">TEXUS 3</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex4">
+									<th class="title">TEXUS 4</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex5">
+									<th class="title">TEXUS 5</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr data-flag="tex6">
+									<th class="title">TEXUS 6</th>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+							</table>
+						</div>
+						<div class="layout_block">
+							<h2>Outgoing Flags</h2>
+							<table id="outgoing_flags" class="flags">
+								<tr>
+									<th>Signal</th>
+									<th>
+										Set 
+										<label>
+											(enable
+											<input type="checkbox" data-safety-switch="#outgoing_flags input.switch" />)
+										</label>
+									</th>
+									<th>State</th>
+									<th>Changed</th>
+									<th>Updated</th>
+								</tr>
+								<tr class="flag" data-flag="jok1">
+									<th class="title">Signal 1</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="jok2">
+									<th class="title">Signal 2</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="jok3">
+									<th class="title">Signal 3</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+								<tr class="flag" data-flag="jok4">
+									<th class="title">Signal 4</th>
+									<td class="set" title="enable above">
+										<input class="switch on" disabled type="button" value="On" />
+										<input class="switch off" disabled type="button" value="Off" />
+									</td>
+									<td class="indicator">N/A</td>
+									<td class="changed">Never</td>
+									<td class="updated">Never</td>
+								</tr>
+							</table>
+						</div>
+					</div>
 				</div>
 			</section>
 			<section id="tab_control">
@@ -59,7 +179,6 @@
 					<ul>
 						<li><a href="#tab_osc">Oscillator Supplies</a></li>
 						<li><a href="#tab_pii">PII Controllers</a></li>
-						<li><a href="#tab_texus">TEXUS Relay</a></li>
 					</ul>
 					<div id="tab_osc" class="flex_container">
 						<div class="layout_block osc">
@@ -233,125 +352,6 @@
 							</div>
 						</div>
 					</div>
-					<div id="tab_texus" class="flex_container">
-						<div class="layout_block">
-							<h2>Incoming Flags</h2>
-							<table id="incoming_flags" class="flags">
-								<tr>
-									<th>Signal</th>
-									<th>State</th>
-									<th>Changed</th>
-									<th>Updated</th>
-								</tr>
-								<tr data-flag="liftoff">
-									<th class="title">LiftOff</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="microg">
-									<th class="title">3-Axis Go</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex1">
-									<th class="title">TEXUS 1</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex2">
-									<th class="title">TEXUS 2</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex3">
-									<th class="title">TEXUS 3</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex4">
-									<th class="title">TEXUS 4</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex5">
-									<th class="title">TEXUS 5</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex6">
-									<th class="title">TEXUS 6</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-							</table>
-						</div>
-						<div class="layout_block">
-							<h2>Outgoing Flags</h2>
-							<table id="outgoing_flags" class="flags">
-								<tr>
-									<th>Signal</th>
-									<th>
-										Set 
-										<label>
-											(enable
-											<input type="checkbox" data-safety-switch="#outgoing_flags input.switch" />)
-										</label>
-									</th>
-									<th>State</th>
-									<th>Changed</th>
-									<th>Updated</th>
-								</tr>
-								<tr class="flag" data-flag="jok1">
-									<th class="title">Signal 1</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled type="button" value="On" />
-										<input class="switch off" disabled type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok2">
-									<th class="title">Signal 2</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled type="button" value="On" />
-										<input class="switch off" disabled type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok3">
-									<th class="title">Signal 3</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled type="button" value="On" />
-										<input class="switch off" disabled type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok4">
-									<th class="title">Signal 4</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled type="button" value="On" />
-										<input class="switch off" disabled type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-							</table>
-						</div>
-					</div>
 				</div>
 				<p>Send arbitrary command:</p>
 				<p>
@@ -360,76 +360,163 @@
 				</p>
 			</section>
 			<section id="tab_setup">
-				<h2>RF Chain</h2>
-				<p>
-					<label>
-						Unlock controls
-						<input type="checkbox" data-safety-switch=".setup_controls input" />
-					</label>
-				</p>
-				<div class="setup_controls">
-					<div>
-						<h3>Clock Source</h3>
+				<div class="tabs">
+					<ul>
+						<li><a href="#tab_rf">RF Chain and Power Supply</a></li>
+						<li><a href="#tab_temps">Temperatures</a></li>
+					</ul>
+					<section id="tab_rf">
+						<h2>RF Chain</h2>
 						<p>
-							Use external OCXO:
-							<span class="indicator" data-qty="rf_use_external_clock" data-text-true="external"
-								data-text-false="internal">N/A</span>
+							<label>
+								Unlock controls
+								<input type="checkbox" data-safety-switch=".setup_controls input" />
+							</label>
 						</p>
-						<p>
-							Set to:
-							<input type="button" class="command" value="external"
-								data-method="switch_rf_clock_source" data-arguments='["external"]' />
-							<input type="button" class="command" value="internal"
-								data-method="switch_rf_clock_source" data-arguments='["internal"]' />
-						</p>
-					</div>
-					<h3>Offset</h3>
-					<div>
-						AOM Frequency:&emsp;
-						<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz&emsp;
-						<input type="button" class="setter" data-qty="aom_freq" value="Set" />
-					</p>
-					<p>
-						AOM Amplitude:&emsp;
-						0 &leq;
-						<input type="number" class="source" data-qty="aom_amplitude"
-																					min="0" max="1" step="0.01" />
-						&leq; 1&emsp;
-						<input type="button" class="setter" data-qty="aom_amplitude" value="Set" />
-					</p>
-					<h3>Sidebands</h3>
-					<p>
-						EOM Frequency:&emsp;
-						<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz&emsp;
-						<input type="button" class="setter" data-qty="eom_freq" value="Set" />
-					</p>
-					<p>
-						EOM Amplitude:&emsp;
-						0 &leq;
-						<input type="number" class="source" data-qty="eom_amplitude"
-																					min="0" max="1" step="0.01" />
-						&leq; 1&emsp;
-						<input type="button" class="setter" data-qty="eom_amplitude" value="Set" />
-					</p>
-					<p>
-						Mixer Amplitude:&emsp;
-						0 &leq;
-						<input type="number" class="source" data-qty="mixer_amplitude"
-																					min="0" max="1" step="0.01" />
-						&leq; 1&emsp;
-						<input type="button" class="setter" data-qty="mixer_amplitude" value="Set" />
-					</p>
-					<p>
-						Mixer Phase:&emsp;
-						<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°&emsp;
-						<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
-					</p>
-					<div>
-						<div class="slider" data-qty="mixer_phase"
-							data-min="0" data-max="360" data-step="0.1" data-unit="°">
-							<div class="ui-slider-handle"></div>
+						<div class="setup_controls">
+							<div>
+								<h3>Clock Source</h3>
+								<p>
+									Use external OCXO:
+									<span class="indicator" data-qty="rf_use_external_clock" data-text-true="external"
+										data-text-false="internal">N/A</span>
+								</p>
+								<p>
+									Set to:
+									<input type="button" class="command" value="external"
+										data-method="switch_rf_clock_source" data-arguments='["external"]' />
+									<input type="button" class="command" value="internal"
+										data-method="switch_rf_clock_source" data-arguments='["internal"]' />
+								</p>
+							</div>
+							<h3>Offset</h3>
+							<div>
+								AOM Frequency:&emsp;
+								<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz&emsp;
+								<input type="button" class="setter" data-qty="aom_freq" value="Set" />
+							</p>
+							<p>
+								AOM Amplitude:&emsp;
+								0 &leq;
+								<input type="number" class="source" data-qty="aom_amplitude"
+									min="0" max="1" step="0.01" />
+								&leq; 1&emsp;
+								<input type="button" class="setter" data-qty="aom_amplitude" value="Set" />
+							</p>
+							<h3>Sidebands</h3>
+							<p>
+								EOM Frequency:&emsp;
+								<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz&emsp;
+								<input type="button" class="setter" data-qty="eom_freq" value="Set" />
+							</p>
+							<p>
+								EOM Amplitude:&emsp;
+								0 &leq;
+								<input type="number" class="source" data-qty="eom_amplitude"
+									min="0" max="1" step="0.01" />
+								&leq; 1&emsp;
+								<input type="button" class="setter" data-qty="eom_amplitude" value="Set" />
+							</p>
+							<p>
+								Mixer Amplitude:&emsp;
+								0 &leq;
+								<input type="number" class="source" data-qty="mixer_amplitude"
+									min="0" max="1" step="0.01" />
+								&leq; 1&emsp;
+								<input type="button" class="setter" data-qty="mixer_amplitude" value="Set" />
+							</p>
+							<p>
+								Mixer Phase:&emsp;
+								<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°&emsp;
+								<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
+							</p>
+							<div>
+								<div class="slider" data-qty="mixer_phase"
+									data-min="0" data-max="360" data-step="0.1" data-unit="°">
+									<div class="ui-slider-handle"></div>
+								</div>
+							</div>
 						</div>
-					</div>
+					</section>
+					<section id="tab_temps">
+						<div class="osc_plot"
+							data-title="Pump Beam SHG"
+							data-temp="shga_temp"
+							data-temp-set="shg_b_temp_set"
+							data-temp-raw-set="shga_temp_raw_set"></div>
+						<div class="controls">
+							<h2>Pump Beam SHG</h2>
+							<p>
+								<label>
+									Unlock controls
+									<input type="checkbox" data-safety-switch=".osc_controls.shga input" />
+								</label>
+							</p>
+							<div class="osc_controls shga">
+								<table>
+									<tr>
+										<td></td>
+										<th>TEC</th>
+									</tr>
+									<tr>
+										<th>State</th>
+										<td class="indicator" data-qty="shga_tec_enabled">N/A</td>
+									</tr>
+									<tr>
+										<th>Updated</th>
+										<td class="update_indicator" data-qty="shga_tec_enabled">Never</td>
+									</tr>
+									<tr>
+										<th>Switch</th>
+										<td>
+											<input type="button" class="command" value="On"
+												data-method="switch_tec" data-arguments='["shga", true]' />
+											<input type="button" class="command" value="Off"
+												data-method="switch_tec" data-arguments='["shga", false]' />
+										</td>
+									</tr>
+									<tr>
+										<th>Temp OK</th>
+										<td class="indicator" data-qty="shga_temp_ok" data-text-true="OK"
+											data-text-false="not OK">N/A</td>
+									</tr>
+									<tr>
+										<th>Updated</th>
+										<td class="update_indicator" data-qty="shga_temp_ok">Never</td>
+									</tr>
+								</table>
+								<h3>Setpoints</h3>
+								<p>
+									Temperature Ramp:
+									<input type="number" class="source" data-qty="shga_temp_set" step="0.01" />&thinsp;°C
+									<input type="button" class="setter" data-qty="shga_temp_set" value="Set" />
+								</p>
+								<div>
+									Ramp:
+									<input type="button" class="command" value="Resume/Start"
+										data-method="switch_temp_ramp" data-arguments='["shga", true]' />
+									<input type="button" class="command" value="Stop"
+										data-method="switch_temp_ramp" data-arguments='["shga", false]' />
+									<p>
+										Temperature (raw, use caution!):
+										<input type="number" class="source" data-qty="shga_temp_raw_set"
+											step="0.01" />&thinsp;°C
+										<input type="button" class="setter" data-qty="shga_temp_raw_set" value="Set" />
+									</p>
+									<p>
+										Diode Current:
+										<input type="number" class="source" data-qty="shga_current_set" step="any" />&thinsp;mA
+										<input type="button" class="setter" data-qty="shga_current_set" value="Set" />
+									</p>
+								</div>
+							</div>
+						</div>
+						<div class="osc_plot"
+							data-title="Probe Beam SHG"
+							data-temp="shga_temp"
+							data-temp-set="shg_b_temp_set"
+							data-temp-raw-set="shga_temp_raw_set"></div>
+					</section>
 				</div>
 			</section>
 		</div>
