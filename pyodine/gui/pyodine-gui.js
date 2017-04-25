@@ -59,16 +59,8 @@
     const booleanIndicators = $(".indicator[data-qty]");
     booleanIndicators.each(function update() {
       const qty = this.dataset.qty;
-      if (!(qty in newValuesObj)) {
-        console.log(
-          `Couldn't update indicator for ${qty}, as no data was received`);
-        return;
-      }
-      if (newValuesObj[qty].length === 0) {
-        console.log(
-          `Couldn't update indicator for ${qty}, as empty dataset was received`);
-        return;
-      }
+      if (!(qty in newValuesObj) || newValuesObj[qty].length === 0) return;
+
       // Get the value ([1]) of the latest ([0]) data point.
       updateIndicator($(this), newValuesObj[qty][0][1] === 1);
 

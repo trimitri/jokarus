@@ -154,8 +154,8 @@ class Plotter {  // eslint-disable-line no-unused-vars
   static updateOscPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
-
     const fields = plotDiv.dataset;
+    const hasCurrentDriver = 'current1' in fields && 'current1Set' in fields;
 
     function harvestField(fieldName) {
       if (fields[fieldName] in readingsObj) {
@@ -165,7 +165,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
     }
     const diodeCurrents = harvestField('current1');
     const currentSetpoints = harvestField('current1Set');
-    const tecCurrents = harvestField('current2');
+    const tecCurrents = harvestField('tecCurrent');
     const temps = harvestField('temp');
     const tempSetpoints = harvestField('tempSet');
     const tempRawSetpoints = harvestField('tempRawSet');
@@ -179,19 +179,21 @@ class Plotter {  // eslint-disable-line no-unused-vars
         now = new Date();
       }
       const chart = div.data('chart');
-      Array.prototype.push.apply(chart.options.data[0].dataPoints,
-        diodeCurrents);
+      Array.prototype.push.apply(chart.options.data[0].dataPoints, temps);
       Array.prototype.push.apply(chart.options.data[1].dataPoints,
-        tecCurrents);
-      Array.prototype.push.apply(chart.options.data[2].dataPoints, temps);
-      Array.prototype.push.apply(chart.options.data[3].dataPoints,
         tempRawSetpoints);
+      Array.prototype.push.apply(chart.options.data[2].dataPoints,
+        tecCurrents);
+      if (hasCurrentDriver) {
+        Array.prototype.push.apply(chart.options.data[3].dataPoints,
+                                   diodeCurrents);
+      }
 
       // Upate setpoint indicator lines.
       if (tempSetpoints.length) {
         chart.options.axisY.stripLines[0].value = tempSetpoints[0].y;
       }
-      if (currentSetpoints.length) {
+      if (hasCurrentDriver && currentSetpoints.length) {
         chart.options.axisY2.stripLines[0].value = currentSetpoints[0].y;
       }
 
@@ -202,45 +204,47 @@ class Plotter {  // eslint-disable-line no-unused-vars
       chart.options.axisX.maximum = now;
       chart.render();
     } else {  // Plot doesn't exist yet. Create it.
+      const data = [];
+      data.push({  // temperature
+        axisYType: 'primary',
+        axisYIndex: 1,
+        dataPoints: temps,
+        legendText: "Temperature",
+        markerType: 'none',
+        showInLegend: true,
+        type: 'line',
+      });
+      data.push({  // temperature setpoint
+        axisYType: 'primary',
+        axisYIndex: 1,
+        dataPoints: tempRawSetpoints,
+        legendText: "Temp. Setpoint",
+        markerType: 'none',
+        showInLegend: true,
+        type: 'stepLine',
+      });
+      data.push({  // TEC current
+        axisYType: 'secondary',
+        axisYIndex: 0,
+        dataPoints: tecCurrents,
+        legendText: "Peltier current",
+        markerType: 'none',
+        showInLegend: true,
+        type: 'stepLine',
+      });
+      if (hasCurrentDriver) {
+        data.push({  // diode current
+          axisYType: 'secondary',
+          axisYIndex: 0,
+          dataPoints: diodeCurrents,
+          legendText: "Diode current",
+          markerType: 'none',
+          showInLegend: true,
+          type: 'stepLine',
+        });
+      }
       const chart = new CanvasJS.Chart(plotDiv, {
-        data: [
-          {  // diode current
-            axisYType: 'secondary',
-            axisYIndex: 0,
-            dataPoints: diodeCurrents,
-            legendText: "Diode current",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-          {  // tec current
-            axisYType: 'secondary',
-            axisYIndex: 0,
-            dataPoints: tecCurrents,
-            legendText: "Peltier current",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-          {  // temperature
-            axisYType: 'primary',
-            axisYIndex: 1,
-            dataPoints: temps,
-            legendText: "Temperature",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'line',
-          },
-          {  // temperature setpoint
-            axisYType: 'primary',
-            axisYIndex: 1,
-            dataPoints: tempRawSetpoints,
-            legendText: "Temp. Setpoint",
-            markerType: 'none',
-            showInLegend: true,
-            type: 'stepLine',
-          },
-        ],
+        data,
         interactivityEnabled: true,
         animationEnabled: true,
         axisX: {
@@ -252,7 +256,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
           gridThickness: 1,
           includeZero: false,
           stripLines: [{
-            value: tempSetpoints.length ? tempSetpoints[0].y : null,
+            value: tempSetpoints.length ? tempSetpoints[0].y : '',
             label: "Temp. Setpoint",
             labelAlign: 'near',
             lineDashType: 'dot',
@@ -264,13 +268,13 @@ class Plotter {  // eslint-disable-line no-unused-vars
           gridThickness: 1,
           gridDashType: 'dash',
           includeZero: false,
-          stripLines: [{
-            value: currentSetpoints.length ? currentSetpoints[0].y : null,
+          stripLines: hasCurrentDriver ? [{
+            value: currentSetpoints.length ? currentSetpoints[0].y : '',
             label: "Diode Current Setpoint",
             labelAlign: 'near',
             lineDashType: 'dot',
             showOnTop: true,
-          }],
+          }] : [],
         },
         legend: {},
       });

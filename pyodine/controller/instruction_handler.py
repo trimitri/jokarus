@@ -32,11 +32,29 @@ class InstructionHandler:
                 float(a)),
             'set_mixer_amplitude': lambda a: self._subs.set_mixer_amplitude(
                 float(a)),
+
             'set_mo_current_set': lambda c: self._subs.set_current(
                 'mo', float(c)),
             'set_mo_temp_set': lambda t: self._subs.set_temp('mo', float(t)),
             'set_mo_temp_raw_set': lambda t: self._subs.set_temp(
                 'mo', float(t), bypass_ramp=True),
+
+            'set_pa_current_set': lambda c: self._subs.set_current(
+                'pa', float(c)),
+            'set_pa_temp_set': lambda t: self._subs.set_temp('pa', float(t)),
+            'set_pa_temp_raw_set': lambda t: self._subs.set_temp(
+                'pa', float(t), bypass_ramp=True),
+
+            'set_shga_temp_set': lambda t: self._subs.set_temp(
+                'shga', float(t)),
+            'set_shga_temp_raw_set': lambda t: self._subs.set_temp(
+                'shga', float(t), bypass_ramp=True),
+
+            'set_shgb_temp_set': lambda t: self._subs.set_temp(
+                'shgb', float(t)),
+            'set_shgb_temp_raw_set': lambda t: self._subs.set_temp(
+                'shgb', float(t), bypass_ramp=True),
+
             'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
                 'nu', int(a)),
             'switch_rf_clock_source': self._subs.switch_rf_clock_source,

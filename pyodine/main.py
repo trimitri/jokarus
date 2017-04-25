@@ -23,7 +23,8 @@ async def main():
 
     face = interfaces.Interfaces(subs, start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly(readings_interval=2, flags_interval=5)
+    face.start_publishing_regularly(
+            readings_interval=2, flags_interval=13, status_update_interval=19)
 
     handler = instruction_handler.InstructionHandler(subs, face)
     face.register_on_receive_callback(handler.handle_instruction)
