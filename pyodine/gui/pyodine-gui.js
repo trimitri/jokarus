@@ -111,12 +111,15 @@
     $('div.tabs').tabs();
 
     // Establish connection to server.
-    let ws;  // Websocket connection.
+    let ws = null;  // Websocket connection.
     $('#connect_btn').on('click', () => {
       const host = $('#host').val();
       const wsPort = $('#ws_port').val();
       ws = new WebSocket(`ws://${host}:${wsPort}/`);
       ws.onmessage = messageHandler;
+    });
+    $('#disconnect_btn').on('click', () => {
+      ws.close();
     });
 
     {  // Setup interactive UI elements.
