@@ -15,7 +15,7 @@ from ..drivers.dds9_control import Dds9Control
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-OSC_UNITS = {'mo': 1, 'pa': 2}
+OSC_UNITS = {'mo': 1, 'pa': 2, 'shga': 3, 'shgb': 4}
 PII_UNITS = {'nu': 1}
 
 # Define some custom types.
@@ -76,19 +76,26 @@ class Subsystems:
             data['temp'+str(unit)] = self._menlo.get_temperature(unit, since)
 
         # Oscillator Supplies
-        data['mo_enabled'] = self._menlo.is_current_driver_enabled(1)
-        data['mo_current'] = self._menlo.get_diode_current(1, since)
-        data['mo_current_set'] = self._menlo.get_diode_current_setpoint(1)
-        data['mo_tec_enabled'] = self._menlo.is_tec_enabled(1)
-        data['mo_temp'] = self._menlo.get_temperature(1, since)
-        data['mo_temp_raw_set'] = self._menlo.get_temp_setpoint(1)
-        data['mo_temp_set'] = self._wrap_into_buffer(
-            self._temp_ramps[1].target_temperature)
-        data['mo_temp_ramp_active'] = self._wrap_into_buffer(
-            self._temp_ramps[1].is_running)
-        data['mo_temp_ok'] = self._menlo.is_temp_ok(1)
-        data['mo_tec_current'] = self._menlo.get_tec_current(1, since)
-
+        osc_roles = [('mo', 1, True), ('pa', 2, True),
+                     ('shga', 3, False), ('shgb', 4, False)]
+        for (name, unit, has_current_driver) in osc_roles:
+            if has_current_driver:
+                data[name + '_enabled'] = \
+                    self._menlo.is_current_driver_enabled(unit)
+                data[name + '_current'] = \
+                    self._menlo.get_diode_current(unit, since)
+                data[name + '_current_set'] = \
+                    self._menlo.get_diode_current_setpoint(unit)
+            data[name + '_tec_enabled'] = self._menlo.is_tec_enabled(unit)
+            data[name + '_temp'] = self._menlo.get_temperature(unit, since)
+            data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unit)
+            data[name + '_temp_set'] = self._wrap_into_buffer(
+                self._temp_ramps[unit].target_temperature)
+            data[name + '_temp_ramp_active'] = self._wrap_into_buffer(
+                self._temp_ramps[unit].is_running)
+            data[name + '_temp_ok'] = self._menlo.is_temp_ok(unit)
+            data[name + '_tec_current'] = self._menlo.get_tec_current(unit,
+                                                                      since)
         # PII Controllers
         data['nu_lock_enabled'] = self._menlo.is_lock_enabled(1)
         data['nu_i1_enabled'] = self._menlo.is_integrator_enabled(1, 1)
