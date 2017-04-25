@@ -1,5 +1,4 @@
 /* eslint-env es6, browser, jquery */
-/* eslint no-alert: "off" */
 /* global CanvasJS */
 
 const N_KEEP_POINTS = 2000;  // I'm craving for ES7 modules to avoid globals.
@@ -80,7 +79,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
     }
   }
 
-
   static updatePiiPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
@@ -157,23 +155,29 @@ class Plotter {  // eslint-disable-line no-unused-vars
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
 
-    const diodeCurrents =
-      readingsObj[div.data('current1')].map(Plotter.convertToPlotPoint);
-    const tecCurrents =
-      readingsObj[div.data('current2')].map(Plotter.convertToPlotPoint);
-    const temps =
-      readingsObj[div.data('temp')].map(Plotter.convertToPlotPoint);
-    const tempSetpoints =
-      readingsObj[div.data('tempSet')].map(Plotter.convertToPlotPoint);
-    const tempRawSetpoints =
-      readingsObj[div.data('tempRawSet')].map(Plotter.convertToPlotPoint);
-    const currentSetpoints =
-      readingsObj[div.data('current1Set')].map(Plotter.convertToPlotPoint);
+    const fields = plotDiv.dataset;
+
+    function harvestField(fieldName) {
+      if (fields[fieldName] in readingsObj) {
+        return readingsObj[fields[fieldName]].map(Plotter.convertToPlotPoint);
+      }
+      return [];
+    }
+    const diodeCurrents = harvestField('current1');
+    const currentSetpoints = harvestField('current1Set');
+    const tecCurrents = harvestField('current2');
+    const temps = harvestField('temp');
+    const tempSetpoints = harvestField('tempSet');
+    const tempRawSetpoints = harvestField('tempRawSet');
 
     // Plot exists, update it.
     if (typeof (div.data('chart')) !== 'undefined') {
-      const now =
-        $('#use_server_clock:checked').length ? temps[0].x : new Date();
+      let now;
+      if ($('#use_server_clock:checked').length && temps.length) {
+        now = temps[0].x;
+      } else {
+        now = new Date();
+      }
       const chart = div.data('chart');
       Array.prototype.push.apply(chart.options.data[0].dataPoints,
         diodeCurrents);
@@ -261,7 +265,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
           gridDashType: 'dash',
           includeZero: false,
           stripLines: [{
-            value: currentSetpoints[0].y,
+            value: currentSetpoints.length ? currentSetpoints[0].y : null,
             label: "Diode Current Setpoint",
             labelAlign: 'near',
             lineDashType: 'dot',
