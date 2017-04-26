@@ -291,8 +291,10 @@ class Subsystems:
                 self._menlo.set_temp((lambda: unit)(), temp)
 
             self._temp_ramps[unit] = TemperatureRamp(
-                get_temp_callback=getter, get_temp_setpt_callback=setpt_getter,
-                set_temp_callback=setter, name=name)
+                get_temp_callback=lambda: getter(),
+                get_temp_setpt_callback=lambda: setpt_getter(),
+                set_temp_callback=lambda t: setter(t),
+                name=name)
 
     @staticmethod
     def _wrap_into_buffer(value: Union[MenloUnit, bool]) -> Buffer:
