@@ -15,7 +15,7 @@ LOGGER.setLevel(logging.DEBUG)
 # The interval at which the transitional setpoint gets updated (in seconds). It
 # is advisable to use some weird number here to make sure that asyncio tasks
 # are evenly spaced in time.
-UPDATE_INTERVAL = 11.73
+UPDATE_INTERVAL = 2.73
 
 # The distance (in Kelvin) between setpoint and temperature reading that is
 # acceptable during normal operation of the ramp. Do not set this to zero, as
@@ -154,8 +154,10 @@ class TemperatureRamp:
         else:
             # Don't do anything and wait until next invocation for the object
             # temperature to settle.
-            LOGGER.warning("Thermal load didn't follow ramp. Delaying ramp "
-                           "continuation by %s seconds.", UPDATE_INTERVAL)
+            LOGGER.warning(
+                "Thermal load didn't follow ramp. Delaying ramp continuation "
+                "by %s seconds. (is: %s, want: %s)", UPDATE_INTERVAL,
+                self._get_temp(), self._current_setpt)
 
     def _set_next_setpoint(self) -> None:
         # Just set the next point, assuming that sanity test have been run.

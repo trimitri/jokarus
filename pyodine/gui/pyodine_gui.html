@@ -29,7 +29,15 @@
 				</label>
 			</p>
 			<p>
-				Plots show <input id="display_time" type="number" value="120" min="1" max="1000" /> seconds of data.
+				<label title="Use with caution, as a single click or keystroke may damage a component!">
+					Allow keeping controls unlocked
+					&ensp; <input id="allow_permanent_unlock" type="checkbox" />
+				</label>
+			</p>
+			<p>
+				Plots show
+				<input id="display_time" type="number" value="120" min="20" max="1000" step="20"/>
+				seconds of data.
 			</p>
 		</section>
 		<div class="tabs">
