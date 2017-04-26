@@ -15,7 +15,7 @@ LOGGER.setLevel(logging.DEBUG)
 # The interval at which the transitional setpoint gets updated (in seconds). It
 # is advisable to use some weird number here to make sure that asyncio tasks
 # are evenly spaced in time.
-UPDATE_INTERVAL = 2.73
+UPDATE_INTERVAL = 1.73
 
 # The distance (in Kelvin) between setpoint and temperature reading that is
 # acceptable during normal operation of the ramp. Do not set this to zero, as

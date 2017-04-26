@@ -210,6 +210,9 @@ class MenloStack:
                 in self._get_laser_prop(unit_number, 272, since)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
+        LOGGER.info(
+            "Setpt. of unit %s is %s", unit_number,
+            self._to_temperature(self._get_laser_prop(unit_number, 256)))
         return [(time, self._to_temperature(val, is_setpoint=True))
                 for (time, val) in self._get_laser_prop(unit_number, 256)]
 
