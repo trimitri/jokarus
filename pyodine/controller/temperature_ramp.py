@@ -161,7 +161,7 @@ class TemperatureRamp:
         # Just set the next point, assuming that sanity test have been run.
 
         # Calculate a candidate for next transitional setpoint.
-        sign = -1 if self._target < self._get_temp() else 1
+        sign = -1 if self._target < self._current_setpt else 1
         next_setpt = self._current_setpt + (
             UPDATE_INTERVAL * sign * self._max_grad)
 
