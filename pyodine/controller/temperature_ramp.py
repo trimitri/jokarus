@@ -9,8 +9,6 @@ import logging
 import math
 from typing import Callable
 
-LOGGER = logging.getLogger("pyodine.controller.temperature_ramp")
-LOGGER.setLevel(logging.DEBUG)
 
 # The interval at which the transitional setpoint gets updated (in seconds). It
 # is advisable to use some weird number here to make sure that asyncio tasks
@@ -35,6 +33,9 @@ class TemperatureRamp:
                  name: str) -> None:
 
         self.name = name  # descriptive name for this instance
+        self.LOGGER = logging.getLogger(
+            "pyodine.controller.temperature_ramp (" + self.name + ")")
+        self.LOGGER.setLevel(logging.DEBUG)
 
         # Validate and store getter callbacks.
         sig = inspect.signature(get_temp_callback)
@@ -80,9 +81,9 @@ class TemperatureRamp:
     def target_temperature(self, target: float) -> None:
         if isinstance(target, float) and math.isfinite(target):
             self._target = target
-            LOGGER.debug("Setting target temperature to %s.", target)
+            self.LOGGER.debug("Setting target temperature to %s.", target)
         else:
-            LOGGER.error("Please provide a finite target temperature.")
+            self.LOGGER.error("Please provide a finite target temperature.")
 
     @property
     def maximum_gradient(self) -> float:
@@ -93,9 +94,9 @@ class TemperatureRamp:
     def maximum_gradient(self, gradient: float) -> None:
         if math.isfinite(gradient) and gradient > 0:
             self._max_grad = gradient
-            LOGGER.debug("Setting temp. gradient to %s.", gradient)
+            self.LOGGER.debug("Setting temp. gradient to %s.", gradient)
         else:
-            LOGGER.error("Illegal value for temp. gradient: %s", gradient)
+            self.LOGGER.error("Illegal value for temp. gradient: %s", gradient)
 
     @property
     def is_running(self) -> bool:
@@ -111,13 +112,13 @@ class TemperatureRamp:
 
         # Ensure prerequisites.
         if self._keep_running:
-            LOGGER.warning("%s ramp is already running.", self.name)
+            self.LOGGER.warning("%s ramp is already running.", self.name)
             return
         if self._target is None or not math.isfinite(self._target):
-            LOGGER.error(
+            self.LOGGER.error(
                 "Set target temperature before starting ramp %s", self.name)
             return
-        LOGGER.debug("Starting to ramp temperature.")
+        self.LOGGER.debug("Starting to ramp temperature.")
 
         # Create a "runner" coroutine and then schedule it for running.
         async def run_ramp() -> None:
@@ -130,8 +131,8 @@ class TemperatureRamp:
 
     def pause_ramp(self) -> None:
         """Stop setting new temp. setpoints, stay at current value."""
-        LOGGER.debug("Pausing temperature ramp, staying at %s.",
-                     self._current_setpt)
+        self.LOGGER.debug("Pausing temperature ramp, staying at %s.",
+                          self._current_setpt)
 
         # Reset the instance state to the same state as if the ramp wouldn't
         # have been started yet.  This makes sure that the resume procedure has
@@ -145,7 +146,7 @@ class TemperatureRamp:
         """
         # Exit prematurely if we're there already.
         if self._current_setpt == self._target:
-            LOGGER.debug("Current setpoint equals target temperature.")
+            self.LOGGER.debug("Current setpoint equals target temperature.")
             return
 
         # Are we close enough to the current setpoint to continue?
@@ -154,7 +155,7 @@ class TemperatureRamp:
         else:
             # Don't do anything and wait until next invocation for the object
             # temperature to settle.
-            LOGGER.warning(
+            self.LOGGER.warning(
                 "Thermal load didn't follow ramp. Delaying ramp continuation "
                 "by %s seconds. (is: %s, want: %s)", UPDATE_INTERVAL,
                 self._get_temp(), self._current_setpt)
@@ -171,7 +172,7 @@ class TemperatureRamp:
         if ((self._prev_setpt - self._target) * (next_setpt - self._target)
                 < 0):
             next_setpt = self._target
-            LOGGER.info("Reached target temperature.")
+            self.LOGGER.info("Reached target temperature.")
 
         # Advance time.
         self._prev_setpt = self._current_setpt
@@ -179,8 +180,8 @@ class TemperatureRamp:
 
         # Actually set the new temperature in hardware.
         self._set_temp(self._current_setpt)
-        LOGGER.debug("Setpoint new: %s, old: %s.",
-                     self._current_setpt, self._prev_setpt)
+        self.LOGGER.debug("Setpoint new: %s, old: %s.",
+                          self._current_setpt, self._prev_setpt)
 
     def _init_ramp(self) -> None:
         # Initialize internal ramp parameters to allow the iterative update
