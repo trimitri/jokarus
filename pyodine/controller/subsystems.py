@@ -138,8 +138,8 @@ class Subsystems:
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
         if (unit_name in OSC_UNITS
-                and isinstance(milliamps, float)
-                and milliamps > 0):
+            and isinstance(milliamps, float)
+            and milliamps >= 0):
             self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
         else:
             LOGGER.error("Illegal setting for diode current.")
