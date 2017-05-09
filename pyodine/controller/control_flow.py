@@ -25,7 +25,7 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
     """
     LOGGER.info("Initializing RF chain.")
     try:
-        subs.switch_rf_clock_source('external')  # use dedicated OCXO
+        subs.switch_rf_clock_source('internal')  # FIXME: use dedicated OCXO
         subs.set_aom_amplitude(1)
         subs.set_aom_frequency(150)  # 150 MHz offset
         subs.set_eom_amplitude(1)
