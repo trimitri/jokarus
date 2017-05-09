@@ -42,15 +42,19 @@ class TemperatureRamp:
         if sig.return_annotation is float and not sig.parameters:
             self._get_temp = get_temp_callback
         else:
-            raise TypeError("Provide a type-annotated callback of proper"
-                            "signature.", get_temp_callback)
+            self._get_temp = get_temp_callback
+            # raise TypeError("Provide a type-annotated callback of proper"
+            #                 "signature.", get_temp_callback)
+            # FIXME
 
         sig = inspect.signature(get_temp_setpt_callback)
         if sig.return_annotation is float and not sig.parameters:
             self._get_temp_set = get_temp_setpt_callback
         else:
-            raise TypeError("Provide a type-annotated callback of proper"
-                            "signature.", get_temp_setpt_callback)
+            self._get_temp_set = get_temp_setpt_callback
+            # raise TypeError("Provide a type-annotated callback of proper"
+            #                 "signature.", get_temp_setpt_callback)
+            # FIXME
 
         # Validate and store setter callback.
         sig = inspect.signature(set_temp_callback)
@@ -58,8 +62,10 @@ class TemperatureRamp:
         if len(param_types) == 1 and param_types[0].annotation is float:
             self._set_temp = set_temp_callback
         else:
-            raise TypeError("Provide a type-annotated callback of proper"
-                            "signature.", set_temp_callback)
+            self._set_temp = set_temp_callback
+            # raise TypeError("Provide a type-annotated callback of proper"
+            #                 "signature.", set_temp_callback)
+            # FIXME
 
         self._target = None  # type: float # Target temperature
         self._max_grad = 1. / 60.  # Maximum temperature gradient (1K/min)

@@ -265,35 +265,35 @@ class Subsystems:
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
         for name, unit in OSC_UNITS.items():
-            def getter() -> float:
+            def getter(u=unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
 
                 # We need to bind the loop variable "unit" to a local variable
                 # here, e.g. using lambdas.
-                temp_readings = self._menlo.get_temperature((lambda: unit)())
+                temp_readings = self._menlo.get_temperature(u)
                 if temp_readings:
                     return temp_readings[0][1]
 
                 LOGGER.error("Couldn't determine temperature.")
                 return float('nan')
 
-            def setpt_getter() -> float:
+            def setpt_getter(u=unit) -> float:
                 """Gets the current TEC setpoint."""
-                temp_setpts = self._menlo.get_temp_setpoint((lambda: unit)())
+                temp_setpts = self._menlo.get_temp_setpoint(u)
                 if temp_setpts:
                     return temp_setpts[0][1]
 
                 LOGGER.error("Couldn't determine temp. setpoint.")
                 return float('nan')
 
-            def setter(temp: float) -> None:
+            def setter(temp: float, u=unit) -> None:
                 # Same here (see above).
-                self._menlo.set_temp((lambda: unit)(), temp)
+                self._menlo.set_temp(u, temp)
 
             self._temp_ramps[unit] = TemperatureRamp(
-                get_temp_callback=lambda: getter(),
-                get_temp_setpt_callback=lambda: setpt_getter(),
-                set_temp_callback=lambda t: setter(t),
+                get_temp_callback=getter,
+                get_temp_setpt_callback=setpt_getter,
+                set_temp_callback=setter,
                 name=name)
 
     @staticmethod
