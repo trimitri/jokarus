@@ -9,6 +9,7 @@ local modules, absolute imports for global ones. This should be the pythonic
 way as discussed in PEP328.
 """
 import logging
+import logging.handlers
 import asyncio
 from .controller import interfaces, subsystems, instruction_handler
 from .controller import control_flow as flow
@@ -16,11 +17,34 @@ from .controller import control_flow as flow
 
 def configure_logging():
     """Set up general parameters of the logging system."""
-    logging.basicConfig(level=logging.INFO)
+
     root_logger = logging.getLogger()
-    write_to_disk = logging.FileHandler('log/pyodine.log', mode='w')
+
+    # We need to set the root logger to DEBUG in order to filter down below.
+    root_logger.setLevel(logging.DEBUG)
+
+    # Write everything to a log file, starting a new file every hour.
+    write_to_disk = logging.handlers.TimedRotatingFileHandler(
+        'log/pyodine.log', when='s', interval=12)
+    write_to_disk.doRollover()  # Start a new file every time pyodine is run.
     root_logger.addHandler(write_to_disk)
-    # TODO: add timestamps, rotation, etc.
+
+    # Write everything of priority INFO and up to stderr.
+    stderr = logging.StreamHandler()
+    stderr.setLevel(logging.INFO)
+    root_logger.addHandler(stderr)
+
+    # FIXME: remove the following testing code
+    logging.critical("critical msg")
+    import time
+    time.sleep(5)
+    logging.error("error msg")
+    time.sleep(5)
+    logging.warning("warning msg")
+    time.sleep(5)
+    logging.info("info msg")
+    time.sleep(5)
+    logging.debug("debug msg")
 
 
 async def main():
