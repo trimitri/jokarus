@@ -21,30 +21,25 @@ def configure_logging():
     root_logger = logging.getLogger()
 
     # We need to set the root logger to DEBUG in order to filter down below.
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.level = logging.DEBUG
+    root_logger.name = 'pyodine'
 
     # Write everything to a log file, starting a new file every hour.
     write_to_disk = logging.handlers.TimedRotatingFileHandler(
-        'log/pyodine.log', when='s', interval=12)
+        'log/pyodine.log', when='s', interval=3600)
     write_to_disk.doRollover()  # Start a new file every time pyodine is run.
+    write_to_disk.formatter = logging.Formatter(
+        "{asctime} {name} {levelname} - {message} "
+        "[{module}.{funcName}]", style='{')
     root_logger.addHandler(write_to_disk)
 
     # Write everything of priority INFO and up to stderr.
     stderr = logging.StreamHandler()
     stderr.setLevel(logging.INFO)
+    stderr.formatter = logging.Formatter(
+        "{levelname:<7} {message} "
+        "[{module}:{lineno}] ({name})", style='{')
     root_logger.addHandler(stderr)
-
-    # FIXME: remove the following testing code
-    logging.critical("critical msg")
-    import time
-    time.sleep(5)
-    logging.error("error msg")
-    time.sleep(5)
-    logging.warning("warning msg")
-    time.sleep(5)
-    logging.info("info msg")
-    time.sleep(5)
-    logging.debug("debug msg")
 
 
 async def main():
