@@ -19,12 +19,14 @@ OSC_UNITS = {'mo': 1, 'pa': 2, 'shga': 3, 'shgb': 4}
 PII_UNITS = {'nu': 1}
 
 # Define some custom types.
-
+# pylint: disable=invalid-name
 MenloUnit = Union[float, int]
 
 # Measurement (time, reading)
 DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
+# pylint: enable=invalid-name
+
 class DdsChannel(enum.IntEnum):  # noqa: E302
     """The four channels of the DDS device."""
     AOM = 0
