@@ -1,7 +1,10 @@
-"""An interface wrapper to the Menlo stack websocket.
+"""A driver for the Menlo stack websocket.
 
 This module provides an interface wrapper class for the websockets interface
 exposed by the Menlo Electronics control computer.
+
+This class is supposed to not raise any exception. Problems, even arising from
+invalid input arguments are handled gracefully and logged.
 """
 
 import asyncio     # Needed for websockets.
@@ -22,13 +25,13 @@ LOGGER.setLevel(logging.INFO)
 
 # Constants specific to the published Menlo interface.
 
-LASER_NODES = [3, 4, 5, 6]  # node IDs of laser units 1 through 4
-PII_NODES = [1, 2]      # node IDs of lockboxes 1 and 2
+OSC_NODES = [3, 4, 5, 6]  # node IDs of laser units 1 through 4
+PII_NODES = [1, 2]          # node IDs of lockboxes 1 and 2
 ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
 # Provide dictionaries for the service IDs.
-LASER_SVC_GET = {
+OSC_SVC_GET = {
     256: "temp setpoint",
     257: "LD current setpoint",
     272: "meas. LD temperature",
@@ -38,7 +41,7 @@ LASER_SVC_GET = {
     288: "temp OK flag",
     304: "TEC enabled",
     305: "LD driver enabled"}
-LASER_SVC_SET = {
+OSC_SVC_SET = {
     1: "TEC temperature",
     2: "enable TEC",
     3: "LD current",
@@ -83,12 +86,15 @@ ADC_SVC_GET = {
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
-# Define some custom types.
+# Define some custom types. As typing is quite a recent feature, there are some
+# inconveniencies regarding pylint:
+# pylint: disable=invalid-name,unsubscriptable-object
 MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
 Buffers = Dict[int, Dict[int, Buffer]]
 Time = float  # Unix timestamp, as returned by time.time()
+# pylint: enable=invalid-name,unsubscriptable-object
 
 
 # pylint: disable=too-many-public-methods
@@ -124,9 +130,11 @@ class MenloStack:
 
         TEC of given unit must be disabled.
         """
-        node = unit_number + 2
-        if node in LASER_NODES:
-
+        try:
+            self._get_osc_node_id(unit_number)
+        except ValueError:
+            LOGGER.exception()
+        else:
             # The user must disable the TEC themselves, as we don't want to be
             # responsible for possible effects.
             if not self.is_tec_enabled(unit_number):
@@ -151,9 +159,6 @@ class MenloStack:
                                  "calibrate TEC unit %s against.", unit_number)
             else:
                 LOGGER.error("Disable TEC %s before calibrating.", unit_number)
-        else:
-            LOGGER.error("There is no oscillator supply unit %s to calibrate "
-                         "the TEC for.", unit_number)
 
     async def calibrate_tecs(self) -> None:
         """Calibrate zero-crossings of all TEC units' current readings."""
@@ -161,7 +166,8 @@ class MenloStack:
         await asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME)
 
     def get_adc_voltage(self, channel: int, since: Time = None) -> Buffer:
-        if channel in ADC_SVC_GET.keys():
+        """Get reading of the analog-digital converter in Volts."""
+        if channel in ADC_SVC_GET:
             return self._get_latest(self._buffers[16][channel], since)
 
         LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
@@ -181,11 +187,16 @@ class MenloStack:
         0: It is shorted / disabled
         1: Enabled
         """
-        if stage == 1:
-            return self._get_pii_prop(unit_number, 305)
-        if stage == 2:
-            return self._get_pii_prop(unit_number, 306)
-        LOGGER.error("Please choose integrator stage 1 or 2. Returning Dummy")
+        try:
+            stage = int(stage)
+        except (TypeError, ArithmeticError):
+            LOGGER.exception("Error parsing stage index.")
+        else:
+            if stage == 1:
+                return self._get_pii_prop(unit_number, 305)
+            if stage == 2:
+                return self._get_pii_prop(unit_number, 306)
+            LOGGER.error("Please choose integrator stage 1 or 2.")
         return self._dummy_point_series()
 
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
@@ -229,53 +240,95 @@ class MenloStack:
                 in self._get_laser_prop(unit_number, 274, since=since)]
 
     def set_temp(self, unit_number: int, temp: float) -> None:
+        """Set temperature setpoint of given oscillator supply unit in °C.
+
+        Caution: avoid using this directly. All components require externally
+        implemented temperature ramping."""
+
+        # Coerce input param types if possible. Abort otherwise.
+        try:
+            unit_number = int(unit_number)
+            temp = float(temp)
+        except (ValueError, TypeError):
+            LOGGER.exception("Invalid argument passed. Refusing.")
+            return
+
+        # Only work on existing nodes. Abort otherwise.
         node = 2 + unit_number
-        if node in LASER_NODES:
-            asyncio.ensure_future(
-                self._send_command(node, 1, str(
-                    self._from_temperature(temp, is_setpoint=True))))
-        else:
+        if node not in OSC_NODES:
             LOGGER.error("Oscillator Supply unit index out of range."
-                         "Refusing to set temperature setpoint.")
+                         "Doing nothing.")
+            return
+
+        try:
+            dac_value = str(self._from_temperature(temp, is_setpoint=True))
+        except ValueError:
+            LOGGER.exception("Temperature out of range. Ignoring.")
+        else:
+            asyncio.ensure_future(self._send_command(node, 1, dac_value))
 
     def set_current(self, unit_number: int, milliamps: float) -> None:
-        node = 2 + unit_number
-        if node in LASER_NODES:
-            asyncio.ensure_future(
-                self._send_command(node, 3, str(milliamps * 8)))
-        else:
-            LOGGER.error("Oscillator Supply unit index out of range."
-                         "Refusing to set current setpoint.")
+        """Set the current driver setpoint to the given value in mA.
+        """
+        # Enforce argument types.
+        try:
+            unit_number = int(unit_number)
+            milliamps = float(milliamps)
+        except (ValueError, TypeError, ArithmeticError):
+            LOGGER.exception("Invalid argument type passed.")
+            return
 
-    def switch_tec(self, unit: int, on: bool) -> None:
-        LOGGER.info("Switching TEC of unit %s %s.",
-                    unit, "ON" if on else "OFF")
-        if unit + 2 in LASER_NODES:
-            asyncio.ensure_future(
-                self._send_command(unit + 2, 2, 1 if on else 0))
-        else:
-            LOGGER.error("There is no oscillator supply unit %s", unit)
+        try:  # Only work on existing nodes.
+            node = self._get_osc_node_id(unit_number)
+        except ValueError:
+            LOGGER.exception()
+            return
 
-    def switch_ld(self, unit: int, on: bool) -> None:
-        if unit + 2 in LASER_NODES:
+        # Check for legal range of requested DAC voltage (which is then
+        # internally translated to the current setpoint).
+        dac_value = str(milliamps * 8)  # One DAC count is 0.125 mA.
+        # TODO: Put -1 instead of -3 as soon as Menlo spec arrives.
+        if dac_value >= 0 and dac_value < 2**16-3:
+            asyncio.ensure_future(self._send_command(node, 3, dac_value))
+        else:
+            LOGGER.error("Passed current setpoint out of DAC range.")
+
+    def switch_tec(self, unit_number: int, switch_on: bool) -> None:
+        """Turn thermoelectric cooling of given unit on or off."""
+        try:
+            node = self._get_osc_node_id(int(unit_number))
+        except ValueError:
+            LOGGER.exception()
+        except (TypeError, OverflowError):
+            LOGGER.exception("Weird unit number.")
+        else:
+            LOGGER.info("Switching TEC of unit %s %s.",
+                        unit_number, "ON" if switch_on else "OFF")
+            asyncio.ensure_future(
+                self._send_command(node, 2, 1 if switch_on else 0))
+
+    def switch_ld(self, unit: int, switch_on: bool) -> None:
+        """Turn current driver of given unit on or off."""
+        if unit + 2 in OSC_NODES:
             LOGGER.info("Switching current driver of unit %s %s.",
-                        unit, "ON" if on else "OFF")
+                        unit, "ON" if switch_on else "OFF")
             asyncio.ensure_future(
-                self._send_command(unit + 2, 5, 1 if on else 0))
+                self._send_command(unit + 2, 5, 1 if switch_on else 0))
         else:
             LOGGER.error("There is no oscillator supply unit %s", unit)
 
-    def switch_ramp(self, unit: int, on: bool) -> None:
+    def switch_ramp(self, unit: int, switch_on: bool) -> None:
         """Switch the ramp generation of given PII unit on or off."""
         if unit in PII_NODES:
             LOGGER.info("Switching ramp generation of PII unit %s %s.",
-                        unit, "ON" if on else "OFF")
+                        unit, "ON" if switch_on else "OFF")
             asyncio.ensure_future(
-                self._send_command(unit, 3, 1 if on else 0))
+                self._send_command(unit, 3, 1 if switch_on else 0))
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
     def set_ramp_amplitude(self, unit: int, millivolts: int) -> None:
+        """TODO: this seems unnecessary and not operational."""
         if unit not in PII_NODES:
             LOGGER.error("Can't set ramp amplitude of unit %s, as there is no "
                          "such unit.", unit)
@@ -290,6 +343,7 @@ class MenloStack:
             self._send_command(unit, 6, millivolts))
 
     def get_ramp_amplitude(self, unit: int) -> Buffer:
+        """TODO: this seems unnecessary and not operational."""
         if unit not in PII_NODES:
             LOGGER.error("Can't set ramp amplitude of unit %s, as there is no "
                          "such unit.", unit)
@@ -303,7 +357,7 @@ class MenloStack:
     def _get_laser_prop(self, unit_number: int, service_id: int,
                         since: Time = None) -> Buffer:
         node_id = (unit_number + 2)
-        if node_id in LASER_NODES:
+        if node_id in OSC_NODES:
             since = since if isinstance(since, float) else math.nan
             return self._get_latest(self._buffers[node_id][service_id], since)
 
@@ -340,8 +394,8 @@ class MenloStack:
 
         # First, create a tree of buffers for each module.
         laser_buffers = {node_id: {svc_id: []
-                                   for svc_id in LASER_SVC_GET}
-                         for node_id in LASER_NODES}  # type: Buffers
+                                   for svc_id in OSC_SVC_GET}
+                         for node_id in OSC_NODES}  # type: Buffers
         lockbox_buffers = {node_id: {svc_id: []
                                      for svc_id in PII_SVC_GET}
                            for node_id in PII_NODES}  # type: Buffers
@@ -414,7 +468,7 @@ class MenloStack:
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     async def request_full_status(self) -> None:
-        for node in LASER_NODES + PII_NODES:
+        for node in OSC_NODES + PII_NODES:
             await self._send_command(node, 255, '0')
 
     @staticmethod
@@ -465,9 +519,9 @@ class MenloStack:
 
     @staticmethod
     def _name_service(node: int, service: int) -> str:
-        if node in LASER_NODES:
-            if service in LASER_SVC_GET.keys():
-                return LASER_SVC_GET[service]
+        if node in OSC_NODES:
+            if service in OSC_SVC_GET.keys():
+                return OSC_SVC_GET[service]
         elif node in PII_NODES:
             if service in PII_SVC_GET.keys():
                 return PII_SVC_GET[service]
@@ -487,21 +541,51 @@ class MenloStack:
         """Takes a temp. in Celsius and converts in to Menlo units.
 
         The parameters of the quadratic expansion were approximated by R. Wilk
-        based on a plot in the TEC controller chip datasheet."""
+        based on a plot in the TEC controller chip datasheet.
+
+        :raises ArithmeticError: when the conversion fails.
+        """
         factor = 27000 if is_setpoint else 1000
-        a0 = factor * -2.489
-        a1 = factor * 0.1717
-        a2 = factor * -0.0004352
-        return -a1/(2*a2) - math.sqrt((a1/(2*a2))**2 + (menlos - a0)/a2)
+        a_0 = factor * -2.489
+        a_1 = factor * 0.1717
+        a_2 = factor * -0.0004352
+        return -a_1/(2*a_2) - math.sqrt((a_1/(2*a_2))**2 + (menlos - a_0)/a_2)
 
     @staticmethod
     def _from_temperature(celsius: float, is_setpoint: bool = False) -> int:
         """Takes a menlo current reading and converts in to ° Celsius.
 
         The parameters of the quadratic expansion are read by R. Wilk from a
-        plot in the TEC controller chip datasheet."""
+        plot in the TEC controller chip datasheet.
+
+        :raises ArithmeticError: if the conversion failed.
+        :raises ValueError: if the resulting dac_value is out of bounds.
+        """
         factor = 27000 if is_setpoint else 1000
-        a0 = factor * -2.489
-        a1 = factor * 0.1717
-        a2 = factor * -0.0004352
-        return int(round(a0 + a1 * celsius + a2 * celsius**2))
+        a_0 = factor * -2.489
+        a_1 = factor * 0.1717
+        a_2 = factor * -0.0004352
+        dac_value = int(round(a_0 + a_1 * celsius + a_2 * celsius**2))
+
+        # Only continue if we arrived at a legal DAC value.
+        # TODO: put -1 instead of -3 as soon as definitive Menlo spec. arrives.
+        if dac_value >= 0 and dac_value < 2**16 - 3:
+            return dac_value
+        # else
+        raise ValueError("Temperature out of DAC range.")
+
+    @classmethod
+    def _get_osc_node_id(cls, unit_number: int) -> int:
+        # Return the CAN bus node id of the osc unit with given index.
+
+        # We consolidate all possible exceptions this method could raise into
+        # the expected "ValueError" to make sure nothing is unhandled.
+        try:
+            node = int(unit_number) + 2
+        except (ValueError, TypeError, ArithmeticError):
+            LOGGER.exception()
+            raise ValueError("Couldn't parse passed unit_number.")
+        else:
+            if node in OSC_NODES:
+                return node
+        raise ValueError("There is no oscillator supply unit %s.", unit_number)
