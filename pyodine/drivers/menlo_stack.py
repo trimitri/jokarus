@@ -133,7 +133,7 @@ class MenloStack:
         try:
             self._get_osc_node_id(unit_number)
         except ValueError:
-            LOGGER.exception()
+            LOGGER.exception("No such node.")
         else:
             # The user must disable the TEC themselves, as we don't want to be
             # responsible for possible effects.
@@ -282,15 +282,15 @@ class MenloStack:
         try:  # Only work on existing nodes.
             node = self._get_osc_node_id(unit_number)
         except ValueError:
-            LOGGER.exception()
+            LOGGER.exception("No such osc. sup. node.")
             return
 
         # Check for legal range of requested DAC voltage (which is then
         # internally translated to the current setpoint).
-        dac_value = str(milliamps * 8)  # One DAC count is 0.125 mA.
+        dac_value = milliamps * 8  # One DAC count is 0.125 mA.
         # TODO: Put -1 instead of -3 as soon as Menlo spec arrives.
         if dac_value >= 0 and dac_value < 2**16-3:
-            asyncio.ensure_future(self._send_command(node, 3, dac_value))
+            asyncio.ensure_future(self._send_command(node, 3, str(dac_value)))
         else:
             LOGGER.error("Passed current setpoint out of DAC range.")
 
@@ -299,7 +299,7 @@ class MenloStack:
         try:
             node = self._get_osc_node_id(int(unit_number))
         except ValueError:
-            LOGGER.exception()
+            LOGGER.exception("No such osc. sup. node.")
         except (TypeError, OverflowError):
             LOGGER.exception("Weird unit number.")
         else:
@@ -584,7 +584,7 @@ class MenloStack:
         try:
             node = int(unit_number) + 2
         except (ValueError, TypeError, ArithmeticError):
-            LOGGER.exception()
+            LOGGER.exception("No such osc. sup. node.")
             raise ValueError("Couldn't parse passed unit_number.")
         else:
             if node in OSC_NODES:
