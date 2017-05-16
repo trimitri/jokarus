@@ -123,7 +123,7 @@ class MenloStack:
         self._init_buffers()
         self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
-        await self.calibrate_tecs()
+        self.calibrate_tecs()
 
     async def calibrate_tec(self, unit_number: int) -> None:
         """Find zero-crossing of TEC current reading and compensate for it.
@@ -160,10 +160,11 @@ class MenloStack:
             else:
                 LOGGER.error("Disable TEC %s before calibrating.", unit_number)
 
-    async def calibrate_tecs(self) -> None:
+    def calibrate_tecs(self) -> None:
         """Calibrate zero-crossings of all TEC units' current readings."""
         tasks = [self.calibrate_tec(unit) for unit in range(1, 5)]
-        await asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME)
+        asyncio.ensure_future(
+            asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME))
 
     def get_adc_voltage(self, channel: int, since: Time = None) -> Buffer:
         """Get reading of the analog-digital converter in Volts."""
