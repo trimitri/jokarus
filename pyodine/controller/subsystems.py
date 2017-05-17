@@ -19,14 +19,16 @@ OSC_UNITS = {'mo': 1, 'pa': 2, 'shga': 3, 'shgb': 4}
 PII_UNITS = {'nu': 1}
 
 # Define some custom types.
-
+# pylint: disable=invalid-name
 MenloUnit = Union[float, int]
 
 # Measurement (time, reading)
 DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
+# pylint: enable=invalid-name
+
 class DdsChannel(enum.IntEnum):  # noqa: E302
-    # pylint: disable=missing-docstring
+    """The four channels of the DDS device."""
     AOM = 0
     EOM = 2
     MIXER = 1
@@ -41,7 +43,7 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
-        self._dds = Dds9Control('/dev/ttyUSB1')
+        self._dds = Dds9Control('/dev/ttyUSB1', allow_unconnected=True)
         # self._daq = None
 
     async def init_async(self) -> None:
@@ -138,8 +140,8 @@ class Subsystems:
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
         if (unit_name in OSC_UNITS
-            and isinstance(milliamps, float)
-            and milliamps >= 0):
+                and isinstance(milliamps, float)
+                and milliamps >= 0):
             self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
         else:
             LOGGER.error("Illegal setting for diode current.")
@@ -161,6 +163,8 @@ class Subsystems:
             LOGGER.error("Illegal setting for temperature setpoint.")
 
     def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
+        """Set the amplitude of the Menlo-generated ramp. (deprecated!)"""
+        # TODO Remove this as ramp is not actually implemented in hardware.
         if not isinstance(millivolts, int):
             LOGGER.error("Please give ramp amplitude in millivolts (int).")
             return
@@ -199,24 +203,24 @@ class Subsystems:
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
-            LOGGER.error("Provide valid amplitude (float) for AOM.")
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for AOM.")
             return
         LOGGER.debug("Setting AOM amplitude to %s %%.", amplitude * 100)
         self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
 
     def set_eom_amplitude(self, amplitude: float) -> None:
         """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
-            LOGGER.error("Provide valid amplitude (float) for EOM.")
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for EOM.")
             return
         LOGGER.debug("Setting EOM amplitude to %s %%.", amplitude * 100)
         self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or not amplitude > 0:
-            LOGGER.error("Provide valid amplitude (float) for mixer.")
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for mixer.")
             return
         LOGGER.debug("Setting mixer amplitude to %s %%.", amplitude * 100)
         self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
@@ -264,6 +268,9 @@ class Subsystems:
 
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
+
+        # TODO: Use functools.partials instead of default arguments to enforce
+        # early binding.
         for name, unit in OSC_UNITS.items():
             def getter(u=unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""

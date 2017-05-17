@@ -15,8 +15,12 @@ class TexusRelay:
     """Manage the data lines representing TEXUS and experiment state."""
 
     def __init__(self) -> None:
-        self._port1 = serial.Serial('/dev/ttyUSB2')
-        self._port2 = serial.Serial('/dev/ttyUSB3')
+        try:
+            self._port1 = serial.Serial('/dev/ttyUSB2')
+            self._port2 = serial.Serial('/dev/ttyUSB3')
+        except (FileNotFoundError, serial.SerialException):
+            raise ConnectionError("Couldn't open serial ports assigned to "
+                                  "TEXUS relay.")
 
     def get_full_set(self) -> Dict[str, bool]:
         """Return a Dict of all signal lines."""

@@ -14,11 +14,16 @@ class SerialServer:
     def __init__(self, device: str,
                  received_msg_callback: Callable[[str], None]=None,
                  baudrate: int=19200) -> None:
-        self._dev = serial.Serial(port=device, baudrate=baudrate)
+        try:
+            self._dev = serial.Serial(port=device, baudrate=baudrate)
+        except (FileNotFoundError, serial.SerialException):
+            LOGGER.error("Failed to open serial connection for serving.")
+            raise ConnectionError("Starting serial connection for server "
+                                  "failed.")
         self._rcv_callback = received_msg_callback
         LOGGER.info("Creating instance. Do call the async_init() fcn.")
 
-    async def async_init(self) -> None:
+    def start_serving(self) -> None:
         LOGGER.info("async_init() called. Starting server on dev %s",
                     self._dev.port)
         asyncio.ensure_future(self._serve())
