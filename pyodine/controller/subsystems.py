@@ -43,7 +43,7 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
-        self._dds = Dds9Control('/dev/ttyUSB1')
+        self._dds = Dds9Control('/dev/ttyUSB1', allow_unconnected=True)
         # self._daq = None
 
     async def init_async(self) -> None:

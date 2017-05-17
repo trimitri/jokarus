@@ -3,10 +3,13 @@
 It may set up downlinks to clients, regularly send data to them and deal with
 control requests they might transmit.
 """
+# System Libraries
 import asyncio
 import logging
 import time
 from typing import Callable
+
+# Own Stuff
 from ..transport.websocket_server import WebsocketServer
 from ..transport.serial_server import SerialServer
 from ..transport import texus_relay
@@ -55,12 +58,22 @@ class Interfaces:
 
         # Serial server
         if self._use_rs232:
-            self._rs232 = SerialServer(device='/dev/ttyUSB0',
-                                       received_msg_callback=self._parse_reply)
-            await self._rs232.async_init()
+            try:
+                self._rs232 = SerialServer(
+                    device='/dev/ttyUSB0',
+                    received_msg_callback=self._parse_reply)
+            except ConnectionError:
+                LOGGER.error("Couldn't open serial port for serving. "
+                             "Switching off serial server.")
+                self._use_rs232 = False
+            else:
+                self._rs232.start_serving()
 
         # TEXUS flags relay
-        self._texus = texus_relay.TexusRelay()
+        try:
+            self._texus = texus_relay.TexusRelay()
+        except ConnectionError:
+            LOGGER.error("Error establishing TEXUS relay. Disabling.")
 
     def start_publishing_regularly(
             self, readings_interval: float = 1.07,
@@ -105,9 +118,10 @@ class Interfaces:
             self._publish_message(packer.create_message(data, 'readings')))
 
     def publish_flags(self) -> None:
-        data = self._texus.get_full_set()
-        asyncio.ensure_future(
-            self._publish_message(packer.create_message(data, 'texus')))
+        if isinstance(self._texus, texus_relay.TexusRelay):
+            data = self._texus.get_full_set()
+            asyncio.ensure_future(
+                self._publish_message(packer.create_message(data, 'texus')))
 
     def publish_setup_parameters(self) -> None:
         LOGGER.debug("Scheduling setup parameter publication.")
@@ -116,8 +130,10 @@ class Interfaces:
             self._publish_message(packer.create_message(data, 'setup')))
 
     def set_flag(self, entity_id: str, value: bool) -> None:
-        if entity_id in texus_relay.LEGAL_SETTERS and isinstance(value, bool):
-            setattr(self._texus, entity_id, value)
+        if isinstance(self._texus, texus_relay.TexusRelay):
+            if entity_id in texus_relay.LEGAL_SETTERS \
+                    and isinstance(value, bool):
+                setattr(self._texus, entity_id, value)
 
     def register_on_receive_callback(
             self, callback: Callable[[str], None]) -> None:
