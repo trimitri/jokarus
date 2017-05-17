@@ -25,7 +25,7 @@ LOGGER.setLevel(logging.INFO)
 
 # Constants specific to the published Menlo interface.
 
-OSC_NODES = [3, 4, 5, 6]  # node IDs of laser units 1 through 4
+OSC_NODES = [3, 4, 5, 6]  # node IDs of osc units 1 through 4
 PII_NODES = [1, 2]          # node IDs of lockboxes 1 and 2
 ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
@@ -92,7 +92,7 @@ MUC_SVC_GET = {1: "system time?"}
 MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
 Buffer = List[DataPoint]
-Buffers = Dict[int, Dict[int, Buffer]]
+Buffers = Dict[int, Dict[int, Buffer]]  # Node -> Service -> Buffer
 Time = float  # Unix timestamp, as returned by time.time()
 # pylint: enable=invalid-name,unsubscriptable-object
 
@@ -175,10 +175,10 @@ class MenloStack:
         return self._dummy_point_series()
 
     def is_current_driver_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 305)
+        return self._get_osc_prop(unit_number, 305)
 
     def is_tec_enabled(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 304)
+        return self._get_osc_prop(unit_number, 304)
 
     def is_lock_enabled(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 304)
@@ -214,31 +214,31 @@ class MenloStack:
         return self._get_pii_prop(unit_number, 273 if p_only else 272, since)
 
     def is_temp_ok(self, unit_number: int) -> Buffer:
-        return self._get_laser_prop(unit_number, 288)
+        return self._get_osc_prop(unit_number, 288)
 
     def get_temperature(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, self._to_temperature(val))
                 for (time, val)
-                in self._get_laser_prop(unit_number, 272, since)]
+                in self._get_osc_prop(unit_number, 272, since)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
         return [(time, self._to_temperature(val, is_setpoint=True))
-                for (time, val) in self._get_laser_prop(unit_number, 256)]
+                for (time, val) in self._get_osc_prop(unit_number, 256)]
 
     def get_diode_current(self,
                           unit_number: int, since: Time = None) -> Buffer:
-        return self._get_laser_prop(unit_number, 275, since)
+        return self._get_osc_prop(unit_number, 275, since)
 
     def get_diode_current_setpoint(self, unit_number: int,
                                    since: Time = None) -> Buffer:
         return [(time, val / 8.)
                 for (time, val)
-                in self._get_laser_prop(unit_number, 257, since)]
+                in self._get_osc_prop(unit_number, 257, since)]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, val - self._tec_current_offsets[unit_number])
                 for (time, val)
-                in self._get_laser_prop(unit_number, 274, since=since)]
+                in self._get_osc_prop(unit_number, 274, since=since)]
 
     def set_temp(self, unit_number: int, temp: float) -> None:
         """Set temperature setpoint of given oscillator supply unit in °C.
@@ -355,8 +355,8 @@ class MenloStack:
     # Private Methods #
     ###################
 
-    def _get_laser_prop(self, unit_number: int, service_id: int,
-                        since: Time = None) -> Buffer:
+    def _get_osc_prop(self, unit_number: int, service_id: int,
+                      since: Time = None) -> Buffer:
         node_id = (unit_number + 2)
         if node_id in OSC_NODES:
             since = since if isinstance(since, float) else math.nan
@@ -394,12 +394,10 @@ class MenloStack:
         # in tuples: [(time1, value1), (time2, value2), etc.]
 
         # First, create a tree of buffers for each module.
-        laser_buffers = {node_id: {svc_id: []
-                                   for svc_id in OSC_SVC_GET}
-                         for node_id in OSC_NODES}  # type: Buffers
-        lockbox_buffers = {node_id: {svc_id: []
-                                     for svc_id in PII_SVC_GET}
-                           for node_id in PII_NODES}  # type: Buffers
+        osc_buffers = {node_id: {svc_id: [] for svc_id in OSC_SVC_GET}
+                       for node_id in OSC_NODES}  # type: Buffers
+        pii_buffers = {node_id: {svc_id: [] for svc_id in PII_SVC_GET}
+                       for node_id in PII_NODES}  # type: Buffers
         adc_buffers = {ADC_NODE: {svc_id: []
                                   for svc_id in ADC_SVC_GET}}  # type: Buffers
         muc_buffers = {MUC_NODE: {svc_id: []
@@ -407,8 +405,8 @@ class MenloStack:
 
         # Merge dictionaries into one, as "node" is a unique key.
         self._buffers = {}
-        self._buffers.update(laser_buffers)
-        self._buffers.update(lockbox_buffers)
+        self._buffers.update(osc_buffers)
+        self._buffers.update(pii_buffers)
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
