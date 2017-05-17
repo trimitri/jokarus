@@ -13,6 +13,7 @@ dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 
 del(dds)  # close connection, device keeps running
 """
+import enum
 import copy
 import logging
 import time
@@ -97,6 +98,18 @@ class SetupParameters:
         self.ext_clock_multiplier_setting = '84'
 
 
+class ConnState(enum.IntEnum):
+    """The RS232 connection state.
+
+    The connection can either be established (LIVE) or lost (DEAD). There
+    is also the trivial "ASSERT" mode, in which the connection is
+    established once on initialization and then always assumed live.
+    """
+    LIVE = enum.auto()
+    DEAD = enum.auto()
+    ASSERT = enum.auto()
+
+
 class Dds9Control:
     """A stateful controller for the DDS9m frequency generator.
 
@@ -111,18 +124,17 @@ class Dds9Control:
     # instances must derive their own set of settings
     # from this, see __init__ below.
 
-    def __init__(self, port: str = None) -> None:
+    def __init__(self, port: str = None,
+                 allow_unconnected: bool = False) -> None:
         """Set the device connection up and set some basic device parameters.
 
         Depending on the device state, calling this constructor may actually
         change the running device's parameters. Most notably, the reference
         clock is set to the internal quartz and phases may re-align.
 
-        Raises a ConnectionError when no working connection to the device could
-        be set up. In this case it would be advisable to del() the instance and
-        retry.
+        For failsafe operation, set allow_unconnected to true. To ensure
+        escalation of connection problems, set it to false.
         """
-
         self._settings = SetupParameters()
 
         # Change port if it was given.
@@ -147,42 +159,16 @@ class Dds9Control:
 
         self._state = None  # type: Dds9Setting
 
-        # Initialize device.
+        self._conn_state = \
+            ConnState.DEAD if allow_unconnected else ConnState.ASSERT
+
         self._conn = None  # type: serial.Serial
+
+        # Initialize device.
         self._open_connection()  # Sets above variable.
-
-        # Immediately execute any sent command, instead of waiting for an
-        # explicit "Execute commands!" command.
-        self._send_command('I a')
-
-        # Send an "Execute commands!" command now, in case the setting above
-        # wasn't set before.
-        self._send_command('I p')
-
-        # Use full scale output voltage, as opposed to other possible
-        # settings (half, quarter, eighth).
-        self._send_command('Vs 1')
-
-        # Disable echoing of received commands to allow for faster operation.
-        self._send_command('E d')
-
-        # Re-align phase setting after each command. This way we are able to
-        # set absolute phase offsets reliably.
-        self._send_command('M a')
-
-        # Save actual device state into class instance variable.
-        self._update_state()
-
-        # Unfortunately, I didn't find a way to get information about which
-        # clock source is currently in use from the device. We thus need to set
-        # a clock source to have that information. The internal source is
-        # preferred as it is considered failsafe. But setting to ext. here
-        # should work just as well, given that an external clock source is
-        # connected.
-        self.switch_to_int_reference(adjust_frequencies=False)
+        self._initialize_device()
 
         # Conduct a basic health test.
-
         if not self.ping():  # ensure proper device connection
             raise ConnectionError("Unexpected DDS9m behaviour.")
         LOGGER.info("Connection to DDS9m established.")
@@ -488,6 +474,39 @@ class Dds9Control:
         self._conn.baudrate = self._settings.baudrate
         self._conn.timeout = self._settings.timeout
         LOGGER.info("Connected to serial port " + self._conn.name)
+
+    def _initialize_device(self) -> None:
+        # Synchronize a newly connected device's state with the class instance.
+
+        # Immediately execute any sent command, instead of waiting for an
+        # explicit "Execute commands!" command.
+        self._send_command('I a')
+
+        # Send an "Execute commands!" command now, in case the setting above
+        # wasn't set before.
+        self._send_command('I p')
+
+        # Use full scale output voltage, as opposed to other possible
+        # settings (half, quarter, eighth).
+        self._send_command('Vs 1')
+
+        # Disable echoing of received commands to allow for faster operation.
+        self._send_command('E d')
+
+        # Re-align phase setting after each command. This way we are able to
+        # set absolute phase offsets reliably.
+        self._send_command('M a')
+
+        # Save actual device state into class instance variable.
+        self._update_state()
+
+        # Unfortunately, I didn't find a way to get information about which
+        # clock source is currently in use from the device. We thus need to set
+        # a clock source to have that information. The internal source is
+        # preferred as it is considered failsafe. But setting to ext. here
+        # should work just as well, given that an external clock source is
+        # connected.
+        self.switch_to_int_reference(adjust_frequencies=False)
 
     @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
