@@ -274,9 +274,9 @@ class MenloStack:
         # Enforce argument types.
         try:
             unit_number = int(unit_number)
-            milliamps = float(milliamps)
+            dac_value = int(milliamps * 8)  # One DAC count is 0.125 mA.
         except (ValueError, TypeError, ArithmeticError):
-            LOGGER.exception("Invalid argument type passed.")
+            LOGGER.exception("Invalid argument passed.")
             return
 
         try:  # Only work on existing nodes.
@@ -287,7 +287,6 @@ class MenloStack:
 
         # Check for legal range of requested DAC voltage (which is then
         # internally translated to the current setpoint).
-        dac_value = milliamps * 8  # One DAC count is 0.125 mA.
         # TODO: Put -1 instead of -3 as soon as Menlo spec arrives.
         if dac_value >= 0 and dac_value < 2**16-3:
             asyncio.ensure_future(self._send_command(node, 3, str(dac_value)))
