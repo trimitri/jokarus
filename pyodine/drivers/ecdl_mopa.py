@@ -111,3 +111,37 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
     @pa_current.setter
     def pa_current(self, milliamps: float) -> None:
         pass  # FIXME
+
+    def pa_disable(self, force: bool = False) -> None:
+        """Switch off power amplifier if safe. Use force to skip checks.
+        """
+        if self.mo_current < self._spec.mo_seed_threshold or force:
+            try:
+                self._disable_pa()
+
+            # We use the ultimate exception catcher here, as we're dealing
+            # with a generally unknown callback.
+            except:  # pylint: disable=bare-except
+                LOGGER.exception("Error while executing disable_pa_callback.")
+        else:
+            LOGGER.error("Can not disable PA, as MO is running above seed "
+                         "threshold and would dump into PA otherwise.")
+            LOGGER.info("Consider using \"force\" attribute if something went "
+                        "wrong and PA needs to be switched off regardless.")
+
+    def mo_disable(self, force: bool = False) -> None:
+        """Switch off master oscillator if safe. Use force to skip checks.
+        """
+        if self.pa_current < self._spec.pa_backfire or force:
+            try:
+                self._disable_mo()
+
+            # We use the ultimate exception catcher here, as we're dealing
+            # with a generally unknown callback.
+            except:  # pylint: disable=bare-except
+                LOGGER.exception("Error while executing disable_mo_callback.")
+        else:
+            LOGGER.error("Can not disable PA, as MO is running above seed "
+                         "threshold and would dump into PA otherwise.")
+            LOGGER.info("Consider using \"force\" attribute if something went "
+                        "wrong and PA needs to be switched off regardless.")
