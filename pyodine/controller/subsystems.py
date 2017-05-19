@@ -12,7 +12,7 @@ from ..drivers import menlo_stack
 from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
 from ..drivers.dds9_control import Dds9Control
-from ..drivers.ecdl_mopa import EcdlMopa
+from ..drivers import ecdl_mopa
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -28,6 +28,13 @@ MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
 Buffer = List[DataPoint]
 # pylint: enable=invalid-name
+
+
+class SubsystemError(RuntimeError):
+    """One of the subsystems experienced a critical problem. Reset is advised.
+    """
+    pass
+
 
 class DdsChannel(enum.IntEnum):  # noqa: E302
     """The four channels of the DDS device."""
@@ -49,7 +56,7 @@ class Subsystems:
 
         # We will initialize the laser control in init_async(), as it depends
         # on Menlo being initialized first.
-        self._laser = None  # type: EcdlMopa
+        self._laser = None  # type: ecdl_mopa.EcdlMopa
         # self._daq = None
 
     async def init_async(self) -> None:
@@ -60,24 +67,26 @@ class Subsystems:
 
         # Now that Menlo is up and running (TODO: check/except), initialize the
         # laser controller.
-        self._laser = EcdlMopa(
-            get_mo_callback=partial(
-                self._menlo.get_diode_current, unit_number=1),
-            get_pa_callback=partial(
-                self._menlo.get_diode_current, unit_number=2),
-            set_mo_callback=partial(
-                self._menlo.set_current, unit_number=1),
-            set_pa_callback=partial(
-                self._menlo.set_current, unit_number=2),
-            disable_mo_callback=partial(
-                self._menlo.switch_ld, switch_on=False, unit_number=1),
-            disable_pa_callback=partial(
-                self._menlo.switch_ld, switch_on=False, unit_number=2),
-            enable_mo_callback=partial(
-                self._menlo.switch_ld, enable=True, unit_number=1),
-            enable_pa_callback=partial(
-                self._menlo.switch_ld, enable=True, unit_number=2)
-        )
+        get_mo = partial(self._menlo.get_diode_current, unit_number=1)
+        get_pa = partial(self._menlo.get_diode_current, unit_number=2)
+        set_mo = partial(self._menlo.set_current, unit_number=1)
+        set_pa = partial(self._menlo.set_current, unit_number=2)
+        disable_mo = partial(self._menlo.switch_ld, switch_on=False,
+                             unit_number=1)
+        disable_pa = partial(self._menlo.switch_ld, switch_on=False,
+                             unit_number=2)
+        enable_mo = partial(self._menlo.switch_ld, enable=True, unit_number=1)
+        enable_pa = partial(self._menlo.switch_ld, enable=True, unit_number=2)
+
+        self._laser = ecdl_mopa.EcdlMopa(
+            get_mo_callback=lambda: get_mo()[0][1],
+            get_pa_callback=lambda: get_pa()[0][1],
+            set_mo_callback=lambda c: set_mo(milliamps=c),
+            set_pa_callback=lambda c: set_pa(milliamps=c),
+            disable_mo_callback=disable_mo,
+            disable_pa_callback=disable_pa,
+            enable_mo_callback=enable_mo,
+            enable_pa_callback=enable_pa)
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
@@ -166,12 +175,18 @@ class Subsystems:
         """Set diode current setpoint of given unit."""
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
-        if unit_name == 'mo':
-            self._laser.mo_current(milliamps)
-        elif unit_name == 'pa':
-            self._laser.pa_current(milliamps)
-        else:
-            LOGGER.error('Can only set current for either "mo" or "pa".')
+        try:
+            if unit_name == 'mo':
+                self._laser.set_mo_current(milliamps)
+            elif unit_name == 'pa':
+                self._laser.set_pa_current(milliamps)
+            else:
+                LOGGER.error('Can only set current for either "mo" or "pa".')
+        except ValueError as err:
+            LOGGER.error(str(err))
+        except ecdl_mopa.CallbackError:
+            LOGGER.exception("Critical error in osc. sup. unit!")
+            raise SubsystemError("Critical error in osc. sup. unit!")
 
     def set_temp(self, unit_name, celsius: float,
                  bypass_ramp: bool = False) -> None:
@@ -287,12 +302,24 @@ class Subsystems:
                              unit_name)
 
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
-        if unit_name == 'mo':
-            self._laser.enable_mo() if switch_on else self._laser.disable_mo()
-        elif unit_name == 'pa':
-            self._laser.pa_current(milliamps)
-        else:
-            LOGGER.error('Can only set current for either "mo" or "pa".')
+        try:
+            if unit_name == 'mo':
+                if switch_on:
+                    self._laser.enable_mo()
+                else:
+                    self._laser.disable_mo()
+            elif unit_name == 'pa':
+                if switch_on:
+                    self._laser.enable_pa()
+                else:
+                    self._laser.disable_pa()
+            else:
+                LOGGER.error('Can only set current for either "mo" or "pa".')
+        except ValueError as err:
+            LOGGER.error(str(err))
+        except ecdl_mopa.CallbackError:
+            LOGGER.exception("Critical error in osc. sup. unit!")
+            raise SubsystemError("Critical error in osc. sup. unit!")
 
     # Private Methods
 
