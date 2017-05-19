@@ -307,7 +307,7 @@ class MenloStack:
             asyncio.ensure_future(
                 self._send_command(node, 2, 1 if switch_on else 0))
 
-    def switch_ld(self, unit: int, switch_on: bool) -> None:
+    def switch_ld(self, unit_number: int, switch_on: bool) -> None:
         """Turn current driver of given unit on or off."""
         if unit + 2 in OSC_NODES:
             LOGGER.info("Switching current driver of unit %s %s.",
