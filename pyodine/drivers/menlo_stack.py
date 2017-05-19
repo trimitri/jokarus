@@ -309,13 +309,13 @@ class MenloStack:
 
     def switch_ld(self, unit_number: int, switch_on: bool) -> None:
         """Turn current driver of given unit on or off."""
-        if unit + 2 in OSC_NODES:
+        if unit_number + 2 in OSC_NODES:
             LOGGER.info("Switching current driver of unit %s %s.",
-                        unit, "ON" if switch_on else "OFF")
+                        unit_number, "ON" if switch_on else "OFF")
             asyncio.ensure_future(
-                self._send_command(unit + 2, 5, 1 if switch_on else 0))
+                self._send_command(unit_number + 2, 5, 1 if switch_on else 0))
         else:
-            LOGGER.error("There is no oscillator supply unit %s", unit)
+            LOGGER.error("There is no oscillator supply unit %s", unit_number)
 
     def switch_ramp(self, unit: int, switch_on: bool) -> None:
         """Switch the ramp generation of given PII unit on or off."""
