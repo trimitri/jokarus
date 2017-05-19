@@ -71,12 +71,14 @@ class Subsystems:
         get_pa = partial(self._menlo.get_diode_current, unit_number=2)
         set_mo = partial(self._menlo.set_current, unit_number=1)
         set_pa = partial(self._menlo.set_current, unit_number=2)
-        disable_mo = partial(self._menlo.switch_ld, switch_on=False,
-                             unit_number=1)
-        disable_pa = partial(self._menlo.switch_ld, switch_on=False,
-                             unit_number=2)
-        enable_mo = partial(self._menlo.switch_ld, enable=True, unit_number=1)
-        enable_pa = partial(self._menlo.switch_ld, enable=True, unit_number=2)
+        disable_mo = partial(
+            self._menlo.switch_ld, switch_on=False, unit_number=1)
+        disable_pa = partial(
+            self._menlo.switch_ld, switch_on=False, unit_number=2)
+        enable_mo = partial(
+            self._menlo.switch_ld, switch_on=True, unit_number=1)
+        enable_pa = partial(
+            self._menlo.switch_ld, switch_on=True, unit_number=2)
 
         self._laser = ecdl_mopa.EcdlMopa(
             get_mo_callback=lambda: get_mo()[0][1],
