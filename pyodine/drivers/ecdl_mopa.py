@@ -13,14 +13,16 @@ from typing import Callable
 LOGGER = logging.getLogger('ecdl_mopa')
 
 MopaSpec = collections.namedtuple('MopaSpec', [
-    'mo_max',
-    'mo_seed_threshold',
-    'pa_max',
-    'pa_transparency',
+    'mo_max',   # Absolute max. current for master oscillator
+    'mo_seed',  # MO begins to lase, significant enough to seed the PA
+    'pa_max',   # Absolute max. current for power amplifier
+    'pa_transparency',  # PA becomes about transparent at this current
+
+    # PA population inversion is high enough to cause damage if not seeded.
     'pa_backfire'])
 
 
-MILAS = MopaSpec(mo_max=200, mo_seed_threshold=50,
+MILAS = MopaSpec(mo_max=200, mo_seed=50,
                  pa_max=1500, pa_transparency=200, pa_backfire=300)
 
 
@@ -106,17 +108,15 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
                              "current for master oscillator.")
 
         # Don't dump (more) energy into the PA if it is not transparent.
-        # Use "not" flavour of conditions to make sure that Nan/Inf lead to
-        # failure.
         if (current != 0 and
                 not self.get_pa_current() >= self._spec.pa_transparency):
-            raise ValueError("Refusing to increase MO current, as PA is not "
-                             "transparent.")
+            raise ValueError("Refusing to set nonzero MO current, as PA is "
+                             "operating below transparency threshold.")
 
         # Don't decrease MO current below lasing level if PA is in a regime
         # allowing backfire. Otherwise powerful backfire resulting from
         # spontaneous emission might occur.
-        if (not current >= self._spec.mo_seed_threshold
+        if (not current >= self._spec.mo_seed
                 and not self.get_pa_current() < self._spec.pa_backfire):
             raise ValueError("Refusing to decrease MO current below seeding "
                              "level, as PA is in a backfire regime.")
@@ -166,7 +166,7 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         # Don't go below PA transparency current while MO is seeding. This
         # avoids dumping energy into the PA.
         if (not current >= self._spec.pa_transparency and
-                not self.get_mo_current() < self._spec.mo_seed_threshold):
+                not self.get_mo_current() < self._spec.mo_seed):
             raise ValueError("Refusing to go below PA transparency current, "
                              "as MO is still seeding.")
 
@@ -174,7 +174,7 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         # not seeding. Otherwise powerful backfire resulting from spontaneous
         # emission might occur and damage internal components.
         if (not current < self._spec.pa_backfire and
-                not self.get_mo_current() >= self._spec.mo_seed_threshold):
+                not self.get_mo_current() >= self._spec.mo_seed):
             raise ValueError("Refusing to enter backfire-prone PA current "
                              "range, as mo is not seeding.")
 
