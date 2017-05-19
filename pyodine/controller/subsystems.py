@@ -4,6 +4,7 @@ This is an interface to the actual things connected to each port of each
 subsystem.
 """
 import enum
+from functools import partial
 import logging
 import time
 from typing import Dict, List, Tuple, Union
@@ -11,6 +12,7 @@ from ..drivers import menlo_stack
 from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
 from ..drivers.dds9_control import Dds9Control
+from ..drivers.ecdl_mopa import EcdlMopa
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -44,6 +46,10 @@ class Subsystems:
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
         self._dds = Dds9Control('/dev/ttyUSB1', allow_unconnected=True)
+
+        # We will initialize the laser control in init_async(), as it depends
+        # on Menlo being initialized first.
+        self._laser = None  # type: EcdlMopa
         # self._daq = None
 
     async def init_async(self) -> None:
@@ -51,6 +57,27 @@ class Subsystems:
 
         It makes sure that all subsystems are ready."""
         await self.reset_menlo()
+
+        # Now that Menlo is up and running (TODO: check/except), initialize the
+        # laser controller.
+        self._laser = EcdlMopa(
+            get_mo_callback=partial(
+                self._menlo.get_diode_current, unit_number=1),
+            get_pa_callback=partial(
+                self._menlo.get_diode_current, unit_number=2),
+            set_mo_callback=partial(
+                self._menlo.set_current, unit_number=1),
+            set_pa_callback=partial(
+                self._menlo.set_current, unit_number=2),
+            disable_mo_callback=partial(
+                self._menlo.switch_ld, switch_on=False, unit_number=1),
+            disable_pa_callback=partial(
+                self._menlo.switch_ld, switch_on=False, unit_number=2),
+            enable_mo_callback=partial(
+                self._menlo.switch_ld, enable=True, unit_number=1),
+            enable_pa_callback=partial(
+                self._menlo.switch_ld, enable=True, unit_number=2)
+        )
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
@@ -139,12 +166,12 @@ class Subsystems:
         """Set diode current setpoint of given unit."""
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
-        if (unit_name in OSC_UNITS
-                and isinstance(milliamps, float)
-                and milliamps >= 0):
-            self._menlo.set_current(OSC_UNITS[unit_name], milliamps)
+        if unit_name == 'mo':
+            self._laser.mo_current(milliamps)
+        elif unit_name == 'pa':
+            self._laser.pa_current(milliamps)
         else:
-            LOGGER.error("Illegal setting for diode current.")
+            LOGGER.error('Can only set current for either "mo" or "pa".')
 
     def set_temp(self, unit_name, celsius: float,
                  bypass_ramp: bool = False) -> None:
@@ -260,9 +287,12 @@ class Subsystems:
                              unit_name)
 
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_osc_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_ld(OSC_UNITS[unit_name], switch_on)
+        if unit_name == 'mo':
+            self._laser.enable_mo() if switch_on else self._laser.disable_mo()
+        elif unit_name == 'pa':
+            self._laser.pa_current(milliamps)
+        else:
+            LOGGER.error('Can only set current for either "mo" or "pa".')
 
     # Private Methods
 
