@@ -101,6 +101,10 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
+    def reset_subsystems(self, exception: SubsystemError=None) -> None:
+        LOGGER.critical("Reset not yet implemented.")
+        # FIXME
+
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
@@ -174,7 +178,10 @@ class Subsystems:
         return data
 
     def set_current(self, unit_name: str, milliamps: float) -> None:
-        """Set diode current setpoint of given unit."""
+        """Set diode current setpoint of given unit.
+
+        :raises SubsystemError: Something went wrong in calling a callback.
+        """
         LOGGER.debug("Setting diode current of unit %s to %s mA",
                      unit_name, milliamps)
         try:
@@ -304,6 +311,9 @@ class Subsystems:
                              unit_name)
 
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
+        """
+        :raises SubsystemError:
+        """
         try:
             if unit_name == 'mo':
                 if switch_on:
@@ -322,6 +332,27 @@ class Subsystems:
         except ecdl_mopa.CallbackError:
             LOGGER.exception("Critical error in osc. sup. unit!")
             raise SubsystemError("Critical error in osc. sup. unit!")
+
+    def power_up_mo(self) -> None:
+        """
+        Switch on master oscillator and crank it to startup current.
+
+        This will only succeed, if PA is at a sufficient power level. Consider
+        running .power_up_pa() before to ensure this.
+
+        :raises SubsystemError:
+        """
+        self.switch_ld('mo', True)
+        self.set_current('mo', self._laser.mo_powerup_current)
+
+    def power_up_pa(self) -> None:
+        """
+        Switch on power amplifier and crank it to startup current.
+
+        :raises SubsystemError:
+        """
+        self.switch_ld('pa', True)
+        self.set_current('pa', self._laser.pa_powerup_current)
 
     # Private Methods
 

@@ -24,6 +24,7 @@ MopaSpec = collections.namedtuple('MopaSpec', [
 
 MILAS = MopaSpec(mo_max=200, mo_seed=50,
                  pa_max=1500, pa_transparency=200, pa_backfire=300)
+DUMMY_SPEC = MopaSpec(0, 0, 0, 0, 0)
 
 
 class CallbackError(RuntimeError):
@@ -73,6 +74,20 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         self._disable_mo = disable_mo_callback
         self._enable_pa = enable_pa_callback
         self._disable_pa = disable_pa_callback
+
+    @property
+    def pa_powerup_current(self) -> float:
+        """A current between transparency and backfire thresholds."""
+        return self._spec.pa_transparency + \
+            0.3 * (self._spec.pa_backfire - self._spec.pa_transparency)
+
+    @property
+    def mo_powerup_current(self) -> float:
+        """A current above seeding threshold."""
+        candidate = 1.3 * self._spec.mo_seed
+        if candidate < self._spec.mo_max:
+            return candidate
+        return self._spec.mo_max
 
     def get_mo_current(self) -> float:
         """The master oscillator laser diode current in milliamps."""

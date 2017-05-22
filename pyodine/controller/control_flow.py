@@ -5,9 +5,10 @@ experiments, such as establishing and monitoring locks.
 It is assured and imperative that no methods of this class do ever throw
 exceptions. A return status of type .ReturnState is provided to detect errors.
 """
+import asyncio
 import enum
 import logging
-from .subsystems import Subsystems
+from .subsystems import Subsystems, SubsystemError
 
 LOGGER = logging.getLogger('pyodine.controller.subsystems')
 LOGGER.setLevel(logging.DEBUG)
@@ -50,5 +51,29 @@ def hot_start(subs: Subsystems) -> ReturnState:
     fate = initialize_rf_chain(subs)
     if fate != ReturnState.SUCCESS:
         return fate
+
+    return ReturnState.SUCCESS
+
+
+# TODO Consider moving this to subsystems module.
+async def laser_power_up(subs: Subsystems) -> ReturnState:
+    """Switch on or reset the laser.
+
+    After running this, the laser power may be adjusted through the PA current,
+    the frequency through MO current.
+    """
+    try:
+        subs.power_up_pa()
+
+        # Before trying to switch on the MO, we need to wait for the PA current
+        # to settle and be read.
+        asyncio.sleep(1)
+
+        subs.power_up_mo()
+    except SubsystemError as err:
+        LOGGER.error("There was a critical error in one of the subsystems "
+                     "(%s). Trying to reset.")
+        subs.reset_subsystems(err)
+        return ReturnState.FAIL
 
     return ReturnState.SUCCESS
