@@ -545,6 +545,8 @@ class Dds9Control:
         self._conn = serial.Serial(self._settings.port)
         self._conn.baudrate = self._settings.baudrate
         self._conn.timeout = self._settings.timeout
+        if self._conn_state == ConnState.OFFLINE:
+            self._conn_state == ConnState.ONLINE
         LOGGER.info("Connected to serial port " + self._conn.name)
 
     def _initialize_device(self) -> None:

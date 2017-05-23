@@ -428,7 +428,7 @@ class MenloStack:
 
         if isinstance(buffer, list):
             if not buffer:
-                LOGGER.info("Service %d:%d (%s) alive. First value: %s",
+                LOGGER.debug("Service %d:%d (%s) alive. First value: %s",
                             node, service, self._name_service(node, service),
                             value)
 
