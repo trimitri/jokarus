@@ -175,7 +175,7 @@ class Dds9Control:
                 raise
             else:
                 LOGGER.error("Couldn't establish connection to DDS9. "
-                                 "Starting in offline mode.")
+                             "Starting in offline mode.")
         else:
             self._initialize_device()
 
@@ -364,9 +364,12 @@ class Dds9Control:
         """Device is accessible and in non-zero state."""
         try:
             self._update_state()
-            return not self._state.is_zero()
+            if not self._state.is_zero():
+                self._conn_state = ConnState.ONLINE
+                return True
         except serial.SerialException:
-            return False
+            pass
+        return False
 
     def pause(self) -> None:
         """Temporarily sets all outputs to zero voltage."""
@@ -546,7 +549,7 @@ class Dds9Control:
         self._conn.baudrate = self._settings.baudrate
         self._conn.timeout = self._settings.timeout
         if self._conn_state == ConnState.OFFLINE:
-            self._conn_state == ConnState.ONLINE
+            self._conn_state = ConnState.ONLINE
         LOGGER.info("Connected to serial port " + self._conn.name)
 
     def _initialize_device(self) -> None:
