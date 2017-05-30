@@ -38,9 +38,9 @@ class SubsystemError(RuntimeError):
 
 class DdsChannel(enum.IntEnum):  # noqa: E302
     """The four channels of the DDS device."""
-    AOM = 0
-    EOM = 2
-    MIXER = 1
+    AOM = 1
+    EOM = 0
+    MIXER = 2
     FREE = 3  # not in use
 
 
@@ -101,7 +101,7 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    def reset_subsystems(self, exception: SubsystemError=None) -> None:
+    def reset_subsystems(self, exception: SubsystemError = None) -> None:
         LOGGER.critical("Reset not yet implemented.")
         # FIXME
 
