@@ -24,9 +24,9 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
 
     This provides EOM, AOM and mixer with the correct driving signals.
     """
-    LOGGER.info("Initializing RF chain.")
+    LOGGER.info("Initializing RF chain...")
     try:
-        subs.switch_rf_clock_source('internal')  # FIXME: use dedicated OCXO
+        subs.switch_rf_clock_source('external')
         subs.set_aom_amplitude(1)
         subs.set_aom_frequency(150)  # 150 MHz offset
         subs.set_eom_amplitude(1)
@@ -39,6 +39,7 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
         LOGGER.exception("Initializing RF chain failed.")
         return ReturnState.FAIL
 
+    LOGGER.info("Successfully initialized RF chain.")
     return ReturnState.SUCCESS
 
 
