@@ -19,6 +19,7 @@ LOGGER.setLevel(logging.DEBUG)
 
 OSC_UNITS = {'mo': 1, 'pa': 2, 'shga': 3, 'shgb': 4}
 PII_UNITS = {'nu': 1}
+DDS_PORT = '/dev/ttyUSB2'
 
 # Define some custom types.
 # pylint: disable=invalid-name
@@ -52,7 +53,7 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
-        self._dds = Dds9Control('/dev/ttyUSB1', allow_unconnected=True)
+        self._dds = Dds9Control(DDS_PORT, allow_unconnected=True)
 
         # We will initialize the laser control in init_async(), as it depends
         # on Menlo being initialized first.
