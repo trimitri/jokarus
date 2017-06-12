@@ -595,7 +595,8 @@ class Dds9Control:
 
         # Replace with dummy data if illegal string was passed.
         if len(relevant_lines) != 4:
-            LOGGER.error("Too few valid lines in QUE response.")
+            LOGGER.error("Too few valid lines in QUE response. Got:")
+            LOGGER.error("%s", relevant_lines)
             relevant_lines = ['0 0 0 0 0 0 0' for i in range(4)]
         channels = [l.split() for l in relevant_lines]
 
