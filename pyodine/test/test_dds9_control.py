@@ -151,6 +151,7 @@ def test_switch_reference_source(dds9: Dds9Control):
     It also must not alter the set up frequency values.
     """
     dds9.reset()
+    dds9.set_frequency(10)
     freq1 = dds9.frequencies
     dds9.switch_to_ext_reference()
     freq2 = dds9.frequencies
