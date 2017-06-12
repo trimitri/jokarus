@@ -15,7 +15,7 @@ __author__ = 'Franz Gutsch'
 
 wrong_port = '/dev/tty0'    # Port must not be accessible (ConnectionError).
 dead_port = '/dev/ttyUSB3'  # must be accessible, but no device is connected
-live_port = '/dev/ttyUSB1'  # DDS9m must be connected to that port
+live_port = '/dev/ttyUSB2'  # DDS9m must be connected to that port
 
 # Most tests can only be performed when there is a live DDS9m device available.
 # We create a marker here to skip those tests automatically if there is no
