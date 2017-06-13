@@ -62,12 +62,8 @@ async def main():
     await asyncio.sleep(10)
     while True:
         await asyncio.sleep(0.21)
-
         subs.set_temp('shga', 20, True)
         subs.set_temp('shgb', 20, True)
-        subs.set_current('shga', 100)
-        subs.set_current('shgb', 100)
-
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
