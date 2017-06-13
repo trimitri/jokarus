@@ -201,18 +201,20 @@ class Subsystems:
     def set_temp(self, unit_name, celsius: float,
                  bypass_ramp: bool = False) -> None:
         """Set the target temp. for the temperature ramp."""
-        if isinstance(celsius, float):
+        try:
+            temp = float(celsius)
+        except (TypeError, ArithmeticError, ValueError):
+            LOGGER.error("Couldn't convert temp setting %s to float.", celsius)
+        else:
             if bypass_ramp:
                 LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
-                             unit_name, celsius)
-                self._menlo.set_temp(OSC_UNITS[unit_name], celsius)
+                             unit_name, temp)
+                self._menlo.set_temp(OSC_UNITS[unit_name], temp)
             else:
                 LOGGER.debug("Setting ramp target temp. of unit %s to %s°C",
-                             unit_name, celsius)
+                             unit_name, temp)
                 ramp = self._temp_ramps[OSC_UNITS[unit_name]]
-                ramp.target_temperature = celsius
-        else:
-            LOGGER.error("Illegal setting for temperature setpoint.")
+                ramp.target_temperature = temp
 
     def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
         """Set the amplitude of the Menlo-generated ramp. (deprecated!)"""
