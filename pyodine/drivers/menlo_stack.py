@@ -12,6 +12,7 @@ import logging
 import math
 import time        # To keep track of when replies came in.
 from typing import Dict, List, Tuple, Union
+import numpy as np
 
 import websockets
 
@@ -86,8 +87,8 @@ ADC_SVC_GET = {
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system time?"}
 
-# Define some custom types. As typing is quite a recent feature, there are some
-# inconveniencies regarding pylint:
+# Define some custom types. As the typing library is quite a recent feature,
+# there are some inconveniencies regarding pylint:
 # pylint: disable=invalid-name,unsubscriptable-object
 MenloUnit = Union[float, int]
 DataPoint = Tuple[float, MenloUnit]  # Measurement (time, reading)
@@ -429,8 +430,8 @@ class MenloStack:
         if isinstance(buffer, list):
             if not buffer:
                 LOGGER.debug("Service %d:%d (%s) alive. First value: %s",
-                            node, service, self._name_service(node, service),
-                            value)
+                             node, service, self._name_service(node, service),
+                             value)
 
             # Convert the MenloUnit-ish string to a MenloUnit (NaN on error).
             val = math.nan
@@ -571,6 +572,61 @@ class MenloStack:
             return dac_value
         # else
         raise ValueError("Temperature out of DAC range.")
+
+    @staticmethod
+    def to_ntc_resistance(counts: int, is_setpoint: bool) -> float:
+        """Convert ADC/DAC counts into (estimated) NTC thermistor resistance.
+
+        This is used for reading out the actual object temperature as well as
+        reading the current temperature setpoint value.
+
+        :param counts: Reading, as received digitally from DAC or ADC
+        :param is_setpoint: The reading does originate from the temp. setpoint
+            combined ADC/DAC chip and not from the actual object temp. ADC.
+        :returns: Resistance of the NTC thermistor in Ohms.
+        """
+
+        # The actual curve is approximated by a fourth-order polynomial:
+        counts_per_volt = 27000 if is_setpoint else 1000
+
+        # We obtained the R(U) relation for the thermistor resistance vs. the
+        # applied set voltage for the given chip in form of a sufficiently
+        # accurate fourth-order polynomial.
+        coeffs = [2.32131941486, -53.7758974562, 629.141287209,
+                  -4474.03732095, 15601.7430608]
+        try:
+            volts = counts / counts_per_volt
+            ohms = np.polyval(coeffs, volts)
+        except ArithmeticError:
+            raise ValueError("Passed DAC counts out of range.")
+        else:
+            return ohms
+
+    @staticmethod
+    def to_dac_counts(ohms: float) -> int:
+        """Convert NTC thermistor resistance DAC counts.
+
+        This is used for setting the temperature setpoint.
+
+        :param ohms: Resistance of NTC thermistor in Ohms.
+        :returns: numeric value to send to DAC.
+        """
+        counts_per_volt = 27000
+
+        # By some analytical trickery, we obtained the coefficients of a 6th
+        # order polynomial approximating the U(R) relation of the used TEC
+        # chip.
+        coefficients = [9.96544974929286e-25, -6.48193814201448e-20,
+                        1.83265994944409e-15, -2.95535304724271e-11,
+                        3.03070724899164e-7, -0.00223020840250838,
+                        10.2544735672273]
+        try:
+            volts = np.polyval(coefficients, ohms)
+            counts = int(counts_per_volt * volts)
+        except ArithmeticError:
+            raise ValueError("Provided resistance is out of bounds.")
+        else:
+            return counts
 
     @classmethod
     def _get_osc_node_id(cls, unit_number: int) -> int:
