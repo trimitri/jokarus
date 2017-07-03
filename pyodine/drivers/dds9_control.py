@@ -124,22 +124,20 @@ class Dds9Control:
     # instances must derive their own set of settings
     # from this, see __init__ below.
 
-    def __init__(self, port: str = None,
-                 allow_unconnected: bool = False) -> None:
+    def __init__(self, port: str, allow_unconnected: bool = False) -> None:
         """Set the device connection up and set some basic device parameters.
 
         Depending on the device state, calling this constructor may actually
-        change the running device's parameters. Most notably, the reference
-        clock is set to the internal quartz and phases may re-align.
+        change the running device's parameters such as clock source (internal
+        quartz/external ref. input).
 
         For failsafe operation, set allow_unconnected to true. To ensure
         escalation of connection problems, set it to false.
+
+        :param str port: Where to probe for device (e.g. '/dev/tty0')
         """
         self._settings = SetupParameters()
-
-        # Change port if it was given.
-        if isinstance(port, str) and port:
-            self._settings.port = port
+        self._settings.port = str(port)
 
         # Will be set by pause() in order to be able to resume with the same
         # amplitudes afterwards.
