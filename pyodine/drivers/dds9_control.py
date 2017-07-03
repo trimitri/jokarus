@@ -23,7 +23,6 @@ import serial  # serial port communication
 __author__ = 'Franz Gutsch'
 
 LOGGER = logging.getLogger('pyodine.drivers.dds9_control')
-LOGGER.setLevel(logging.INFO)
 
 DEFAULT_TO_EXT_SOURCE = True
 
