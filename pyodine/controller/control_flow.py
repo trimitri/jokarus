@@ -29,7 +29,11 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
         subs.switch_rf_clock_source('external')
         subs.set_aom_amplitude(1)
         subs.set_aom_frequency(150)  # 150 MHz offset
-        subs.set_eom_amplitude(1)
+
+        # Choose the lowest possible RF amplifiert input amplitude that still
+        # leads to maximum RF power at output. If the input amplitude is set
+        # too high, there will be strong sidebands in output.
+        subs.set_eom_amplitude(.4)
         subs.set_eom_frequency(0.300)  # 300 kHz sidebands
         subs.set_mixer_amplitude(1)
         subs.set_mixer_phase(0)
