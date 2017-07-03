@@ -25,6 +25,8 @@ __author__ = 'Franz Gutsch'
 LOGGER = logging.getLogger('pyodine.drivers.dds9_control')
 LOGGER.setLevel(logging.INFO)
 
+DEFAULT_TO_EXT_SOURCE = True
+
 
 class Dds9Setting:
     """A bunch of internal state variables received from DDS9.
@@ -463,14 +465,14 @@ class Dds9Control:
         time.sleep(.5)
 
     def reset(self) -> None:
-        """Reset DDS9 to state saved in ROM and switch to int. clock source.
+        """Reset DDS9 to state saved in ROM and set to default clock source.
 
         Except for the clock source constraint, this is equivalent to cycling
         power.  We need to set the clock source, as there is no way to find out
-        if the device is in internal or external mode after a reset; and
-        internal mode is always the safe bet.  If we didn't know the clock
-        source, we also wouldn't know the clock multiplier and hence wouldn't
-        be able to set or read correct frequency values.
+        if the device is in internal or external mode after a reset.  If we
+        didn't know the clock source, we also wouldn't know the clock
+        multiplier and hence wouldn't be able to set or read correct frequency
+        values.
         """
         if not self.is_connected:
             return
@@ -480,7 +482,10 @@ class Dds9Control:
         time.sleep(0.5)
 
         # See docstring above.
-        self.switch_to_int_reference(adjust_frequencies=False)
+        if DEFAULT_TO_EXT_SOURCE:
+            self.switch_to_ext_reference(adjust_frequencies=False)
+        else:
+            self.switch_to_int_reference(adjust_frequencies=False)
 
         self._update_state()
 
@@ -581,7 +586,10 @@ class Dds9Control:
         # preferred as it is considered failsafe. But setting to ext. here
         # should work just as well, given that an external clock source is
         # connected.
-        self.switch_to_int_reference(adjust_frequencies=False)
+        if DEFAULT_TO_EXT_SOURCE:
+            self.switch_to_ext_reference(adjust_frequencies=False)
+        else:
+            self.switch_to_int_reference(adjust_frequencies=False)
 
     @staticmethod  # Fcn. may be called without creating an instance first.
     def _parse_query_result(result: str) -> Dds9Setting:
