@@ -106,6 +106,24 @@
     }
   }
 
+  /**
+   * Setup the interactive "host selector" dropdown for the IP address to
+   * connect to.
+   */
+  function setupHostSelector() {
+    // Extract the actual IP address from the host dropdown selector.
+    const operateHostSelector = (selectElm) => {
+      const ipInput = document.getElementsByName('ip')[0];
+      ipInput.value = selectElm.value;
+      ipInput.style.display = (selectElm.value === '') ? 'inline' : 'none';
+    };
+
+    const hostSelector = document.getElementsByName('host')[0];
+    operateHostSelector(hostSelector);
+    hostSelector.addEventListener('change', event =>
+                                  operateHostSelector(event.target));
+  }
+
   $(() => {  // Do things on page load.
     // Setup layout using jQuery UI.
     $('div.tabs').tabs();
@@ -113,8 +131,8 @@
     // Establish connection to server.
     let ws = null;  // Websocket connection.
     $('#connect_btn').on('click', () => {
-      const host = $('#host').val();
-      const wsPort = $('#ws_port').val();
+      const host = document.getElementsByName('ip')[0].value;
+      const wsPort = document.getElementById('ws_port').value;
       ws = new WebSocket(`ws://${host}:${wsPort}/`);
       ws.onmessage = messageHandler;
     });
@@ -138,6 +156,8 @@
           },
         });
       });
+
+      setupHostSelector();
 
       // Setup send buttons in special "flag" table rows.
       $('tr[data-flag]').each(function armSendFlagBtns() {

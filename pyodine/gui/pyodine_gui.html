@@ -19,8 +19,18 @@
 		<section class="header">
 			<p>
 				<input id="connect_btn" type="button" value="Connect" />
-				to Pyodine server at <input id="host" type="text" value="locarus" />
-				(WS port <input id="ws_port" type="number" value="56320" />)
+				to Pyodine server at
+				<span class="host">
+					<select name="host">
+						<option value="192.168.1.179" selected="selected">NAQ (192.168.1.179)</option>
+						<option value="141.20.49.8">HUB (141.20.49.8)</option>
+						<option value="">custom IP ...</option>
+					</select><br/>
+					<input type="text" name="ip" placeholder="enter custom IP" style="display: none;" />
+				</span>
+				port <input id="ws_port" type="number" value="56320" />
+			</p>
+			<p class="connection_state">
 				<input id="disconnect_btn" type="button" value="Disconnect" />
 			</p>
 			<p>
