@@ -1,7 +1,6 @@
 """Run this by invoking ``python3 -m pyodine.main`` from the parent directory.
 
 It launches the lab control software and sets up the Pyodine server.
-(not yet ;-)
 
 The reason for not making this script executable is to keep the import
 statements as clean and unambiguous as possible: Relative imports are used for
@@ -11,6 +10,9 @@ way as discussed in PEP328.
 import logging
 import logging.handlers
 import asyncio
+
+import aioconsole
+
 from .controller import interfaces, subsystems, instruction_handler
 from .controller import control_flow as flow
 
@@ -42,6 +44,18 @@ def configure_logging():
     root_logger.addHandler(stderr)
 
 
+def launch_cli() -> None:
+    """Provide a python interpreter capable of probing the system state."""
+
+    # Provide a custom factory to allow for `locals` injection.
+    def console_factory(streams=None):
+        return aioconsole.AsynchronousConsole(
+            locals={'subs': subs, 'face': face},
+            streams=streams)
+    asyncio.ensure_future(
+            aioconsole.start_interactive_server(factory=console_factory))
+
+
 async def main():
     """Start the pyodine server."""
     LOGGER.info("Running Pyodine...")
@@ -58,6 +72,10 @@ async def main():
     face.register_on_receive_callback(handler.handle_instruction)
 
     flow.hot_start(subs)
+
+    # Start a asyncio-capable interactive python console on port 8000 as a
+    # backdoor, practically providing a powerful CLI to Pyodine.
+
 
     while True:
         await asyncio.sleep(1)
