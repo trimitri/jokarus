@@ -7,9 +7,10 @@ statements as clean and unambiguous as possible: Relative imports are used for
 local modules, absolute imports for global ones. This should be the pythonic
 way as discussed in PEP328.
 """
+import asyncio
 import logging
 import logging.handlers
-import asyncio
+from typing import Dict, Any
 
 import aioconsole
 
@@ -44,16 +45,15 @@ def configure_logging():
     root_logger.addHandler(stderr)
 
 
-def launch_cli() -> None:
+def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     """Provide a python interpreter capable of probing the system state."""
 
     # Provide a custom factory to allow for `locals` injection.
     def console_factory(streams=None):
-        return aioconsole.AsynchronousConsole(
-            locals={'subs': subs, 'face': face},
-            streams=streams)
+        return aioconsole.AsynchronousConsole(locals=injected_locals,
+                                              streams=streams)
     asyncio.ensure_future(
-            aioconsole.start_interactive_server(factory=console_factory))
+        aioconsole.start_interactive_server(factory=console_factory))
 
 
 async def main():
@@ -75,7 +75,7 @@ async def main():
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
-
+    open_backdoor({'subs': subs, 'face': face})
 
     while True:
         await asyncio.sleep(1)
@@ -86,11 +86,11 @@ if __name__ == '__main__':
     configure_logging()
     LOGGER = logging.getLogger('pyodine.main')
 
-    event_loop = asyncio.get_event_loop()
+    LOOP = asyncio.get_event_loop()
     # event_loop.set_debug(True)
 
     # Schedule main program for running and start central event loop.
     try:
-        event_loop.run_until_complete(main())
+        LOOP.run_until_complete(main())
     except KeyboardInterrupt:
         LOGGER.info("Keyboard interrupt received. Exiting.")
