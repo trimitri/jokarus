@@ -16,6 +16,8 @@ import websockets
 # Adjust as needed
 ROTATE_N = 128  # Keep log of received values smaller than this.
 DEFAULT_URL = 'ws://menlostack:8000'
+
+# Zero the average Peltier current measured over this time span.
 TEC_CALIBRATION_TIME = 10.0
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')

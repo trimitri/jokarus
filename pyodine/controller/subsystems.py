@@ -2,6 +2,9 @@
 
 This is an interface to the actual things connected to each port of each
 subsystem.
+
+SAFETY POLICY: This class silently assumes all passed arguments to be of
+correct type. The values are allowed to be wrong, though.
 """
 import enum
 from functools import partial
@@ -17,8 +20,10 @@ from ..drivers import ecdl_mopa
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-OSC_UNITS = {'mo': 1, 'pa': 2, 'shga': 3, 'shgb': 4}
-PII_UNITS = {'nu': 1}
+LD_DRIVERS = {'mo': 1, 'pa': 4}
+TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
+
+LOCKBOXES = {'nu': 1}
 DDS_PORT = '/dev/ttyUSB2'
 
 # Define some custom types.
@@ -68,18 +73,20 @@ class Subsystems:
 
         # Now that Menlo is up and running (TODO: check/except), initialize the
         # laser controller.
-        get_mo = partial(self._menlo.get_diode_current, unit_number=1)
-        get_pa = partial(self._menlo.get_diode_current, unit_number=2)
-        set_mo = partial(self._menlo.set_current, unit_number=1)
-        set_pa = partial(self._menlo.set_current, unit_number=2)
-        disable_mo = partial(
-            self._menlo.switch_ld, switch_on=False, unit_number=1)
-        disable_pa = partial(
-            self._menlo.switch_ld, switch_on=False, unit_number=2)
-        enable_mo = partial(
-            self._menlo.switch_ld, switch_on=True, unit_number=1)
-        enable_pa = partial(
-            self._menlo.switch_ld, switch_on=True, unit_number=2)
+        get_mo = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['mo'])
+        get_pa = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['pa'])
+        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
+        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
+        disable_mo = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['mo'])
+        disable_pa = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['pa'])
+        enable_mo = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['mo'])
+        enable_pa = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['pa'])
 
         self._laser = ecdl_mopa.EcdlMopa(
             get_mo_callback=lambda: get_mo()[0][1],
@@ -102,9 +109,9 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    def reset_subsystems(self, exception: SubsystemError = None) -> None:
-        LOGGER.critical("Reset not yet implemented.")
-        # FIXME
+    # FIXME: Implement this.
+    # def reset_subsystems(self, exception: SubsystemError = None) -> None:
+    #     LOGGER.critical("Reset not yet implemented.")
 
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
@@ -209,11 +216,11 @@ class Subsystems:
             if bypass_ramp:
                 LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
                              unit_name, temp)
-                self._menlo.set_temp(OSC_UNITS[unit_name], temp)
+                self._menlo.set_temp(TEC_CONTROLLERS[unit_name], temp)
             else:
                 LOGGER.debug("Setting ramp target temp. of unit %s to %s°C",
                              unit_name, temp)
-                ramp = self._temp_ramps[OSC_UNITS[unit_name]]
+                ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
                 ramp.target_temperature = temp
 
     def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
@@ -224,7 +231,7 @@ class Subsystems:
             return
         if not self._is_pii_unit(unit_name):
             return
-        self._menlo.set_ramp_amplitude(PII_UNITS[unit_name], millivolts)
+        self._menlo.set_ramp_amplitude(LOCKBOXES[unit_name], millivolts)
 
     def set_mixer_phase(self, degrees: float) -> None:
         """Set the phase offset between EOM and mixer drivers in degrees."""
@@ -292,22 +299,22 @@ class Subsystems:
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""
-        if self._is_osc_unit(unit_name):
-            ramp = self._temp_ramps[OSC_UNITS[unit_name]]
+        if self._is_tec_unit(unit_name):
+            ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
             if enable:
                 ramp.start_ramp()
             else:
                 ramp.pause_ramp()
 
     def switch_tec(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_osc_unit(unit_name):
+        if self._is_tec_unit(unit_name):
             if isinstance(switch_on, bool):
-                self._menlo.switch_tec(OSC_UNITS[unit_name], switch_on)
+                self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
 
     def switch_pii_ramp(self, unit_name: str, switch_on: bool) -> None:
         if self._is_pii_unit(unit_name):
             if isinstance(switch_on, bool):
-                self._menlo.switch_ramp(PII_UNITS[unit_name], switch_on)
+                self._menlo.switch_ramp(LOCKBOXES[unit_name], switch_on)
             else:
                 LOGGER.error('Please provide boolean "on" argument when '
                              'switching pii ramp generation of unit %s.',
@@ -364,7 +371,7 @@ class Subsystems:
 
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
-        for name, unit in OSC_UNITS.items():
+        for name, unit in TEC_CONTROLLERS.items():
             def getter(u=unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
 
@@ -417,15 +424,15 @@ class Subsystems:
         return []
 
     @staticmethod
-    def _is_osc_unit(name: str) -> bool:
-        if name not in OSC_UNITS:
-            LOGGER.error('There is no oscillator supply unit "%s".', name)
+    def _is_tec_unit(name: str) -> bool:
+        if name not in TEC_CONTROLLERS:
+            LOGGER.error('There is no TEC controller named "%s".', name)
             return False
         return True
 
     @staticmethod
     def _is_pii_unit(name: str) -> bool:
-        if name not in PII_UNITS:
-            LOGGER.error('There is no Lockbox "%s".', name)
+        if name not in LOCKBOXES:
+            LOGGER.error('There is no Lockbox by the name "%s".', name)
             return False
         return True

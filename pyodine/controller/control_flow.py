@@ -81,7 +81,10 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
     except SubsystemError as err:
         LOGGER.error("There was a critical error in one of the subsystems "
                      "(%s). Trying to reset.")
-        subs.reset_subsystems(err)
+
+        # FIXME: subs.reset_subsystems(err)
+        LOGGER.error("Don't know how to reset yet.")
+
         return ReturnState.FAIL
 
     return ReturnState.SUCCESS
