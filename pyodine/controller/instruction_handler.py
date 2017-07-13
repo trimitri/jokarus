@@ -1,12 +1,19 @@
 """Parses, checks and executes incoming instructions from external sources.
+
+Security Policy
+---------------
+As this class's `handle_instruction()` deals with externally fed commands, it
+must catch all possible errors itself and log and ignore the invalid
+instruction.
 """
 import json
 import logging
-from typing import Callable, Dict
+from typing import Callable, Dict  # pylint: disable=unused-import
 from .subsystems import Subsystems
 from .interfaces import Interfaces
 
-LegalCall = Callable[..., None]  # pylint: disable=unsubscriptable-object
+# Define custom types.
+LegalCall = Callable[..., None]  # pylint: disable=invalid-name
 
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
@@ -65,27 +72,36 @@ class InstructionHandler:
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 
     def handle_instruction(self, message: str) -> None:
+        # Use a "meta" try to comply with class security policy. However, due
+        # to the command whitelisting, we should not actually have to catch
+        # anything out here.
         try:
-            container = json.loads(message)
-            method = container['data']['method']
-            arguments = container['data']['args']
+            try:  # Parse data.
+                container = json.loads(str(message))
+            except (json.JSONDecodeError, TypeError):
+                LOGGER.warning("Instruction was no valid JSON string")
+                return
+
+            try:  # Read data.
+                method = container['data']['method']
+                arguments = container['data']['args']
+            except KeyError:
+                LOGGER.error("Instruction package didn't include mandatory "
+                             "members.")
+                return
+
             if method in self._methods:
-                if isinstance(arguments, list):
-                    try:
-                        LOGGER.debug("Calling method %s with arguments: %s",
-                                     method, arguments)
-                        (self._methods[method])(*arguments)
-                    except TypeError:
-                        LOGGER.exception("Wrong type/number of arguments.")
-                else:
-                    LOGGER.error('"arguments" has to be an array (list)')
+                try:
+                    LOGGER.debug("Calling method %s with arguments: %s",
+                                 method, arguments)
+                    (self._methods[method])(*arguments)
+                except TypeError:
+                    LOGGER.exception("Wrong type/number of arguments.")
             else:
                 LOGGER.error("Unknown method name (%s). Doing nothing.",
                              method)
-        except json.JSONDecodeError:
-            LOGGER.warning("Instruction was no valid JSON string")
-        except KeyError:
-            LOGGER.warning("Instruction package was not of correct structure.")
-        except ValueError:
-            LOGGER.exception("Received value couldn't be converted to correct"
-                             "type.")
+
+        # As this is a server process, broad-except is permissible:
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("We caught an unexpected exception. This most "
+                             "likely indicates an *actual* problem.")
