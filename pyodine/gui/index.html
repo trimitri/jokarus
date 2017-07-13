@@ -205,10 +205,10 @@
 								data-title="MO Current & VHBG Temperature"
 								data-current1="mo_current"
 								data-current1-set="mo_current_set"
-								data-tec-current="pa_tec_current"
-								data-temp="pa_temp"
-								data-temp-set="pa_temp_set"
-								data-temp-raw-set="pa_temp_raw_set"></div>
+								data-tec-current="vhbg_tec_current"
+								data-temp="vhbg_temp"
+								data-temp-set="vhbg_temp_set"
+								data-temp-raw-set="vhbg_temp_raw_set"></div>
 							<div class="controls">
 								<h2>MO Current & VHBG Temperature</h2>
 								<p>
@@ -226,21 +226,21 @@
 										</tr>
 										<tr>
 											<th>State</th>
-											<td class="indicator" data-qty="pa_tec_enabled">N/A</td>
+											<td class="indicator" data-qty="vhbg_tec_enabled">N/A</td>
 											<td class="indicator" data-qty="mo_enabled">N/A</td>
 										</tr>
 										<tr>
 											<th>Updated</th>
-											<td class="update_indicator" data-qty="pa_tec_enabled">Never</td>
+											<td class="update_indicator" data-qty="vhbg_tec_enabled">Never</td>
 											<td class="update_indicator" data-qty="mo_enabled">Never</td>
 										</tr>
 										<tr>
 											<th>Switch</th>
 											<td>
 												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["pa", true]' />
+													data-method="switch_tec" data-arguments='["vhbg", true]' />
 												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["pa", false]' />
+													data-method="switch_tec" data-arguments='["vhbg", false]' />
 											</td>
 											<td>
 												<input type="button" class="command" value="On"
@@ -251,31 +251,31 @@
 										</tr>
 										<tr>
 											<th>Temp OK</th>
-											<td class="indicator" data-qty="pa_temp_ok" data-text-true="OK"
+											<td class="indicator" data-qty="vhbg_temp_ok" data-text-true="OK"
 												data-text-false="not OK">N/A</td>
 										</tr>
 										<tr>
 											<th>Updated</th>
-											<td class="update_indicator" data-qty="pa_temp_ok">Never</td>
+											<td class="update_indicator" data-qty="vhbg_temp_ok">Never</td>
 										</tr>
 									</table>
 									<h3>Setpoints</h3>
 									<p>
 										Temperature Ramp:
-										<input type="number" class="source" data-qty="pa_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="pa_temp_set" value="Set" />
+										<input type="number" class="source" data-qty="vhbg_temp_set" step="0.01" />&thinsp;°C
+										<input type="button" class="setter" data-qty="vhbg_temp_set" value="Set" />
 									</p>
 									<div>
 										Ramp:
 										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='["pa", true]' />
+											data-method="switch_temp_ramp" data-arguments='["vhbg", true]' />
 										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='["pa", false]' />
+											data-method="switch_temp_ramp" data-arguments='["vhbg", false]' />
 										<p>
 											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="pa_temp_raw_set"
+											<input type="number" class="source" data-qty="vhbg_temp_raw_set"
 												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="pa_temp_raw_set" value="Set" />
+											<input type="button" class="setter" data-qty="vhbg_temp_raw_set" value="Set" />
 										</p>
 										<p>
 											Diode Current:
@@ -291,10 +291,10 @@
 								data-title="PA Current and MiOB Temperature"
 								data-current1="pa_current"
 								data-current1-set="pa_current_set"
-								data-tec-current="mo_tec_current"
-								data-temp="mo_temp"
-								data-temp-set="mo_temp_set"
-								data-temp-raw-set="mo_temp_raw_set"></div>
+								data-tec-current="miob_tec_current"
+								data-temp="miob_temp"
+								data-temp-set="miob_temp_set"
+								data-temp-raw-set="miob_temp_raw_set"></div>
 							<div class="controls">
 								<h2>PA Current & MiOB Temperature</h2>
 								<p>
@@ -312,21 +312,21 @@
 										</tr>
 										<tr>
 											<th>State</th>
-											<td class="indicator" data-qty="mo_tec_enabled">N/A</td>
+											<td class="indicator" data-qty="miob_tec_enabled">N/A</td>
 											<td class="indicator" data-qty="pa_enabled">N/A</td>
 										</tr>
 										<tr>
 											<th>Updated</th>
-											<td class="update_indicator" data-qty="mo_tec_enabled">Never</td>
+											<td class="update_indicator" data-qty="miob_tec_enabled">Never</td>
 											<td class="update_indicator" data-qty="pa_enabled">Never</td>
 										</tr>
 										<tr>
 											<th>Switch</th>
 											<td>
 												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["mo", true]' />
+													data-method="switch_tec" data-arguments='["miob", true]' />
 												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["mo", false]' />
+													data-method="switch_tec" data-arguments='["miob", false]' />
 											</td>
 											<td>
 												<input type="button" class="command" value="On"
@@ -337,31 +337,31 @@
 										</tr>
 										<tr>
 											<th>Temp OK</th>
-											<td class="indicator" data-qty="mo_temp_ok" data-text-true="OK"
+											<td class="indicator" data-qty="miob_temp_ok" data-text-true="OK"
 												data-text-false="not OK">N/A</td>
 										</tr>
 										<tr>
 											<th>Updated</th>
-											<td class="update_indicator" data-qty="mo_temp_ok">Never</td>
+											<td class="update_indicator" data-qty="miob_temp_ok">Never</td>
 										</tr>
 									</table>
 									<h3>Setpoints</h3>
 									<p>
 										Temperature Ramp:
-										<input type="number" class="source" data-qty="mo_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="mo_temp_set" value="Set" />
+										<input type="number" class="source" data-qty="miob_temp_set" step="0.01" />&thinsp;°C
+										<input type="button" class="setter" data-qty="miob_temp_set" value="Set" />
 									</p>
 									<div>
 										Ramp:
 										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='["mo", true]' />
+											data-method="switch_temp_ramp" data-arguments='["miob", true]' />
 										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='["mo", false]' />
+											data-method="switch_temp_ramp" data-arguments='["miob", false]' />
 										<p>
 											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="mo_temp_raw_set"
+											<input type="number" class="source" data-qty="miob_temp_raw_set"
 												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="mo_temp_raw_set" value="Set" />
+											<input type="button" class="setter" data-qty="miob_temp_raw_set" value="Set" />
 										</p>
 										<p>
 											Diode Current:
