@@ -109,10 +109,6 @@ class Subsystems:
     async def refresh_status(self) -> None:
         await self._menlo.request_full_status()
 
-    # FIXME: Implement this.
-    # def reset_subsystems(self, exception: SubsystemError = None) -> None:
-    #     LOGGER.critical("Reset not yet implemented.")
-
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
@@ -123,21 +119,17 @@ class Subsystems:
             data['adc' + str(channel)] = self._menlo.get_adc_voltage(channel,
                                                                      since)
 
-        # TEC controller temperature readings
-        for unit in [1, 2, 3, 4]:
-            data['temp'+str(unit)] = self._menlo.get_temperature(unit, since)
+        # LD current drivers
+        for name, unit in LD_DRIVERS.items():
+            data[name + '_enabled'] = \
+                self._menlo.is_current_driver_enabled(unit)
+            data[name + '_current'] = \
+                self._menlo.get_diode_current(unit, since)
+            data[name + '_current_set'] = \
+                self._menlo.get_diode_current_setpoint(unit)
 
-        # Oscillator Supplies
-        osc_roles = [('mo', 1, True), ('pa', 2, True),
-                     ('shga', 3, False), ('shgb', 4, False)]
-        for (name, unit, has_current_driver) in osc_roles:
-            if has_current_driver:
-                data[name + '_enabled'] = \
-                    self._menlo.is_current_driver_enabled(unit)
-                data[name + '_current'] = \
-                    self._menlo.get_diode_current(unit, since)
-                data[name + '_current_set'] = \
-                    self._menlo.get_diode_current_setpoint(unit)
+        # TEC controllers
+        for name, unit in TEC_CONTROLLERS.items():
             data[name + '_tec_enabled'] = self._menlo.is_tec_enabled(unit)
             data[name + '_temp'] = self._menlo.get_temperature(unit, since)
             data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unit)
@@ -148,7 +140,8 @@ class Subsystems:
             data[name + '_temp_ok'] = self._menlo.is_temp_ok(unit)
             data[name + '_tec_current'] = self._menlo.get_tec_current(unit,
                                                                       since)
-        # PII Controllers
+
+        # PII Controller
         data['nu_lock_enabled'] = self._menlo.is_lock_enabled(1)
         data['nu_i1_enabled'] = self._menlo.is_integrator_enabled(1, 1)
         data['nu_i2_enabled'] = self._menlo.is_integrator_enabled(1, 2)
@@ -159,6 +152,7 @@ class Subsystems:
                                                            since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
         data['nu_ramp_amplitude'] = self._menlo.get_ramp_amplitude(1)
+
         return data
 
     def get_setup_parameters(self) -> Dict[str, Buffer]:
