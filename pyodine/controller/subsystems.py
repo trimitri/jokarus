@@ -212,7 +212,9 @@ class Subsystems:
             temp = float(celsius)
         except (TypeError, ArithmeticError, ValueError):
             LOGGER.error("Couldn't convert temp setting %s to float.", celsius)
-        else:
+            return
+
+        if self._is_tec_unit(unit_name):
             if bypass_ramp:
                 LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
                              unit_name, temp)
