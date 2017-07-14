@@ -20,7 +20,7 @@ from ..drivers import ecdl_mopa
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-LD_DRIVERS = {'mo': 1, 'pa': 4}
+LD_DRIVERS = {'mo': 1, 'pa': 3}
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
 
 LOCKBOXES = {'nu': 1}
