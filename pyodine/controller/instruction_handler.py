@@ -52,7 +52,7 @@ class InstructionHandler:
             'set_miob_temp_set': lambda t: self._subs.set_temp('miob',
                                                                float(t)),
             'set_miob_temp_raw_set': lambda t: self._subs.set_temp(
-                'miob', float(t), bymiobss_ramp=True),
+                'miob', float(t), bypass_ramp=True),
 
             'set_shga_temp_set': lambda t: self._subs.set_temp(
                 'shga', float(t)),
