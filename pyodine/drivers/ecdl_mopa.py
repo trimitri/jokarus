@@ -23,7 +23,7 @@ MopaSpec = collections.namedtuple('MopaSpec', [
 
 
 MILAS = MopaSpec(mo_max=200, mo_seed=50,
-                 pa_max=1500, pa_transparency=200, pa_backfire=300)
+                 pa_max=1610, pa_transparency=200, pa_backfire=300)
 DUMMY_SPEC = MopaSpec(0, 0, 0, 0, 0)
 
 
