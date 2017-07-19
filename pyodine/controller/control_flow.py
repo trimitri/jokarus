@@ -26,7 +26,7 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
     """
     try:
         subs.switch_rf_clock_source('external')
-        subs.set_aom_amplitude(1)
+        subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
         subs.set_aom_frequency(150)  # 150 MHz offset
 
         # Choose the lowest possible RF amplifiert input amplitude that still
