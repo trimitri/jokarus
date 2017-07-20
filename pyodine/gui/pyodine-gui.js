@@ -8,6 +8,11 @@
 (function jqueryWrapper($) {
   'use strict';
 
+  // Provide a global variable to access the websocket connection although it's
+  // not connected yet. We can't just use "conn = null;" as reassignment will
+  // kill the references.
+  const CONNECTION = { ws: null };
+
   function createMessage(object, type) {
     const wrapper = {};
     wrapper.type = type;
@@ -16,12 +21,12 @@
     return `${JSON.stringify(wrapper)}\n\n\n`;
   }
 
-  function callRemoteMethod(socket, methodName, args) {
+  function callRemoteMethod(conn, methodName, args) {
     const msg = createMessage({
       method: methodName,
       args,
     });
-    socket.send(msg);
+    conn.ws.send(msg);
   }
 
   function updateIndicator(elm, isOn) {
@@ -47,8 +52,8 @@
     });
   }
 
-  function sendFlag(socket, entityId, value) {
-    callRemoteMethod(socket, 'setflag', [entityId, value]);
+  function sendFlag(conn, entityId, value) {
+    callRemoteMethod(conn.ws, 'setflag', [entityId, value]);
   }
 
   /**
@@ -124,7 +129,7 @@
                                   operateHostSelector(event.target));
   }
 
-  function armSetterBtns(websocket) {
+  function armSetterBtns(conn) {
     $('input[type=button].setter[data-qty]').each(function armSetterBtn() {
       const qty = this.dataset.qty;
       const trigger = $(this);
@@ -135,7 +140,7 @@
       trigger.on('click', () => {
         const value = source.val();
         if (value !== '') {
-          callRemoteMethod(websocket, `set_${qty}`, [value]);
+          callRemoteMethod(conn, `set_${qty}`, [value]);
         } else {
           alert("No value set. Please set a value.");
         }
@@ -149,17 +154,18 @@
 
     // Set mixer to same frequency as EOM or slightly offset if requested.
     const mixerFreq = (freqOffset > 0) ? eomFreq - freqOffset : eomFreq;
-    const period = 1e-6 / eomFreq;  // Period time of RF signal (360°)
+    const period = 1 / eomFreq;  // Period time of RF signal (360°) in μs
 
     // Get the desired phase shift between EOM and mixer in both milliseconds
     // and degrees.
-    const phaseShiftMs = 1e-6 * $('input[data-qty=mixer_phase]').val();
+    const phaseShiftMs = $('input[data-qty=mixer_phase_us]').val();
     const phaseShiftDeg = ((phaseShiftMs / period) * 360) % 360;
 
     // Send computed values to server.
     callRemoteMethod(websocket, 'set_eom_freq', [eomFreq]);
     callRemoteMethod(websocket, 'set_mixer_freq', [mixerFreq]);
     callRemoteMethod(websocket, 'set_mixer_phase', [phaseShiftDeg]);
+    console.log([eomFreq, mixerFreq, phaseShiftDeg]);
 
     // Update input hint.
     $('#ms_per_cycle').html(period);
@@ -171,15 +177,14 @@
     $('div.tabs').tabs();
 
     // Establish connection to server.
-    let ws = null;  // Websocket connection.
     $('#connect_btn').on('click', () => {
       const host = document.getElementsByName('ip')[0].value;
       const wsPort = document.getElementById('ws_port').value;
-      ws = new WebSocket(`ws://${host}:${wsPort}/`);
-      ws.onmessage = messageHandler;
+      CONNECTION.ws = new WebSocket(`ws://${host}:${wsPort}/`);
+      CONNECTION.ws.onmessage = messageHandler;
     });
     $('#disconnect_btn').on('click', () => {
-      ws.close();
+      CONNECTION.ws.close();
     });
 
     {  // Setup interactive UI elements.
@@ -205,12 +210,14 @@
       $('tr[data-flag]').each(function armSendFlagBtns() {
         const container = $(this);
         $('.switch', this).on('click', function send() {
-          sendFlag(ws, container.data('flag'), $(this).hasClass('on'));
+          sendFlag(CONNECTION, container.data('flag'),
+                   $(this).hasClass('on'));
         });
       });
 
-      armSetterBtns(ws);
-      $('#mod_demod_settings').on('click', () => sendModDemodSettings(ws));
+      armSetterBtns(CONNECTION);
+      $('#mod_demod_settings').on('click',
+                                  () => sendModDemodSettings(CONNECTION));
 
       $('input[type=button][data-method][data-arguments]').each(
         function armMethodCallBtn() {
@@ -218,7 +225,7 @@
           button.on('click', () => {
             const commandName = button.data('method');
             const args = button.data('arguments');
-            callRemoteMethod(ws, commandName, args);
+            callRemoteMethod(CONNECTION, commandName, args);
           });
         });
 
