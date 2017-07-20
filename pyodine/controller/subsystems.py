@@ -256,6 +256,13 @@ class Subsystems:
             return
         LOGGER.debug("Setting EOM frequency to %s MHz.", freq)
         self._dds.set_frequency(freq, int(DdsChannel.EOM))
+
+    def set_mixer_frequency(self, freq: float) -> None:
+        """Set the Mixer frequency in MHz. Will usually be identical to EOM."""
+        if not isinstance(freq, (float, int)) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for Mixer.")
+            return
+        LOGGER.debug("Setting mixer frequency to %s MHz.", freq)
         self._dds.set_frequency(freq, int(DdsChannel.MIXER))
 
     def set_aom_amplitude(self, amplitude: float) -> None:

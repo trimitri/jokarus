@@ -143,7 +143,26 @@
     });
   }
 
-  function sendModDemodSettings() {
+  function sendModDemodSettings(websocket) {
+    const eomFreq = $('input[data-qty=eom_freq]').val();
+    const freqOffset = 0.001 * $('input[data-qty=mixer_offset_freq]').val();
+
+    // Set mixer to same frequency as EOM or slightly offset if requested.
+    const mixerFreq = (freqOffset > 0) ? eomFreq - freqOffset : eomFreq;
+    const period = 1e-6 / eomFreq;  // Period time of RF signal (360°)
+
+    // Get the desired phase shift between EOM and mixer in both milliseconds
+    // and degrees.
+    const phaseShiftMs = 1e-6 * $('input[data-qty=mixer_phase]').val();
+    const phaseShiftDeg = ((phaseShiftMs / period) * 360) % 360;
+
+    // Send computed values to server.
+    callRemoteMethod(websocket, 'set_eom_freq', [eomFreq]);
+    callRemoteMethod(websocket, 'set_mixer_freq', [mixerFreq]);
+    callRemoteMethod(websocket, 'set_mixer_phase', [phaseShiftDeg]);
+
+    // Update input hint.
+    $('#ms_per_cycle').html(period);
   }
 
 
@@ -191,6 +210,7 @@
       });
 
       armSetterBtns(ws);
+      $('#mod_demod_settings').on('click', () => sendModDemodSettings(ws));
 
       $('input[type=button][data-method][data-arguments]').each(
         function armMethodCallBtn() {

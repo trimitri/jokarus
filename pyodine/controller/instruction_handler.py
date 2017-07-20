@@ -30,9 +30,11 @@ class InstructionHandler:
         self._face = interface_controller
 
         self._methods = {
-            'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
             'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
+            'set_mixer_freq': lambda f: self._subs.set_mixer_frequency(
+                float(f)),
+            'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
             'set_aom_amplitude': lambda a: self._subs.set_aom_amplitude(
                 float(a)),
             'set_eom_amplitude': lambda a: self._subs.set_eom_amplitude(
