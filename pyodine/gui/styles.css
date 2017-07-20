@@ -62,6 +62,10 @@ td.indicator, div.indicator {
 span.indicator {
 	display: inline-block;
 }
+span.options {
+	display: inline-block;
+	vertical-align: middle;
+}
 label {
 	cursor: pointer;
 }

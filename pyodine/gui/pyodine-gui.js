@@ -124,6 +124,29 @@
                                   operateHostSelector(event.target));
   }
 
+  function armSetterBtns(websocket) {
+    $('input[type=button].setter[data-qty]').each(function armSetterBtn() {
+      const qty = this.dataset.qty;
+      const trigger = $(this);
+
+      // Find the input element containing the value to be sent.
+      const source = $(`input.source[data-qty=${qty}]`).first();
+
+      trigger.on('click', () => {
+        const value = source.val();
+        if (value !== '') {
+          callRemoteMethod(websocket, `set_${qty}`, [value]);
+        } else {
+          alert("No value set. Please set a value.");
+        }
+      });
+    });
+  }
+
+  function sendModDemodSettings() {
+  }
+
+
   $(() => {  // Do things on page load.
     // Setup layout using jQuery UI.
     $('div.tabs').tabs();
@@ -167,19 +190,7 @@
         });
       });
 
-      $('input[type=button].setter[data-qty]').each(function armSetterBtn() {
-        const qty = this.dataset.qty;
-        const trigger = $(this);
-        const source = $(`input.source[data-qty=${qty}]`).first();
-        trigger.on('click', () => {
-          const value = source.val();
-          if (value !== '') {
-            callRemoteMethod(ws, `set_${qty}`, [value]);
-          } else {
-            alert("No value set. Please set a value.");
-          }
-        });
-      });
+      armSetterBtns(ws);
 
       $('input[type=button][data-method][data-arguments]').each(
         function armMethodCallBtn() {
