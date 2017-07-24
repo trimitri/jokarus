@@ -30,6 +30,11 @@ PII_NODES = [1, 2]          # node IDs of lockboxes 1 and 2
 ADC_NODE = 16               # node ID of the analog-digital converter
 MUC_NODE = 255              # node ID of the embedded system
 
+# Usually we try to calibrate the TEC current zero readings on startup. As we
+# cannot do this for running units, we have some canned calibration values here
+# to be used in those cases.
+TEC_CALIBRATION = {1: 1492, 2: 1464, 3: 1483, 4: 1487}
+
 # Provide dictionaries for the service IDs.
 OSC_SVC_GET = {
     256: "temp setpoint",
@@ -158,7 +163,11 @@ class MenloStack:
                     LOGGER.error("Didn't receive any current readings to "
                                  "calibrate TEC unit %s against.", unit_number)
             else:
-                LOGGER.error("Disable TEC %s before calibrating.", unit_number)
+                canned_zero = TEC_CALIBRATION[unit_number]
+                self._tec_current_offsets[unit_number] = canned_zero
+                LOGGER.warning("Can't calibrate TEC %s, as it is running. "
+                               "Using canned value %s mA as zero.",
+                               unit_number, canned_zero)
 
     def calibrate_tecs(self) -> None:
         """Calibrate zero-crossings of all TEC units' current readings."""
@@ -672,6 +681,7 @@ class MenloStack:
     @classmethod
     def _get_osc_node_id(cls, unit_number: int) -> int:
         # Return the CAN bus node id of the osc unit with given index.
+        # Expects unit indices 1-4.
 
         # We consolidate all possible exceptions this method could raise into
         # the expected "ValueError" to make sure nothing is unhandled.
