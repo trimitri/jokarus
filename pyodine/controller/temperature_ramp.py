@@ -195,6 +195,7 @@ class TemperatureRamp:
         self._current_setpt = next_setpt
 
         # Actually set the new temperature in hardware.
+        self._last_update = time.time()
         self._set_temp(self._current_setpt)
         self.logger.debug("Setpoint new: %s, old: %s.",
                           self._current_setpt, self._prev_setpt)
