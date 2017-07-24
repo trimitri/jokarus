@@ -137,7 +137,7 @@ class MenloStack:
         else:
             # The user must disable the TEC themselves, as we don't want to be
             # responsible for possible effects.
-            if not self.is_tec_enabled(unit_number):
+            if self.is_tec_enabled(unit_number)[0][1] == 0:
                 LOGGER.info("Calibrating TEC unit %s ...", unit_number)
 
                 # Reset current calibration.
