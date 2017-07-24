@@ -406,6 +406,13 @@ class Subsystems:
                 set_temp_callback=setter,
                 name=name)
 
+        # Set maximum allowable temperature gradients according to the
+        # datasheets or educated guesses.
+        self._temp_ramps[TEC_CONTROLLERS['miob']].maximum_gradient = 1/60
+        self._temp_ramps[TEC_CONTROLLERS['vhbg']].maximum_gradient = 1/5
+        self._temp_ramps[TEC_CONTROLLERS['shga']].maximum_gradient = 1/5
+        self._temp_ramps[TEC_CONTROLLERS['shgb']].maximum_gradient = 1/5
+
     @staticmethod
     def _wrap_into_buffer(value: Union[MenloUnit, bool]) -> Buffer:
         if isinstance(value, bool):
