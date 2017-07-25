@@ -452,7 +452,8 @@ class MenloStack:
         asyncio.ensure_future(self._send_command(unit, 5, millivolts))
 
     def get_error_scale(self, unit: int) -> Buffer:
-        return self._get_pii_prop(unit, 257)
+        return [(time, factor * 4.3e-4) for time, factor in
+                self._get_pii_prop(unit, 257)]
 
     def set_error_offset(self, unit: int, percent: float) -> None:
         """Set the error signal input stage offset compensation.
@@ -483,7 +484,7 @@ class MenloStack:
 
     def get_error_offset(self, unit: int) -> Buffer:
         """The error signal input stage offset compensation in percent."""
-        return [(time, value / 100) for time, value
+        return [(time, value / 10) for time, value
                 in self._get_pii_prop(unit, 256)]
 
     # TODO: use existing util/ntc_temp.py for this.
