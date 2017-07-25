@@ -23,7 +23,7 @@ LOGGER.setLevel(logging.DEBUG)
 LD_DRIVERS = {'mo': 1, 'pa': 3}
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
 
-LOCKBOXES = {'nu': 1}
+LOCKBOXES = {'nu': 2}
 DDS_PORT = '/dev/ttyUSB2'
 
 # Define some custom types.
@@ -142,16 +142,20 @@ class Subsystems:
                                                                       since)
 
         # PII Controller
-        data['nu_lock_enabled'] = self._menlo.is_lock_enabled(1)
-        data['nu_i1_enabled'] = self._menlo.is_integrator_enabled(1, 1)
-        data['nu_i2_enabled'] = self._menlo.is_integrator_enabled(1, 2)
-        data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(1)
-        data['nu_prop'] = self._menlo.get_pii_prop_factor(1)
-        data['nu_offset'] = self._menlo.get_pii_offset(1)
-        data['nu_p_monitor'] = self._menlo.get_pii_monitor(1, p_only=True,
-                                                           since=since)
-        data['nu_monitor'] = self._menlo.get_pii_monitor(1, since=since)
-        data['nu_ramp_amplitude'] = self._menlo.get_ramp_amplitude(1)
+        data['nu_lock_enabled'] = self._menlo.is_lock_enabled(LOCKBOXES['nu'])
+        data['nu_i1_enabled'] = \
+            self._menlo.is_integrator_enabled(LOCKBOXES['nu'], 1)
+        data['nu_i2_enabled'] = \
+            self._menlo.is_integrator_enabled(LOCKBOXES['nu'], 2)
+        data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(LOCKBOXES['nu'])
+        data['nu_prop'] = self._menlo.get_pii_prop_factor(LOCKBOXES['nu'])
+        data['nu_offset'] = self._menlo.get_pii_offset(LOCKBOXES['nu'])
+        data['nu_p_monitor'] = self._menlo.get_pii_monitor(
+            LOCKBOXES['nu'], p_only=True, since=since)
+        data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOXES['nu'],
+                                                         since=since)
+        data['nu_ramp_amplitude'] = \
+            self._menlo.get_ramp_amplitude(LOCKBOXES['nu'])
 
         return data
 
