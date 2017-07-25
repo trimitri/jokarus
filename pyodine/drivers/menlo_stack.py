@@ -229,12 +229,6 @@ class MenloStack:
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 307)
 
-    def get_pii_prop_factor(self, unit_number: int) -> Buffer:
-        return self._get_pii_prop(unit_number, 257)
-
-    def get_pii_offset(self, unit_number: int) -> Buffer:
-        return self._get_pii_prop(unit_number, 256)
-
     def get_pii_monitor(self, unit_number: int, p_only: bool = False,
                         since: Time = None) -> Buffer:
         return self._get_pii_prop(unit_number, 273 if p_only else 272, since)

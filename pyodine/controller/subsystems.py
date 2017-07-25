@@ -148,8 +148,8 @@ class Subsystems:
         data['nu_i2_enabled'] = \
             self._menlo.is_integrator_enabled(LOCKBOXES['nu'], 2)
         data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(LOCKBOXES['nu'])
-        data['nu_prop'] = self._menlo.get_pii_prop_factor(LOCKBOXES['nu'])
-        data['nu_offset'] = self._menlo.get_pii_offset(LOCKBOXES['nu'])
+        data['nu_prop'] = self._menlo.get_error_scale(LOCKBOXES['nu'])
+        data['nu_offset'] = self._menlo.get_error_offset(LOCKBOXES['nu'])
         data['nu_p_monitor'] = self._menlo.get_pii_monitor(
             LOCKBOXES['nu'], p_only=True, since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOXES['nu'],
@@ -232,6 +232,30 @@ class Subsystems:
         if not self._is_pii_unit(unit_name):
             return
         self._menlo.set_ramp_amplitude(LOCKBOXES[unit_name], millivolts)
+
+    def set_error_scale(self, unit_name: str, factor: float) -> None:
+        """Set the scaling factor for error signal input to lockbox."""
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            LOGGER.exception("Please give a number for scaling factor.")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+
+        self._menlo.set_error_scale(LOCKBOXES[unit_name], factor)
+
+    def set_error_offset(self, unit_name: str, percent: float) -> None:
+        """Set the scaling factor for error signal input to lockbox."""
+        try:
+            percent = float(percent)
+        except (TypeError, ValueError):
+            LOGGER.exception("Please give a number for error signal offset.")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+
+        self._menlo.set_error_offset(LOCKBOXES[unit_name], percent)
 
     def set_mixer_phase(self, degrees: float) -> None:
         """Set the phase offset between EOM and mixer drivers in degrees."""
