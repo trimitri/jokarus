@@ -218,13 +218,12 @@ class MenloStack:
         readings = None  # type: Buffer
         if stage == 1:
             readings = self._get_pii_prop(unit_number, 305)
-        if stage == 2:
+        elif stage == 2:
             readings = self._get_pii_prop(unit_number, 306)
-        if readings:
-            return [(time, 1 if reading == 0 else 0)
-                    for (time, reading) in readings]
-        LOGGER.error("Please choose integrator stage 1 or 2.")
-        return self._dummy_point_series()
+        else:
+            LOGGER.error("Please choose integrator stage 1 or 2.")
+            return self._dummy_point_series()
+        return [(time, 1 if reading == 0 else 0) for (time, reading) in readings]
 
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 307)
