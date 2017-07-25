@@ -8,7 +8,11 @@ instruction.
 """
 import json
 import logging
-from typing import Callable, Dict  # pylint: disable=unused-import
+
+# We use Dict in type annotations, but not in the code. Thus we need to tell
+# both flake8 and pylint to ignore the "unused import" warning for the
+# following line.
+from typing import Callable, Dict  # noqa: F401 # pylint: disable=unused-import
 from .subsystems import Subsystems
 from .interfaces import Interfaces
 
@@ -70,7 +74,8 @@ class InstructionHandler:
                 'nu', int(a)),
             'switch_rf_clock_source': self._subs.switch_rf_clock_source,
             'switch_ld': self._subs.switch_ld,
-            'switch_pii_ramp': self._subs.switch_pii_ramp,
+            'switch_nu_ramp': lambda f: self._subs.switch_pii_ramp('nu', f),
+            'switch_nu_lock': lambda f: self._subs.switch_lock('nu', f),
             'switch_temp_ramp': self._subs.switch_temp_ramp,
             'switch_tec': self._subs.switch_tec,
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]

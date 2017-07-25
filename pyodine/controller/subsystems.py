@@ -323,6 +323,15 @@ class Subsystems:
                              'switching pii ramp generation of unit %s.',
                              unit_name)
 
+    def switch_lock(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_pii_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_lock(LOCKBOXES[unit_name], switch_on)
+            else:
+                LOGGER.error("Please provide boolean \"on\" argument when "
+                             "switching pii lock electronics of unit %s.",
+                             unit_name)
+
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
         """
         :raises SubsystemError:

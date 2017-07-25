@@ -392,6 +392,19 @@ class MenloStack:
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
+    def switch_lock(self, unit: int, switch_on: bool) -> None:
+        """Switch the lock electronics of given PII unit on or off."""
+        if unit in PII_NODES:
+            LOGGER.info("Switching lock of PII unit %s %s.", unit,
+                        "ON" if switch_on else "OFF")
+
+            # There is a logic inversion here, as the actual flag the firmware
+            # exposes switches the lock off if '1' is sent.
+            asyncio.ensure_future(
+                self._send_command(unit, 0, 0 if switch_on else 1))
+        else:
+            LOGGER.error("There is no PII unit %s", unit)
+
     def set_ramp_amplitude(self, unit: int, millivolts: int) -> None:
         """TODO: this seems unnecessary and not operational."""
         if unit not in PII_NODES:
