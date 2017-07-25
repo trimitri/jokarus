@@ -72,6 +72,8 @@ class InstructionHandler:
 
             'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
                 'nu', int(a)),
+            'set_nu_prop': lambda f: self._subs.set_error_scale('nu', f),
+            'set_nu_offset': lambda p: self._subs.set_error_offset('nu', p),
             'switch_rf_clock_source': self._subs.switch_rf_clock_source,
             'switch_ld': self._subs.switch_ld,
             'switch_nu_ramp': lambda f: self._subs.switch_pii_ramp('nu', f),
