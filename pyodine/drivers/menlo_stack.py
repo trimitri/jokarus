@@ -223,7 +223,8 @@ class MenloStack:
         else:
             LOGGER.error("Please choose integrator stage 1 or 2.")
             return self._dummy_point_series()
-        return [(time, 1 if reading == 0 else 0) for (time, reading) in readings]
+        return [(time, 1 if reading == 0 else 0)
+                for (time, reading) in readings]
 
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
         return self._get_pii_prop(unit_number, 307)
@@ -421,13 +422,77 @@ class MenloStack:
             self._send_command(unit, 6, millivolts))
 
     def get_ramp_amplitude(self, unit: int) -> Buffer:
-        """TODO: this seems unnecessary and not operational."""
-        if unit not in PII_NODES:
-            LOGGER.error("Can't set ramp amplitude of unit %s, as there is no "
-                         "such unit.", unit)
-            return self._dummy_point_series()
         return self._get_pii_prop(unit, 258)
 
+    def set_error_scale(self, unit: int, factor: float) -> None:
+        """Set the scaling factor of the error signal input stage.
+
+        The input stage is a voltage multiplier. One input to the multiplier is
+        the error signal, the other input is constant and given here. Thus it
+        works as follows:
+
+        * 1.0: 0dB, just multiply signal by one.
+        * -1.0: 0dB, but signal is inverted!
+        * 0.5: -3dB attenuation
+
+        :param unit: The PII unit to act on (1 or 2)
+        :param factor: The error signal is multiplied by this. Valid: [-1, 1]
+        """
+        # The error signal (as well as the level internally generated through
+        # this command) passes an amplifier before being fed into the "AD633"
+        # multiplier. That amplifier multiplies the voltage of the
+        # respective signals by 4.3. 2.3V input signal thus lead to 10V at the
+        # AD633, which is it's maximum input voltage.
+
+        if unit not in PII_NODES:
+            LOGGER.error("Can't set error scale of unit %s, as there is no "
+                         "such unit.", unit)
+            return
+        if not factor <= 1 or not factor >= -1:
+            LOGGER.error("Error scale out of bounds (-1...1, %s "
+                         "given).", factor)
+            return
+        LOGGER.info("Setting error scaling of PII unit %s to %s", unit, factor)
+
+        millivolts = 1/4.3e-4 * factor  # 1.0 (0dB) <-> 2325 mV DAC voltage
+        asyncio.ensure_future(self._send_command(unit, 5, millivolts))
+
+    def get_error_scale(self, unit: int) -> Buffer:
+        return self._get_pii_prop(unit, 257)
+
+    def set_error_offset(self, unit: int, percent: float) -> None:
+        """Set the error signal input stage offset compensation.
+
+        **Building on the explanation given at set_error_scale()**:
+        The AD633 voltage multiplier is also equipped with an offset port. The
+        DAC connected to this offset port may add or substract up to 19.6mV
+        from the multiplied output voltage. As the multiplier output swings
+        about +-10V, this is only a 2% offset though.
+
+        :param unit: The PII unit to act on (1 or 2)
+        :param percent: Offset voltage: 100% == 19.6mV, -100% -19.6mV
+        """
+        if unit not in PII_NODES:
+            LOGGER.error("Can't set error scale of unit %s, as there is no "
+                         "such unit.", unit)
+            return
+        if not percent <= 100 or not percent >= -100:
+            LOGGER.error("Error scale out of bounds (-1...1, %s "
+                         "given).", percent)
+            return
+        LOGGER.info("Setting error offset of PII unit %s to %s%%",
+                    unit, percent)
+
+        # The DAC used in this stage has a 1000mV = 1/51 Volt "attenuation"
+        dac_counts = 10 * percent  # 1000 counts = 19.6 mV
+        asyncio.ensure_future(self._send_command(unit, 4, dac_counts))
+
+    def get_error_offset(self, unit: int) -> Buffer:
+        """The error signal input stage offset compensation in percent."""
+        return [(time, value / 100) for time, value
+                in self._get_pii_prop(unit, 256)]
+
+    # TODO: use existing util/ntc_temp.py for this.
     @staticmethod
     def to_ntc_resistance(counts: int, is_setpoint: bool) -> float:
         """Convert ADC/DAC counts into (estimated) NTC thermistor resistance.
