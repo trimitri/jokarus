@@ -206,23 +206,24 @@ class MenloStack:
         return self._get_osc_prop(unit_number, 304)
 
     def is_lock_enabled(self, unit_number: int) -> Buffer:
-        return self._get_pii_prop(unit_number, 304)
+        readings = self._get_pii_prop(unit_number, 304)
+        return [(time, 1 if reading == 0 else 0)
+                for (time, reading) in readings]
 
     def is_integrator_enabled(self, unit_number: int, stage: int) -> Buffer:
         """Is the given unit's integrator stage "stage" shorted or not?
         0: It is shorted / disabled
         1: Enabled
         """
-        try:
-            stage = int(stage)
-        except (TypeError, ArithmeticError):
-            LOGGER.exception("Error parsing stage index.")
-        else:
-            if stage == 1:
-                return self._get_pii_prop(unit_number, 305)
-            if stage == 2:
-                return self._get_pii_prop(unit_number, 306)
-            LOGGER.error("Please choose integrator stage 1 or 2.")
+        readings = None  # type: Buffer
+        if stage == 1:
+            readings = self._get_pii_prop(unit_number, 305)
+        if stage == 2:
+            readings = self._get_pii_prop(unit_number, 306)
+        if readings:
+            return [(time, 1 if reading == 0 else 0)
+                    for (time, reading) in readings]
+        LOGGER.error("Please choose integrator stage 1 or 2.")
         return self._dummy_point_series()
 
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
