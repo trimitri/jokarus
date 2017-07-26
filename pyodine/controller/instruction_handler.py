@@ -80,6 +80,7 @@ class InstructionHandler:
             'switch_nu_lock': lambda f: self._subs.switch_lock('nu', f),
             'switch_temp_ramp': self._subs.switch_temp_ramp,
             'switch_tec': self._subs.switch_tec,
+            'switch_integrator': self._subs.switch_integrator,
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 
     def handle_instruction(self, message: str) -> None:

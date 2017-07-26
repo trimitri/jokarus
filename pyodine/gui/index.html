@@ -426,7 +426,7 @@
 											</td>
 										</tr>
 										<tr>
-											<th>Ramp</th>
+											<th>Enable Ramp</th>
 											<td class="indicator" data-qty="nu_ramp_enabled">N/A</td>
 											<td class="update_indicator" data-qty="nu_ramp_enabled">Never</td>
 											<td>
@@ -439,13 +439,13 @@
 									</table>
 									<h3>Parameters</h3>
 									<p>
-										Proportional factor:
-										<input type="number" class="source" data-qty="nu_prop" step="any" />&thinsp;mV
+										P Gain (0 &approx; &minus;40dB; 0.35 &approx; 0dB; 1.0 &approx; 12dB):<br />
+										<input type="number" class="source" data-qty="nu_prop" step="any" />
 										<input type="button" class="setter" data-qty="nu_prop" value="Set" />
 									</p>
 									<p>
-										Value Offset:
-										<input type="number" class="source" data-qty="nu_offset" step="any" />&thinsp;mV
+										P Stage Offset Compensation (&minus;100% &ndash; 100%):<br />
+										<input type="number" class="source" data-qty="nu_offset" step="any" />&thinsp;%
 										<input type="button" class="setter" data-qty="nu_offset" value="Set" />
 									</p>
 									<p>

@@ -2,6 +2,10 @@
 
 This module provides an interface wrapper class for the websockets interface
 exposed by the Menlo Electronics control computer.
+
+SAFETY POLICY: This class silently assumes all passed arguments to be of
+correct type. The values are allowed to be wrong, but may lead to silent
+errors/ignores.
 """
 
 import asyncio     # Needed for websockets.
@@ -211,18 +215,18 @@ class MenloStack:
                 for (time, reading) in readings]
 
     def is_integrator_enabled(self, unit_number: int, stage: int) -> Buffer:
-        """Is the given unit's integrator stage "stage" shorted or not?
-        0: It is shorted / disabled
+        """Is the given unit's integrator stage "stage" enabled?
+        0: Disabled
         1: Enabled
         """
         readings = None  # type: Buffer
         if stage == 1:
             readings = self._get_pii_prop(unit_number, 305)
-        elif stage == 2:
-            readings = self._get_pii_prop(unit_number, 306)
         else:
-            LOGGER.error("Please choose integrator stage 1 or 2.")
-            return self._dummy_point_series()
+            readings = self._get_pii_prop(unit_number, 306)
+
+        # There is a logic inversion here, as the firmware actually reports if
+        # the stage is *disabled*.
         return [(time, 1 if reading == 0 else 0)
                 for (time, reading) in readings]
 
@@ -399,6 +403,27 @@ class MenloStack:
                 self._send_command(unit, 0, 0 if switch_on else 1))
         else:
             LOGGER.error("There is no PII unit %s", unit)
+
+    def switch_integrator(
+            self, unit: int, stage: int, switch_on: bool) -> None:
+        """Switch the given PII integrator stage (1 or 2) on or off.
+
+        :param unit_name: Which PII unit to act on (1 or 2)
+        :param stage: Which stage to act on--1 (fast) or 2 (slow)
+        :param switch_on: True for enabling integrator false for disabling it
+        """
+        if not self._is_pii_unit(unit):
+            return
+        LOGGER.info("Switching integrator stage %s of unit %s %s.",
+                    stage, unit, "ON" if switch_on else "OFF")
+
+        # Quirk: An invalid service id will switch the second integrator.
+        service_id = 1 if stage == 1 else 2
+
+        # There is a logic inversion here, as the actual flag exposed by
+        # the firmware switches the integrator off if '1' is sent.
+        asyncio.ensure_future(
+            self._send_command(unit, service_id, 0 if switch_on else 1))
 
     def set_ramp_amplitude(self, unit: int, millivolts: int) -> None:
         """TODO: this seems unnecessary and not operational."""
@@ -767,8 +792,8 @@ class MenloStack:
         # else
         raise ValueError("Temperature out of DAC range.")
 
-    @classmethod
-    def _get_osc_node_id(cls, unit_number: int) -> int:
+    @staticmethod
+    def _get_osc_node_id(unit_number: int) -> int:
         # Return the CAN bus node id of the osc unit with given index.
         # Expects unit indices 1-4.
 
@@ -783,3 +808,10 @@ class MenloStack:
             if node in OSC_NODES:
                 return node
         raise ValueError("There is no oscillator supply unit %s.", unit_number)
+
+    @staticmethod
+    def _is_pii_unit(unit_number: int) -> bool:
+        if unit_number in PII_NODES:
+            return True
+        LOGGER.error("There is no PII unit %s", unit_number)
+        return False

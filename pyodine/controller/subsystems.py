@@ -360,6 +360,27 @@ class Subsystems:
                              "switching pii lock electronics of unit %s.",
                              unit_name)
 
+    def switch_integrator(
+            self, unit_name: str, stage: int, switch_on: bool) -> None:
+        """Switch the given PII integrator stage (1 or 2) on or off.
+
+        :param unit_name: Which PII unit to act on (1 or 2)
+        :param stage: Which stage to act on--1 (fast) or 2 (slow)
+        :param switch_on: True for enabling integrator false for disabling it
+        """
+        if not self._is_pii_unit(unit_name):  # Will emit error itself.
+            return
+        if stage not in [1, 2]:
+            LOGGER.error("Please provide integrator stage: 1 or 2. Given: %s",
+                         stage)
+            return
+        if not isinstance(switch_on, bool):
+            LOGGER.error("Provide boolean \"is_instance\" whether to switch "
+                         "stage on. Given: %s", switch_on)
+            return
+
+        self._menlo.switch_integrator(LOCKBOXES[unit_name], stage, switch_on)
+
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
         """
         :raises SubsystemError:
