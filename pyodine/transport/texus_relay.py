@@ -3,7 +3,6 @@
 Provides callbacks for start and stop of specific flight phases, etc.
 """
 import logging
-import random
 from typing import Dict
 import serial
 
@@ -39,35 +38,35 @@ class TexusRelay:
         return ret
 
     @property
-    def liftoff(self) -> bool:
+    def tex1(self) -> bool:
         return self._port1.getCD()
 
     @property
-    def microg(self) -> bool:
+    def tex2(self) -> bool:
         return self._port1.getDSR()
 
     @property
-    def tex1(self) -> bool:
+    def tex3(self) -> bool:
         return self._port1.getCTS()
 
     @property
-    def tex2(self) -> bool:
+    def tex4(self) -> bool:
         return self._port1.getRI()
 
     @property
-    def tex3(self) -> bool:
+    def tex5(self) -> bool:
         return self._port2.getCD()
 
     @property
-    def tex4(self) -> bool:
+    def tex6(self) -> bool:
         return self._port2.getDSR()
 
     @property
-    def tex5(self) -> bool:
+    def microg(self) -> bool:
         return self._port2.getCTS()
 
     @property
-    def tex6(self) -> bool:
+    def liftoff(self) -> bool:
         return self._port2.getRI()
 
     @property
@@ -105,7 +104,3 @@ class TexusRelay:
     def jok4(self, value: bool) -> None:
         LOGGER.info("Setting jok4 to %s", value)
         self._port2.rts = value
-
-    @staticmethod
-    def _rand_bool() -> bool:
-        return random.randint(0, 1) == 1

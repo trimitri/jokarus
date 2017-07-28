@@ -59,7 +59,7 @@ class Interfaces:
         if self._use_rs232:
             try:
                 self._rs232 = SerialServer(
-                    device='/dev/ttyUSB0',
+                    device='/dev/ttyUSB1',
                     received_msg_callback=self._parse_reply)
             except ConnectionError:
                 LOGGER.error("Couldn't open serial port for serving. "
@@ -71,7 +71,7 @@ class Interfaces:
         # TEXUS flags relay
         LOGGER.info("Starting TEXUS relay...")
         try:
-            self._texus = texus_relay.TexusRelay(port_1='/dev/ttyUSB1',
+            self._texus = texus_relay.TexusRelay(port_1='/dev/ttyUSB0',
                                                  port_2='/dev/ttyUSB3')
         except ConnectionError:
             LOGGER.error("Error establishing TEXUS relay. Disabling.")
