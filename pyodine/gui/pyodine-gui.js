@@ -39,10 +39,10 @@
   function updateFlag(entityId, newValue) {
     const container = $(`tr[data-flag=${entityId}]`);
     if (newValue !== container.data('value')) {
-      container.data('value', newValue);
       $('td.changed', container).html((new Date()).toLocaleTimeString());
     }
-    updateIndicator($('td.indicator', container), newValue === 1);
+    updateIndicator($('td.indicator', container), newValue);
+    container.data('value', newValue);
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
@@ -53,7 +53,7 @@
   }
 
   function sendFlag(conn, entityId, value) {
-    callRemoteMethod(conn.ws, 'setflag', [entityId, value]);
+    callRemoteMethod(conn, 'setflag', [entityId, value]);
   }
 
   /**
