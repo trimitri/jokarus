@@ -13,8 +13,9 @@ def create_message(payload: dict, msg_type: str) -> str:
         container = {}  # type: Dict[str, Any]
         container['data'] = payload
         container['type'] = msg_type
-        container['checksum'] = ''  # FIXME
+        container['checksum'] = ''  # TODO
         message = json.dumps(container, sort_keys=True)
+        message = message.replace('NaN', 'null')
         message += "\n\n\n"
     else:
         LOGGER.warning("Unknown message type. Returning empty message.")
