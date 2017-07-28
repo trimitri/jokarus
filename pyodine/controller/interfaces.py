@@ -78,60 +78,84 @@ class Interfaces:
         else:
             LOGGER.info("Started TEXUS relay.")
 
-    def start_publishing_regularly(
-            self, readings_interval: float = 1.07,
-            status_update_interval: float = 10.137,
-            flags_interval: float = 3.03) -> None:
-        """Schedule asyncio tasks to publish data regularly."""
+    def start_publishing_regularly(self, readings_interval: float,
+                                   flags_interval: float,
+                                   setup_interval: float,
+                                   status_update_interval: float) -> None:
+        """Schedule asyncio tasks to publish data regularly.
+
+        This includes the following types of data:
+
+        - Readings: Measurements, mostly numerical, taken from various
+          subsystems.
+        - Setup Data: Things that don't usually change at runtime, such as RF
+          stack setup.
+        - Flags: The TEXUS flags as sent by the TEXUS flight computer. Those
+          only change seldomly, usually once per experiment run.
+
+        Please note that the given intervals will not be matched exactly, as
+        the whole server runs on a single asyncio loop, putting "regular"
+        updates into perspective ("cooperative multitasking").
+
+        :param readings_interval: Readings are sent at roughly this interval
+                    (in seconds). Set to zero to disable publishing readings.
+        :param flags_interval: Flags are sent at roughly this interval (in
+                    seconds). Set to zero to disable publishing flags.
+        :param setup_interval: Setup data is sent at roughly this interval (in
+                    seconds). Set to zero to disable publishing setup data.
+        :param status_update_interval: Some subsystems do comprise params that
+                    seldomly change. Those are consequently not periodically
+                    communicated by those systems but only if they change.
+                    However, they can also be inquired which is done at the
+                    interval specified here.  Set to zero to never request
+                    those params.
+        """
 
         async def serve_readings():
             while True:
-                self.publish_readings()
+                await self.publish_readings()
                 await asyncio.sleep(readings_interval)
 
         async def serve_flags():
             while True:
-                self.publish_flags()
+                await self.publish_flags()
                 await asyncio.sleep(flags_interval)
 
-        async def regularly_refresh_status():
+        async def serve_setup_params():
+            while True:
+                await self.publish_setup_parameters()
+                await asyncio.sleep(setup_interval)
+
+        async def regularly_inquire_status():
             while True:
                 await self._subs.refresh_status()
                 await asyncio.sleep(status_update_interval)
 
-        async def serve_setup_params():
-            while True:
-                self.publish_setup_parameters()
-                await asyncio.sleep(2)  # FIXME
-
         asyncio.ensure_future(serve_readings())
         asyncio.ensure_future(serve_flags())
         asyncio.ensure_future(serve_setup_params())
-        asyncio.ensure_future(regularly_refresh_status())
+        asyncio.ensure_future(regularly_inquire_status())
 
-    def publish_readings(self) -> None:
+    async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
 
         # We need to use a transitional variable here to make sure that we
         # don't claim to have published newer readings than we actually did.
         prev = self._readings_published_at
-        self._readings_published_at = time.time()
         data = self._subs.get_full_set_of_readings(since=prev)
-        asyncio.ensure_future(
-            self._publish_message(packer.create_message(data, 'readings')))
+        self._readings_published_at = time.time()
+        await self._publish_message(packer.create_message(data, 'readings'))
 
-    def publish_flags(self) -> None:
+    async def publish_flags(self) -> None:
         if isinstance(self._texus, texus_relay.TexusRelay):
             data = self._texus.get_full_set()
-            asyncio.ensure_future(
-                self._publish_message(packer.create_message(data, 'texus')))
+            await self._publish_message(packer.create_message(data, 'texus'))
 
-    def publish_setup_parameters(self) -> None:
+    async def publish_setup_parameters(self) -> None:
         """Publish all setup parameters over all open connections once."""
         LOGGER.debug("Scheduling setup parameter publication.")
         data = self._subs.get_setup_parameters()
-        asyncio.ensure_future(
-            self._publish_message(packer.create_message(data, 'setup')))
+        await self._publish_message(packer.create_message(data, 'setup'))
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         if isinstance(self._texus, texus_relay.TexusRelay):
