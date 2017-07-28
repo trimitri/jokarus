@@ -26,7 +26,6 @@ class Interfaces:
     It sets up the services and reiceives instructions.
     """
     # pylint: disable=too-many-instance-attributes
-    # I don't think so.
 
     def __init__(self, subsystem_controller: Subsystems,
                  start_ws_server: bool = True,
@@ -70,10 +69,14 @@ class Interfaces:
                 self._rs232.start_serving()
 
         # TEXUS flags relay
+        LOGGER.info("Starting TEXUS relay...")
         try:
-            self._texus = texus_relay.TexusRelay()
+            self._texus = texus_relay.TexusRelay(port_1='/dev/ttyUSB1',
+                                                 port_2='/dev/ttyUSB3')
         except ConnectionError:
             LOGGER.error("Error establishing TEXUS relay. Disabling.")
+        else:
+            LOGGER.info("Started TEXUS relay.")
 
     def start_publishing_regularly(
             self, readings_interval: float = 1.07,
@@ -124,6 +127,7 @@ class Interfaces:
                 self._publish_message(packer.create_message(data, 'texus')))
 
     def publish_setup_parameters(self) -> None:
+        """Publish all setup parameters over all open connections once."""
         LOGGER.debug("Scheduling setup parameter publication.")
         data = self._subs.get_setup_parameters()
         asyncio.ensure_future(

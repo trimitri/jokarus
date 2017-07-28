@@ -14,10 +14,10 @@ LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
 class TexusRelay:
     """Manage the data lines representing TEXUS and experiment state."""
 
-    def __init__(self) -> None:
+    def __init__(self, port_1: str, port_2: str) -> None:
         try:
-            self._port1 = serial.Serial('/dev/ttyUSB2')
-            self._port2 = serial.Serial('/dev/ttyUSB3')
+            self._port1 = serial.Serial(str(port_1))
+            self._port2 = serial.Serial(str(port_2))
         except (FileNotFoundError, serial.SerialException):
             raise ConnectionError("Couldn't open serial ports assigned to "
                                   "TEXUS relay.")
