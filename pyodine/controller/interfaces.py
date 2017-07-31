@@ -143,8 +143,8 @@ class Interfaces:
         # don't claim to have published newer readings than we actually did.
         prev = self._readings_published_at
         data = self._subs.get_full_set_of_readings(since=prev)
-        self._readings_published_at = time.time()
         await self._publish_message(packer.create_message(data, 'readings'))
+        self._readings_published_at = time.time()
 
     async def publish_flags(self) -> None:
         if isinstance(self._texus, texus_relay.TexusRelay):
@@ -189,6 +189,6 @@ class Interfaces:
 
         Attention: As there might be RS232 clients as well, this might not get
         called at all."""
-        self.publish_setup_parameters()
-        self.publish_readings()
-        self.publish_flags()
+        await self.publish_setup_parameters()
+        await self.publish_readings()
+        await self.publish_flags()
