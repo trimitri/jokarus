@@ -231,7 +231,13 @@ class MenloStack:
                 for (time, reading) in readings]
 
     def is_ramp_enabled(self, unit_number: int) -> Buffer:
-        return self._get_pii_prop(unit_number, 307)
+        """Is the externally provided ramp passed through or ignored?"""
+        readings = self._get_pii_prop(unit_number, 307)
+
+        # There is a logic inversion here, as the firmware actually reports if
+        # the stage is *disabled*.
+        return [(time, 1 if reading == 0 else 0)
+                for (time, reading) in readings]
 
     def get_pii_monitor(self, unit_number: int, p_only: bool = False,
                         since: Time = None) -> Buffer:
@@ -387,7 +393,7 @@ class MenloStack:
             LOGGER.info("Switching ramp generation of PII unit %s %s.",
                         unit, "ON" if switch_on else "OFF")
             asyncio.ensure_future(
-                self._send_command(unit, 3, 1 if switch_on else 0))
+                self._send_command(unit, 3, 0 if switch_on else 1))
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
