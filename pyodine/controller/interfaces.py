@@ -189,6 +189,6 @@ class Interfaces:
 
         Attention: As there might be RS232 clients as well, this might not get
         called at all."""
-        await self.publish_setup_parameters()
-        await self.publish_readings()
-        await self.publish_flags()
+        asyncio.ensure_future(self.publish_setup_parameters())
+        asyncio.ensure_future(self.publish_readings())
+        asyncio.ensure_future(self.publish_flags())
