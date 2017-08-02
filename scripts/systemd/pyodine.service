@@ -1,0 +1,14 @@
+[Unit]
+Description=Pyodine Experiment Control Server
+Documentation=http://people.physik.hu-berlin.de/~gutsch/pyodine/docs/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m pyodine.main
+User=jokarus
+WorkingDirectory=/home/jokarus/Git Projects/jokarus
+
+[Install]
+WantedBy=multi-user.target
