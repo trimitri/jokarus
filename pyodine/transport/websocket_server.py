@@ -18,7 +18,7 @@ class WebsocketServer:
     allowing clients to send messages.
     """
 
-    def __init__(self, port: int = 56320,
+    def __init__(self, port: int,
                  on_msg_receive: Callable[[str], None] = None,
                  on_client_connect: Callable[[], None] = None) -> None:
         """Mustn't be run alone. Be sure to await the async_init() coroutine
@@ -63,7 +63,8 @@ class WebsocketServer:
         This also launches a task that maintains the connection to them.
         """
         self.subscribers.add(socket)
-        self._client_connected_callback()
+        if callable(self._client_connected_callback):
+            self._client_connected_callback()
         LOGGER.info("Subscribed a client. There are %d connected clients.",
                     len(self.subscribers))
         try:

@@ -1,11 +1,13 @@
 """A service that passes data between a serial connection and a websocket.
 """
 import asyncio
-import serial
 import logging
+import serial
 from ..transport.websocket_server import WebsocketServer
 from ..transport.decoder import Decoder
 
+WS_PORT = 56320
+BAUDRATE = 19200
 LOGGER = logging.getLogger('pyodine.gui.serial_websocket')
 
 
@@ -15,33 +17,36 @@ class SerialWebsocket():
         """Do also run async_init()."""
         LOGGER.debug("Creating instance...")
         self._ws_port = ws_port
-        self._serial = serial.Serial(port=serial_device, baudrate=19200)
+        self._serial = serial.Serial(port=serial_device, baudrate=BAUDRATE)
         self._ws_server = None  # type: WebsocketServer
-        LOGGER.debug("Created instance.")
+        LOGGER.info("Created Serial<->Websocket server. Do call "
+                    ".async_init().")
 
     async def async_init(self):
-        self._ws_server = WebsocketServer(
-                port=self._ws_port, received_msg_callback=self._forward_reply)
+        self._ws_server = WebsocketServer(port=self._ws_port,
+                                          on_msg_receive=self._forward_reply)
         await self._ws_server.async_init()
+        LOGGER.info("async_init() called.")
 
     def start_server(self):
-        LOGGER.info("Starting server.")
+        LOGGER.info("Starting server...")
         asyncio.ensure_future(self._server())
 
     def _forward_reply(self, message: str):
         bytestream = message.encode()
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
-        if (n_transmitted_bytes == n_bytes):
+        if n_transmitted_bytes == n_bytes:
             LOGGER.debug("Transmitted Message: %s ... %s",
                          message[:11], message[-11:])
         else:
             LOGGER.warning("Error transmitting Message.")
 
     async def _server(self):
+        LOGGER.info("Server started.")
         collector = Decoder()
         while True:
-            if (self._serial.in_waiting > 0):
+            if self._serial.in_waiting > 0:
                 data = self._serial.read(1)
                 data += self._serial.read(self._serial.in_waiting)
                 collector.feed(data)
@@ -56,12 +61,12 @@ class SerialWebsocket():
 
 
 async def launch():
-    ws = SerialWebsocket(ws_port=56321, serial_device='/dev/ttyUSB0')
-    await ws.async_init()
-    ws.start_server()
+    socket = SerialWebsocket(ws_port=WS_PORT, serial_device='/dev/ttyUSB0')
+    await socket.async_init()
+    socket.start_server()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     asyncio.ensure_future(launch())
-    loop = asyncio.get_event_loop()
-    loop.run_forever()
+    LOOP = asyncio.get_event_loop()
+    LOOP.run_forever()

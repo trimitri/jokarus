@@ -18,6 +18,7 @@ from ..controller.subsystems import Subsystems
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 # LOGGER.setLevel(logging.DEBUG)
+WS_PORT = 56320
 
 
 class Interfaces:
@@ -51,7 +52,7 @@ class Interfaces:
         # Websocket server
         if self._use_ws:
             self._ws = WebsocketServer(
-                on_msg_receive=self._parse_reply,
+                port=WS_PORT, on_msg_receive=self._parse_reply,
                 on_client_connect=self._on_client_connect)
             await self._ws.async_init()
 
