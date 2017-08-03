@@ -87,7 +87,7 @@ class SetupParameters:
         # highest output frequency, especially when using an external reference
         # clock.  See manual for details.
         self.max_freq_value = 171.1
-        self.port = '/dev/ttyUSB1'  # Can be reset by constructor.
+        self.port = ''  # Can be reset by constructor.
         self.ext_clock = 400  # 100MHz native clock * 4 for K_p multiplier
         self.int_clock = 2**32 * 1e-7  # 430 MHz internal OCXO clock
 
