@@ -20,6 +20,9 @@ from ..drivers import ecdl_mopa
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
+# TODO: Check each occurence of this variable for adequate verbosity and
+# correct error handling.
+MENLO_ONLINE = False
 LD_DRIVERS = {'mo': 1, 'pa': 3}
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
 
@@ -69,6 +72,12 @@ class Subsystems:
         """Needs to be awaited after initialization.
 
         It makes sure that all subsystems are ready."""
+
+        # Everything this method does relies on a running menlo stack. Thus we
+        # stop here if we don't have one.
+        if not MENLO_ONLINE:
+            return
+
         await self.reset_menlo()
 
         # Now that Menlo is up and running (TODO: check/except), initialize the
@@ -107,12 +116,16 @@ class Subsystems:
         await self._menlo.init_async()
 
     async def refresh_status(self) -> None:
-        await self._menlo.request_full_status()
+        if MENLO_ONLINE:
+            await self._menlo.request_full_status()
 
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
+
+        if not MENLO_ONLINE:
+            return data
 
         # ADC readings
         for channel in range(8):
@@ -430,6 +443,9 @@ class Subsystems:
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
 
+        if not MENLO_ONLINE:
+            return
+
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
         for name, unit in TEC_CONTROLLERS.items():
@@ -493,6 +509,8 @@ class Subsystems:
 
     @staticmethod
     def _is_tec_unit(name: str) -> bool:
+        if not MENLO_ONLINE:
+            return False
         if name not in TEC_CONTROLLERS:
             LOGGER.error('There is no TEC controller named "%s".', name)
             return False
