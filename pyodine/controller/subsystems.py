@@ -72,10 +72,11 @@ class Subsystems:
 
         # Everything this method does relies on a running menlo stack. Thus we
         # stop here if we don't have one.
-        if self._menlo is None:
-            return
 
         await self.reset_menlo()
+
+        if self._menlo is None:
+            return
 
         # Now that Menlo is up and running (TODO: check/except), initialize the
         # laser controller.
