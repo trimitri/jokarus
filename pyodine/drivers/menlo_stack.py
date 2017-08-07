@@ -116,6 +116,7 @@ class MenloStack:
 
     def __init__(self) -> None:
         """This does not do anything. Make sure to await the init() coro!"""
+        LOGGER.info("Initializing Menlo stack...")
         self._buffers = None  # type: Buffers
         self._connection = (
             None)  # type: websockets.client.WebSocketClientProtocol
@@ -141,6 +142,7 @@ class MenloStack:
         self._init_buffers()
         asyncio.ensure_future(self._listen_to_socket())
         self.calibrate_tecs()
+        LOGGER.info("Initialized Menlo stack.")
 
     async def calibrate_tec(self, unit_number: int) -> None:
         """Find zero-crossing of TEC current reading and compensate for it.
