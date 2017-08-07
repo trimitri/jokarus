@@ -128,9 +128,17 @@ class MenloStack:
         """This replaces the default constructor.
 
         Be sure to await this coroutine before using the class.
+
+        :param url: Menlo stack URL, like "ws://1.2.3.4:8000"
+        :raises ConnectionError: If the stack doesn't reply or no stack was
+                    found at the given address.
         """
+        try:
+            self._connection = await websockets.connect(url)
+        except (websockets.InvalidURI, websockets.InvalidHandshake):
+            raise ConnectionError("Couldn't talk to server at given address.")
+
         self._init_buffers()
-        self._connection = await websockets.connect(url)
         asyncio.ensure_future(self._listen_to_socket())
         self.calibrate_tecs()
 

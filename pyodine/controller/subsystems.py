@@ -20,9 +20,6 @@ from ..drivers import ecdl_mopa
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-# TODO: Check each occurence of this variable for adequate verbosity and
-# correct error handling.
-MENLO_ONLINE = False
 LD_DRIVERS = {'mo': 1, 'pa': 3}
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
 
@@ -75,7 +72,7 @@ class Subsystems:
 
         # Everything this method does relies on a running menlo stack. Thus we
         # stop here if we don't have one.
-        if not MENLO_ONLINE:
+        if self._menlo is None:
             return
 
         await self.reset_menlo()
@@ -109,14 +106,17 @@ class Subsystems:
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
-        if self._menlo is menlo_stack.MenloStack:
-            del self._menlo
-
+        del self._menlo
         self._menlo = menlo_stack.MenloStack()
-        await self._menlo.init_async()
+        try:
+            await self._menlo.init_async()
+        except ConnectionError:
+            LOGGER.warning("Couldn't connect to menlo stack. Starting in "
+                           "degraded mode.")
+            self._menlo = None
 
     async def refresh_status(self) -> None:
-        if MENLO_ONLINE:
+        if self._menlo is not None:
             await self._menlo.request_full_status()
 
     def get_full_set_of_readings(self,
@@ -124,7 +124,7 @@ class Subsystems:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
 
-        if not MENLO_ONLINE:
+        if self._menlo is None:
             return data
 
         # ADC readings
@@ -443,7 +443,7 @@ class Subsystems:
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
 
-        if not MENLO_ONLINE:
+        if self._menlo is None:
             return
 
         # TODO: Use functools.partials instead of default arguments to enforce
@@ -507,17 +507,17 @@ class Subsystems:
                      type(value))
         return []
 
-    @staticmethod
-    def _is_tec_unit(name: str) -> bool:
-        if not MENLO_ONLINE:
+    def _is_tec_unit(self, name: str) -> bool:
+        if self._menlo is None:
             return False
         if name not in TEC_CONTROLLERS:
             LOGGER.error('There is no TEC controller named "%s".', name)
             return False
         return True
 
-    @staticmethod
-    def _is_pii_unit(name: str) -> bool:
+    def _is_pii_unit(self, name: str) -> bool:
+        if self._menlo is None:
+            return False
         if name not in LOCKBOXES:
             LOGGER.error('There is no Lockbox by the name "%s".', name)
             return False
