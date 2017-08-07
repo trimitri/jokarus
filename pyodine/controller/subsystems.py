@@ -444,9 +444,6 @@ class Subsystems:
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
 
-        if self._menlo is None:
-            return
-
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
         for name, unit in TEC_CONTROLLERS.items():
