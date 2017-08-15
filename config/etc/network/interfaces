@@ -22,3 +22,5 @@ iface ens1 inet static
 	address 141.20.43.210
 	netmask 255.255.248.0
 	gateway 141.20.40.1
+	dns-nameservers 141.20.40.2 141.20.40.1
+	dns-search physik.hu-berlin.de hu-berlin.de
