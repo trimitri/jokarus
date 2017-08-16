@@ -772,7 +772,7 @@ class MenloStack:
 
     @staticmethod
     def _to_temperature(menlos: MenloUnit, is_setpoint: bool = False) -> float:
-        """Takes a temp. in Celsius and converts in to Menlo units.
+        """Take a menlo DAC reading and convert it to ° Celsius.
 
         The parameters of the quadratic expansion were approximated by R. Wilk
         based on a plot in the TEC controller chip datasheet.
@@ -787,7 +787,7 @@ class MenloStack:
 
     @staticmethod
     def _from_temperature(celsius: float, is_setpoint: bool = False) -> int:
-        """Takes a menlo current reading and converts in to ° Celsius.
+        """Takes a temp. in Celsius and converts in to Menlo units.
 
         The parameters of the quadratic expansion are read by R. Wilk from a
         plot in the TEC controller chip datasheet.
