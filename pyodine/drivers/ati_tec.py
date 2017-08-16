@@ -58,6 +58,10 @@ def ohms_to_tempsp(ohms: float) -> float:
                           3.03070724899164e-7, -0.00223020840250838,
                           10.2544735672273]
     voltage = float(np.polyval(sixth_order_coeffs, resistance))
-    if voltage < 0 or voltage > 5:
+
+    # We need to check voltage as well as resistance here, as for resistances
+    # that are far out of the legal range, we might accidentially arrive at a
+    # legal voltage (it's a sixth-order polynomial!).
+    if voltage < 0 or voltage > 5 or resistance > 15800 or resistance < 3600:
         raise ValueError("Resistance out of TEC range.")
     return voltage
