@@ -26,7 +26,7 @@ def tempsp_to_ohms(volts: float) -> float:
     try:
         voltage = float(volts)
     except (TypeError, ValueError, ArithmeticError):
-        LOGGER.exception()
+        LOGGER.exception("Couldn't parse float")
         raise TypeError("Couldn't convert voltage to float")
     if voltage > 5 or voltage < 0:
         raise ValueError("Voltage has to be between zero and five volts.")
@@ -50,7 +50,7 @@ def ohms_to_tempsp(ohms: float) -> float:
     try:
         resistance = float(ohms)
     except (TypeError, ValueError, ArithmeticError):
-        LOGGER.exception()
+        LOGGER.exception("Couldn't parse float")
         raise TypeError("Couldn't convert resistance to float")
 
     sixth_order_coeffs = [9.96544974929286e-25, -6.48193814201448e-20,
