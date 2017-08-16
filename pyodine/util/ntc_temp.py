@@ -30,7 +30,7 @@ class NtcTemp:
         self._c = coeff_c
         self._ref = 273.15 if use_celsius else 0  # Ref. point of Kelvin scale
 
-    def to_temp(self, ohms) -> float:
+    def to_temp(self, ohms: float) -> float:
         try:
             temp = 1 / \
                 (self._a + self._b * log(ohms) + self._c * (log(ohms))**3)

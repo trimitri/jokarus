@@ -13,9 +13,11 @@ import logging
 import math
 import time        # To keep track of when replies came in.
 from typing import Dict, List, Tuple, Union
-import numpy as np
 
 import websockets
+
+from . import ati_tec
+from ..util import ntc_temp
 
 # Adjust as needed
 ROTATE_N = 128  # Keep log of received values smaller than this.
@@ -23,6 +25,8 @@ DEFAULT_URL = 'ws://menlostack:8000'
 
 # Zero the average Peltier current measured over this time span.
 TEC_CALIBRATION_TIME = 10.0
+TEC_DAC_FACTOR = 27000  # Counts per volt for temp. setpoint DAC
+TEC_ADC_FACTOR = 1000   # Counts per volt for actual temp ADC
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
 LOGGER.setLevel(logging.INFO)
@@ -124,6 +128,10 @@ class MenloStack:
         # Calibratable offsets for TEC current readings. Those are >> 0, thus
         # calibration is mandatory to get useful readings.
         self._tec_current_offsets = {unit: 0.0 for unit in range(1, 5)}
+
+        # Takes care of converting thermistor resistance to temperature and
+        # vice versa.
+        self._standard_ntc = ntc_temp.NtcTemp(use_celsius=True)
 
     async def init_async(self, url: str = DEFAULT_URL) -> None:
         """This replaces the default constructor.
@@ -257,22 +265,22 @@ class MenloStack:
         return self._get_osc_prop(unit_number, 288)
 
     def get_temperature(self, unit_number: int, since: Time = None) -> Buffer:
-        return [(time, self._to_temperature(val))
+        return [(time, self._to_temperature(int(val)))
                 for (time, val)
                 in self._get_osc_prop(unit_number, 272, since)]
 
     def get_temp_setpoint(self, unit_number: int) -> Buffer:
-        return [(time, self._to_temperature(val, is_setpoint=True))
+        return [(time, self._to_temperature(int(val), is_setpoint=True))
                 for (time, val) in self._get_osc_prop(unit_number, 256)]
 
     def get_temp_rth(self, unit_number: int, since: Time = None) -> Buffer:
         """Get the object thermistor resistance of given TEC unit."""
-        return [(time, self.to_ntc_resistance(int(val), False))
+        return [(time, self._to_ntc_resistance(int(val), False))
                 for (time, val)
                 in self._get_osc_prop(unit_number, 272, since)]
 
     def get_temp_setpt_rth(self, unit_number: int) -> Buffer:
-        return [(time, self.to_ntc_resistance(int(val), True))
+        return [(time, self._to_ntc_resistance(int(val), is_setpoint=True))
                 for (time, val) in self._get_osc_prop(unit_number, 256)]
 
     def get_diode_current(self,
@@ -293,60 +301,24 @@ class MenloStack:
     def set_temp(self, unit_number: int, temp: float) -> None:
         """Set temperature setpoint of given oscillator supply unit in °C.
 
+        This assumes "standard" coefficients for the steinhart-hart equation.
+        For better control, use set_temp_rth() instead.
+
         Caution: avoid using this directly. All components require externally
         implemented temperature ramping."""
-
-        # Coerce input param types if possible. Abort otherwise.
-        try:
-            unit_number = int(unit_number)
-            temp = float(temp)
-        except (ValueError, TypeError):
-            LOGGER.exception("Invalid argument passed. Refusing.")
-            return
-
-        # Only work on existing nodes. Abort otherwise.
-        node = 2 + unit_number
-        if node not in OSC_NODES:
-            LOGGER.error("Oscillator Supply unit index out of range."
-                         "Doing nothing.")
-            return
-
-        try:
-            dac_value = str(self._from_temperature(temp, is_setpoint=True))
-        except ValueError:
-            LOGGER.exception("Temperature out of range. Ignoring.")
-        else:
-            asyncio.ensure_future(self._send_command(node, 1, dac_value))
+        ohms = self._standard_ntc.to_resistance(float(temp))
+        self.set_temp_rth(ohms, int(unit_number))
 
     def set_temp_rth(self, ohms: float, unit_number: int) -> None:
-        """Set temperature setpoint by providing a target thermistor resistance.
+        """Set temperature setpoint by providing a thermistor resistance.
 
         As the menlo stack is agnostic as to which flavour of NTC is connected
         to it's TEC units, this is the highest level function we can reliably
         provide.
-        Caution: avoid using this directly. All components require externally
-        implemented temperature ramping."""
-
-        # Coerce input param types if possible. Abort otherwise.
-        try:
-            unit_number = int(unit_number)
-            ohms = float(ohms)
-        except (ValueError, TypeError):
-            LOGGER.exception("Invalid argument passed to set_temp_rth.")
-            return
-
-        # Only work on existing nodes. Abort otherwise.
-        node = 2 + unit_number
-        if node not in OSC_NODES:
-            LOGGER.error("Oscillator Supply unit index out of range.")
-            return
-
-        try:
-            dac_value = str(self.to_dac_counts(ohms))
-        except ValueError:
-            LOGGER.exception("Temperature out of range. Ignoring.")
-        else:
-            asyncio.ensure_future(self._send_command(node, 1, dac_value))
+        """
+        node = self._get_osc_node_id(int(unit_number))
+        dac_counts = self._to_dac_counts(float(ohms))
+        self._send_command(node, 1, dac_counts)
 
     def set_current(self, unit_number: int, milliamps: float) -> None:
         """Set the current driver setpoint to the given value in mA.
@@ -367,9 +339,8 @@ class MenloStack:
 
         # Check for legal range of requested DAC voltage (which is then
         # internally translated to the current setpoint).
-        # TODO: Put -1 instead of -3 as soon as Menlo spec arrives.
         if dac_value >= 0 and dac_value < 2**16-3:
-            asyncio.ensure_future(self._send_command(node, 3, str(dac_value)))
+            self._send_command(node, 3, str(dac_value))
         else:
             LOGGER.error("Passed current setpoint out of DAC range.")
 
@@ -384,16 +355,14 @@ class MenloStack:
         else:
             LOGGER.info("Switching TEC of unit %s %s.",
                         unit_number, "ON" if switch_on else "OFF")
-            asyncio.ensure_future(
-                self._send_command(node, 2, 1 if switch_on else 0))
+            self._send_command(node, 2, 1 if switch_on else 0)
 
     def switch_ld(self, unit_number: int, switch_on: bool) -> None:
         """Turn current driver of given unit on or off."""
         if unit_number + 2 in OSC_NODES:
             LOGGER.info("Switching current driver of unit %s %s.",
                         unit_number, "ON" if switch_on else "OFF")
-            asyncio.ensure_future(
-                self._send_command(unit_number + 2, 5, 1 if switch_on else 0))
+            self._send_command(unit_number + 2, 5, 1 if switch_on else 0)
         else:
             LOGGER.error("There is no oscillator supply unit %s", unit_number)
 
@@ -402,8 +371,7 @@ class MenloStack:
         if unit in PII_NODES:
             LOGGER.info("Switching ramp generation of PII unit %s %s.",
                         unit, "ON" if switch_on else "OFF")
-            asyncio.ensure_future(
-                self._send_command(unit, 3, 0 if switch_on else 1))
+            self._send_command(unit, 3, 0 if switch_on else 1)
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
@@ -415,8 +383,7 @@ class MenloStack:
 
             # There is a logic inversion here, as the actual flag the firmware
             # exposes switches the lock off if '1' is sent.
-            asyncio.ensure_future(
-                self._send_command(unit, 0, 0 if switch_on else 1))
+            self._send_command(unit, 0, 0 if switch_on else 1)
         else:
             LOGGER.error("There is no PII unit %s", unit)
 
@@ -438,8 +405,7 @@ class MenloStack:
 
         # There is a logic inversion here, as the actual flag exposed by
         # the firmware switches the integrator off if '1' is sent.
-        asyncio.ensure_future(
-            self._send_command(unit, service_id, 0 if switch_on else 1))
+        self._send_command(unit, service_id, 0 if switch_on else 1)
 
     def set_ramp_amplitude(self, unit: int, millivolts: int) -> None:
         """TODO: this seems unnecessary and not operational."""
@@ -453,8 +419,7 @@ class MenloStack:
             return
         LOGGER.info("Setting ramp amplitude of PII unit %s to %s mV",
                     unit, millivolts)
-        asyncio.ensure_future(
-            self._send_command(unit, 6, millivolts))
+        self._send_command(unit, 6, millivolts)
 
     def get_ramp_amplitude(self, unit: int) -> Buffer:
         return self._get_pii_prop(unit, 258)
@@ -490,7 +455,7 @@ class MenloStack:
         LOGGER.info("Setting error scaling of PII unit %s to %s", unit, factor)
 
         millivolts = 1/4.3e-4 * factor  # 1.0 (0dB) <-> 2325 mV DAC voltage
-        asyncio.ensure_future(self._send_command(unit, 5, millivolts))
+        self._send_command(unit, 5, millivolts)
 
     def get_error_scale(self, unit: int) -> Buffer:
         return [(time, factor * 4.3e-4) for time, factor in
@@ -521,70 +486,12 @@ class MenloStack:
 
         # The DAC used in this stage has a 1000mV = 1/51 Volt "attenuation"
         dac_counts = 10 * percent  # 1000 counts = 19.6 mV
-        asyncio.ensure_future(self._send_command(unit, 4, dac_counts))
+        self._send_command(unit, 4, dac_counts)
 
     def get_error_offset(self, unit: int) -> Buffer:
         """The error signal input stage offset compensation in percent."""
         return [(time, value / 10) for time, value
                 in self._get_pii_prop(unit, 256)]
-
-    # TODO: use existing util/ntc_temp.py for this.
-    @staticmethod
-    def to_ntc_resistance(counts: int, is_setpoint: bool) -> float:
-        """Convert ADC/DAC counts into (estimated) NTC thermistor resistance.
-
-        This is used for reading out the actual object temperature as well as
-        reading the current temperature setpoint value.
-
-        :param counts: Reading, as received digitally from DAC or ADC
-        :param is_setpoint: The reading does originate from the temp. setpoint
-            combined ADC/DAC chip and not from the actual object temp. ADC.
-        :returns: Resistance of the NTC thermistor in Ohms.
-        """
-
-        # The actual curve is approximated by a fourth-order polynomial:
-        counts_per_volt = 27000 if is_setpoint else 1000
-
-        # We obtained the R(U) relation for the thermistor resistance vs. the
-        # applied set voltage for the given chip in form of a sufficiently
-        # accurate fourth-order polynomial.
-        coeffs = [2.32131941486, -53.7758974562, 629.141287209,
-                  -4474.03732095, 15601.7430608]
-        try:
-            volts = counts / counts_per_volt
-            ohms = np.polyval(coeffs, volts)
-        except ArithmeticError:
-            raise ValueError("Passed DAC counts out of range.")
-        else:
-            return ohms
-
-    @staticmethod
-    def to_dac_counts(ohms: float) -> int:
-        """Convert NTC thermistor resistance DAC counts.
-
-        This is used for setting the temperature setpoint.
-
-        :param ohms: Resistance of NTC thermistor in Ohms.
-        :returns: numeric value to send to DAC.
-        :raises: ValueError -- Illegal resistance was passed.
-        """
-        counts_per_volt = 27000
-
-        # We obtained the coefficients of a 6th order polynomial approximation
-        # to the U(R) relation of the TEC chip.
-        coefficients = [9.96544974929286e-25, -6.48193814201448e-20,
-                        1.83265994944409e-15, -2.95535304724271e-11,
-                        3.03070724899164e-7, -0.00223020840250838,
-                        10.2544735672273]
-        try:
-            volts = np.polyval(coefficients, ohms)
-            counts = int(counts_per_volt * volts)
-        except ArithmeticError:
-            raise ValueError("Converting provided resistance failed.")
-
-        if counts >= 0 and counts < 2**16 - 3:
-            return counts
-        raise ValueError("Provided resistance is out of TEC range.")
 
     ###################
     # Private Methods #
@@ -592,15 +499,9 @@ class MenloStack:
 
     def _get_osc_prop(self, unit_number: int, service_id: int,
                       since: Time = None) -> Buffer:
-        node_id = (unit_number + 2)
-        if node_id in OSC_NODES:
-            since = since if isinstance(since, float) else math.nan
-            return self._get_latest(self._buffers[node_id][service_id], since)
-
-        # else
-        LOGGER.warning("There is no oscillator supply unit %d. "
-                       "Returning dummy.", unit_number)
-        return self._dummy_point_series()
+        node_id = self._get_osc_node_id(unit_number)
+        since = since if isinstance(since, float) else math.nan
+        return self._get_latest(self._buffers[node_id][service_id], since)
 
     def _get_pii_prop(self, unit_number: int, service_id: int,
                       since: Time = None) -> Buffer:
@@ -645,12 +546,10 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    async def _send_command(self, node: int, service: int,
-                            value: Union[MenloUnit, str]) -> None:
+    def _send_command(self, node: int, service: int,
+                      value: Union[MenloUnit, str]) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
-        LOGGER.debug("Sending message %d:%d:%s ...", node, service, value)
-        await self._connection.send(message)
-        LOGGER.debug("Sent message %d:%d:%s", node, service, value)
+        asyncio.ensure_future(self._connection.send(message))
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
         buffer = None
@@ -703,7 +602,7 @@ class MenloStack:
 
     async def request_full_status(self) -> None:
         for node in OSC_NODES + PII_NODES:
-            await self._send_command(node, 255, '0')
+            self._send_command(node, 255, '0')
 
     @staticmethod
     def _rotate_log(log_list: Buffer, value: MenloUnit) -> None:
@@ -771,42 +670,44 @@ class MenloStack:
         return "unknown service"
 
     @staticmethod
-    def _to_temperature(menlos: MenloUnit, is_setpoint: bool = False) -> float:
-        """Take a menlo DAC reading and convert it to ° Celsius.
+    def _to_ntc_resistance(counts: int, is_setpoint: bool) -> float:
+        """Convert ADC/DAC counts into NTC thermistor resistance.
 
-        The parameters of the quadratic expansion were approximated by R. Wilk
-        based on a plot in the TEC controller chip datasheet.
+        This may be used for reading out the actual object temperature as well
+        as reading the current temperature setpoint value.
 
-        :raises ArithmeticError: when the conversion fails.
+        :param counts: Reading, as received digitally from DAC or ADC
+        :param is_setpoint: The reading does originate from the temp. setpoint
+                    combined DAC chip and not from the actual object temp. ADC.
+        :returns: Resistance of the NTC thermistor in Ohms.
         """
-        factor = 27000 if is_setpoint else 1000
-        a_0 = factor * -2.489
-        a_1 = factor * 0.1717
-        a_2 = factor * -0.0004352
-        return -a_1/(2*a_2) - math.sqrt((a_1/(2*a_2))**2 + (menlos - a_0)/a_2)
+        volts = float(counts) / TEC_ADC_FACTOR
+        if is_setpoint:
+            volts = float(counts) / TEC_DAC_FACTOR
+
+        return ati_tec.tempsp_to_ohms(volts)
 
     @staticmethod
-    def _from_temperature(celsius: float, is_setpoint: bool = False) -> int:
-        """Takes a temp. in Celsius and converts in to Menlo units.
+    def _to_dac_counts(ohms: float) -> int:
+        """Convert NTC thermistor resistance to DAC counts.
 
-        The parameters of the quadratic expansion are read by R. Wilk from a
-        plot in the TEC controller chip datasheet.
+        This is used for setting the temperature setpoint.
 
-        :raises ArithmeticError: if the conversion failed.
-        :raises ValueError: if the resulting dac_value is out of bounds.
+        :param ohms: Resistance of NTC thermistor in Ohms.
+        :returns: numeric value to send to DAC.
+        :raises: ValueError -- Illegal resistance was passed.
         """
-        factor = 27000 if is_setpoint else 1000
-        a_0 = factor * -2.489
-        a_1 = factor * 0.1717
-        a_2 = factor * -0.0004352
-        dac_value = int(round(a_0 + a_1 * celsius + a_2 * celsius**2))
+        volts = ati_tec.ohms_to_tempsp(float(ohms))
+        counts = int(round(TEC_DAC_FACTOR * volts))
+        if counts < 0 or counts > 2**16 - 4:
+            raise ValueError("NTC resistance out of DAC range.")
+        return counts
 
-        # Only continue if we arrived at a legal DAC value.
-        # TODO: put -1 instead of -3 as soon as definitive Menlo spec. arrives.
-        if dac_value >= 0 and dac_value < 2**16 - 3:
-            return dac_value
-        # else
-        raise ValueError("Temperature out of DAC range.")
+    def _to_temperature(self, counts: int, is_setpoint: bool = False) -> float:
+        """Take a menlo DAC reading and convert it to ° Celsius.
+        """
+        ohms = self._to_ntc_resistance(counts, is_setpoint)
+        return self._standard_ntc.to_temp(ohms)
 
     @staticmethod
     def _get_osc_node_id(unit_number: int) -> int:
