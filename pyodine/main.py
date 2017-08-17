@@ -16,33 +16,7 @@ import aioconsole
 
 from .controller import interfaces, subsystems, instruction_handler
 from .controller import control_flow as flow
-
-
-def configure_logging():
-    """Set up general parameters of the logging system."""
-
-    root_logger = logging.getLogger()
-
-    # We need to set the root logger to DEBUG in order to filter down below.
-    root_logger.level = logging.DEBUG
-    root_logger.name = 'pyodine'
-
-    # Write everything to a log file, starting a new file every hour.
-    write_to_disk = logging.handlers.TimedRotatingFileHandler(
-        'log/pyodine.log', when='s', interval=3600)
-    write_to_disk.doRollover()  # Start a new file every time pyodine is run.
-    write_to_disk.formatter = logging.Formatter(
-        "{asctime} {name} {levelname} - {message} "
-        "[{module}.{funcName}]", style='{')
-    root_logger.addHandler(write_to_disk)
-
-    # Write everything of priority INFO and up to stderr.
-    stderr = logging.StreamHandler()
-    stderr.setLevel(logging.INFO)
-    stderr.formatter = logging.Formatter(
-        "{levelname:<7} {message} "
-        "[{module}:{lineno}] ({name})", style='{')
-    root_logger.addHandler(stderr)
+from . import logger
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -84,7 +58,6 @@ async def main():
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
-    configure_logging()
     LOGGER = logging.getLogger('pyodine.main')
 
     LOOP = asyncio.get_event_loop()
