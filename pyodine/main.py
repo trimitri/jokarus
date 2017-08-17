@@ -9,7 +9,6 @@ way as discussed in PEP328.
 """
 import asyncio
 import logging
-import logging.handlers
 from typing import Dict, Any
 
 import aioconsole

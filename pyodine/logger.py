@@ -10,6 +10,7 @@ the module's methods will act on module-level ("static") variables.
 """
 
 import logging
+import logging.handlers
 
 PROGRAM_LOG_FNAME = 'log/pyodine.log'
 
