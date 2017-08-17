@@ -63,8 +63,10 @@ if __name__ == '__main__':
     LOOP = asyncio.get_event_loop()
     # event_loop.set_debug(True)
 
-    # Schedule main program for running and start central event loop.
+    if not logger.is_ok:
+        raise OSError("Failed to set up logging.")
     try:
+        # Schedule main program for running and start central event loop.
         LOOP.run_until_complete(main())
     except KeyboardInterrupt:
         LOGGER.info("Keyboard interrupt received. Exiting.")
