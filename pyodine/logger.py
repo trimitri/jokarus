@@ -10,8 +10,8 @@ the module's methods will act on module-level ("static") variables.
 """
 
 import logging
-from logging.handlers import (BaseRotatingHandler, BufferingHandler,
-                              MemoryHandler, TimedRotatingFileHandler)
+from logging.handlers import (BufferingHandler, MemoryHandler,
+                              TimedRotatingFileHandler)
 from typing import Dict  # pylint: disable=unused-import
 
 PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
@@ -21,11 +21,6 @@ QTY_LOGGER_PREFIX = 'qty_logger.'
 
 _LOGGERS = {}  # type: Dict[str, logging.Logger]
 _is_inited = False  # not a constant
-
-# Initializing a module at import time can be slow. However, as the logger
-# module is the very first and most important module of pyodine, we do that
-# here:
-_init()
 
 
 def is_ok() -> bool:
@@ -142,3 +137,9 @@ def _init() -> None:
         "{levelname:<7} {message} "
         "[{module}:{lineno}] ({name})", style='{')
     root_logger.addHandler(stderr)
+
+
+# Initializing a module at import time can be slow. However, as the logger
+# module is the very first and most important module of pyodine, we do that
+# here:
+_init()
