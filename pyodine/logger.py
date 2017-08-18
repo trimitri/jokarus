@@ -10,10 +10,15 @@ the module's methods will act on module-level ("static") variables.
 """
 
 import logging
-from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler, MemoryHandler
+from typing import Dict  # pylint: disable=unused-import
 
 PROGRAM_LOG_FNAME = 'log/pyodine.log'  # Log program/debug messages here.
 QTY_LOG_FNAME = 'log/pyodine.log'  # Log readings ("quantities") here.
+# We need to avoid name clashes with existing loggers.
+QTY_LOGGER_PREFIX = 'qty_logger.'
+
+_LOGGERS = dict()  # type: Dict[logging.Logger]
 
 #
 # Setup root logger.
@@ -57,26 +62,41 @@ def is_ok() -> bool:
     return True
 
 
-def log_quantity(id: str, time: float, value: float) -> None:
+def log_quantity(qty_id: str, time: float, value: float) -> None:
     """Append "value" to the logfile of given name.
 
     :param id: This distinguishes logfiles from each other.
     :param time: Unix time of when the passed "value" was measured.
     :param value: Value to log. None is fine as well.
     """
-    logger = _get_logger(id)
+    logger = _get_qty_logger(qty_id)
+    logger.info('%s\t%s', time, value)
 
 
-def _get_logger(name: str) -> Logger:
+def _get_qty_logger(name: str) -> logging.Logger:
     name = str(name)
     if not name.isidentifier():
-        raise ValueError("Invalid log ID \"%s\"Only letters, numbers and _ "
-                         "allowed for log IDs.", name)
-    global _loggers
-    try:
-        logger = _loggers[name]
-    except KeyError:
-        # FIXME
-        pass
+        raise ValueError("Invalid log ID \"%s\". Only valid python "
+                         "identifiers are allowed for log IDs.", name)
 
-    return logger
+    logger_name = QTY_LOGGER_PREFIX + name
+
+    # Actually the logging class provides a singleton behaviour of Logger
+    # objects. We keep our own list however, as we need some specific
+    # configuration and handlers attached.
+    global _LOGGERS
+    try:
+        return _LOGGERS[logger_name]
+    except KeyError:
+        # Create the logger.
+        file_handler = TimedRotatingFileHandler(QTY_LOG_FNAME, when='s',
+                                                interval=3600)
+        file_handler.formatter = logging.Formatter("{asctime}\t{message}",
+                                                   style='{')
+        # Start a new file for each pyodine run.
+        file_handler.doRollover()
+        # Buffer file writes to keep I/O down.
+        buffer = MemoryHandler(10, target=file_handler)
+        logger = logging.getLogger(logger_name)
+        logger.addHandler(buffer)
+        return logger
