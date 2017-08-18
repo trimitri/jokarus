@@ -13,8 +13,8 @@ import logging
 from logging.handlers import TimedRotatingFileHandler, MemoryHandler
 from typing import Dict  # pylint: disable=unused-import
 
-PROGRAM_LOG_FNAME = 'log/pyodine.log'  # Log program/debug messages here.
-QTY_LOG_FNAME = 'log/pyodine.log'  # Log readings ("quantities") here.
+PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
+QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
@@ -89,14 +89,18 @@ def _get_qty_logger(name: str) -> logging.Logger:
         return _LOGGERS[logger_name]
     except KeyError:
         # Create the logger.
-        file_handler = TimedRotatingFileHandler(QTY_LOG_FNAME, when='s',
-                                                interval=3600)
+        file_handler = TimedRotatingFileHandler(
+            QTY_LOG_FNAME + str(name) + '.log', when='s', interval=3600)
         file_handler.formatter = logging.Formatter("{asctime}\t{message}",
                                                    style='{')
         # Start a new file for each pyodine run.
         file_handler.doRollover()
-        # Buffer file writes to keep I/O down.
-        buffer = MemoryHandler(10, target=file_handler)
+        # Buffer file writes to keep I/O down. We will flush the buffer at
+        # given time intervals. If that flushing should fail, however, we'll
+        # flush at 100 entries (which is about 4kB of data).
+        buffer = MemoryHandler(100, target=file_handler)
         logger = logging.getLogger(logger_name)
         logger.addHandler(buffer)
+        logger.propagate = False  # Don't pass messages to root logger.
+        _LOGGERS[logger_name] = logger
         return logger
