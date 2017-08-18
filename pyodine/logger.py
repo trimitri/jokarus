@@ -10,9 +10,10 @@ the module's methods will act on module-level ("static") variables.
 """
 
 import logging
-import logging.handlers
+from logging.handlers import TimedRotatingFileHandler
 
-PROGRAM_LOG_FNAME = 'log/pyodine.log'
+PROGRAM_LOG_FNAME = 'log/pyodine.log'  # Log program/debug messages here.
+QTY_LOG_FNAME = 'log/pyodine.log'  # Log readings ("quantities") here.
 
 #
 # Setup root logger.
@@ -28,8 +29,8 @@ _ROOT_LOGGER.name = 'pyodine'
 # Log to disk.
 #
 
-_WRITE_TO_DISK = logging.handlers.TimedRotatingFileHandler(
-    PROGRAM_LOG_FNAME, when='s', interval=3600)
+_WRITE_TO_DISK = TimedRotatingFileHandler(PROGRAM_LOG_FNAME, when='s',
+                                          interval=3600)
 
 # Start a new file every time pyodine is run.
 _WRITE_TO_DISK.doRollover()
@@ -51,5 +52,31 @@ _ROOT_LOGGER.addHandler(_STDERR)
 
 
 def is_ok() -> bool:
+    """Currently logging successfully."""
     # FIXME: do some actual checks here.
     return True
+
+
+def log_quantity(id: str, time: float, value: float) -> None:
+    """Append "value" to the logfile of given name.
+
+    :param id: This distinguishes logfiles from each other.
+    :param time: Unix time of when the passed "value" was measured.
+    :param value: Value to log. None is fine as well.
+    """
+    logger = _get_logger(id)
+
+
+def _get_logger(name: str) -> Logger:
+    name = str(name)
+    if not name.isidentifier():
+        raise ValueError("Invalid log ID \"%s\"Only letters, numbers and _ "
+                         "allowed for log IDs.", name)
+    global _loggers
+    try:
+        logger = _loggers[name]
+    except KeyError:
+        # FIXME
+        pass
+
+    return logger
