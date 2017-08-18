@@ -19,7 +19,7 @@ QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
-_LOGGERS = dict()  # type: Dict[logging.Logger]
+_LOGGERS = {}  # type: Dict[str, logging.Logger]
 _is_inited = False  # not a constant
 
 # Initializing a module at import time can be slow. However, as the logger
@@ -49,9 +49,9 @@ def flush_to_disk() -> None:
     """Flush all log entries from buffer memory to disk."""
     global _LOGGERS
     # Act the root logger and our quantity loggers.
-    loggers = [logging.getLogger()] + _LOGGERS
-    handlers = [h for h in l.handlers if isinstance(h, BufferingHandler)
-                for l in loggers]
+    loggers = [logging.getLogger()] + list(_LOGGERS.values())
+    handlers = [h for l in loggers for h in l.handlers
+                if isinstance(h, BufferingHandler)]
     for handler in handlers:
         handler.flush()
 
@@ -60,9 +60,9 @@ def start_new_files() -> None:
     """Start new log files now. Don't wait for the usual period."""
     global _LOGGERS
     # Act the root logger and our quantity loggers.
-    loggers = [logging.getLogger()] + _LOGGERS
-    handlers = [h for h in l.handlers if isinstance(h, BaseRotatingHandler)
-                for l in loggers]
+    loggers = [logging.getLogger()] + list(_LOGGERS.values())
+    handlers = [h for l in loggers for h in l.handlers
+                if isinstance(h, TimedRotatingFileHandler)]
     for handler in handlers:
         handler.doRollover()
 
