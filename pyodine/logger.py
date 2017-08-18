@@ -10,7 +10,8 @@ the module's methods will act on module-level ("static") variables.
 """
 
 import logging
-from logging.handlers import TimedRotatingFileHandler, MemoryHandler
+from logging.handlers import (BaseRotatingHandler, BufferingHandler,
+                              MemoryHandler, TimedRotatingFileHandler)
 from typing import Dict  # pylint: disable=unused-import
 
 PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
@@ -19,41 +20,12 @@ QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
 _LOGGERS = dict()  # type: Dict[logging.Logger]
+_is_inited = False  # not a constant
 
-#
-# Setup root logger.
-#
-
-_ROOT_LOGGER = logging.getLogger()
-
-# We need to default to DEBUG in order to be able to filter downstream.
-_ROOT_LOGGER.level = logging.DEBUG
-_ROOT_LOGGER.name = 'pyodine'
-
-#
-# Log to disk.
-#
-
-_WRITE_TO_DISK = TimedRotatingFileHandler(PROGRAM_LOG_FNAME, when='s',
-                                          interval=3600)
-
-# Start a new file every time pyodine is run.
-_WRITE_TO_DISK.doRollover()
-_WRITE_TO_DISK.formatter = logging.Formatter(
-    "{asctime} {name} {levelname} - {message} [{module}.{funcName}]",
-    style='{')
-_ROOT_LOGGER.addHandler(_WRITE_TO_DISK)
-
-#
-# Log to stderr.
-#
-
-_STDERR = logging.StreamHandler()
-_STDERR.setLevel(logging.INFO)
-_STDERR.formatter = logging.Formatter(
-    "{levelname:<7} {message} "
-    "[{module}:{lineno}] ({name})", style='{')
-_ROOT_LOGGER.addHandler(_STDERR)
+# Initializing a module at import time can be slow. However, as the logger
+# module is the very first and most important module of pyodine, we do that
+# here:
+_init()
 
 
 def is_ok() -> bool:
@@ -73,6 +45,28 @@ def log_quantity(qty_id: str, time: float, value: float) -> None:
     logger.info('%s\t%s', time, value)
 
 
+def flush_to_disk() -> None:
+    """Flush all log entries from buffer memory to disk."""
+    global _LOGGERS
+    # Act the root logger and our quantity loggers.
+    loggers = [logging.getLogger()] + _LOGGERS
+    handlers = [h for h in l.handlers if isinstance(h, BufferingHandler)
+                for l in loggers]
+    for handler in handlers:
+        handler.flush()
+
+
+def start_new_files() -> None:
+    """Start new log files now. Don't wait for the usual period."""
+    global _LOGGERS
+    # Act the root logger and our quantity loggers.
+    loggers = [logging.getLogger()] + _LOGGERS
+    handlers = [h for h in l.handlers if isinstance(h, BaseRotatingHandler)
+                for l in loggers]
+    for handler in handlers:
+        handler.doRollover()
+
+
 def _get_qty_logger(name: str) -> logging.Logger:
     name = str(name)
     if not name.isidentifier():
@@ -89,18 +83,62 @@ def _get_qty_logger(name: str) -> logging.Logger:
         return _LOGGERS[logger_name]
     except KeyError:
         # Create the logger.
+
+        # We need to specify 3600 seconds here instead of one hour, to force
+        # detailed file name suffixes for manual log rotation.
         file_handler = TimedRotatingFileHandler(
             QTY_LOG_FNAME + str(name) + '.log', when='s', interval=3600)
         file_handler.formatter = logging.Formatter("{asctime}\t{message}",
                                                    style='{')
         # Start a new file for each pyodine run.
         file_handler.doRollover()
+
         # Buffer file writes to keep I/O down. We will flush the buffer at
         # given time intervals. If that flushing should fail, however, we'll
         # flush at 100 entries (which is about 4kB of data).
         buffer = MemoryHandler(100, target=file_handler)
+
         logger = logging.getLogger(logger_name)
         logger.addHandler(buffer)
         logger.propagate = False  # Don't pass messages to root logger.
         _LOGGERS[logger_name] = logger
+
         return logger
+
+
+def _init() -> None:
+    global _is_inited
+    if _is_inited:
+        logging.error("Logger module initializes automatically. Don't do it.")
+        return
+    _is_inited = True
+
+    root_logger = logging.getLogger()
+    # We need to default to DEBUG in order to be able to filter downstream.
+    root_logger.level = logging.DEBUG
+    root_logger.name = 'pyodine'
+
+    # Log to file.
+
+    # We need to specify 3600 seconds here instead of one hour, to force
+    # detailed file name suffixes for manual log rotation.
+    write_to_disk = TimedRotatingFileHandler(PROGRAM_LOG_FNAME, when='s',
+                                             interval=3600)
+    # Start a new file every time pyodine is run.
+    write_to_disk.doRollover()
+    write_to_disk.formatter = logging.Formatter(
+        "{asctime} {name} {levelname} - {message} [{module}.{funcName}]",
+        style='{')
+
+    buffer = MemoryHandler(200, target=write_to_disk)
+
+    root_logger.addHandler(buffer)
+
+    # Log to stderr.
+
+    stderr = logging.StreamHandler()
+    stderr.setLevel(logging.INFO)
+    stderr.formatter = logging.Formatter(
+        "{levelname:<7} {message} "
+        "[{module}:{lineno}] ({name})", style='{')
+    root_logger.addHandler(stderr)
