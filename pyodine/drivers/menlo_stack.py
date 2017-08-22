@@ -585,11 +585,12 @@ class MenloStack:
             if LOG_QUANTITIES:
                 try:
                     logger.log_quantity(
-                        "menlo_{}_{}_{}".format(node, service, self._name_service(node, service)),
-                        float(time.time()), float(val))
+                        "menlo_{}_{}_{}".format(node, service,
+                                                self._name_service(node, service)),
+                        float(val))
                 except ValueError:  # Don't use the name, as it's weird.
                     logger.log_quantity("menlo_{}_{}".format(node, service),
-                                        float(time.time()), float(val))
+                                        float(val))
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),

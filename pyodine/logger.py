@@ -38,7 +38,7 @@ def is_ok() -> bool:
     return True
 
 
-def log_quantity(qty_id: str, time: float, value: float) -> None:
+def log_quantity(qty_id: str, value: float, time: float = None) -> None:
     """Append "value" to the logfile of given name.
 
     :param id: This distinguishes logfiles from each other.
@@ -46,7 +46,10 @@ def log_quantity(qty_id: str, time: float, value: float) -> None:
     :param value: Value to log. None is fine as well.
     """
     logger = _get_qty_logger(qty_id)
-    logger.info('%s\t%s', time, value)
+    if time:
+        logger.info('%s\t%s', time, value)
+    else:
+        logger.info('%s', value)
 
 
 def flush_to_disk() -> None:
