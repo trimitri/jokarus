@@ -8,7 +8,7 @@ Mainly consisting of
 This acts like a singleton class. It does all the initialization on import and
 the module's methods will act on module-level ("static") variables.
 """
-
+import asyncio
 import logging
 from logging.handlers import (BufferingHandler, MemoryHandler,
                               TimedRotatingFileHandler)
@@ -19,8 +19,17 @@ QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
+# We will use these module-scope globals here to make our module behave like a
+# singleton class. Pylint doesn't like that.
+# pylint: disable=global-statement
+
 _LOGGERS = {}  # type: Dict[str, logging.Logger]
-_is_inited = False  # not a constant
+
+# Those two are not constants but actually keep track of the current state of
+# the loaded module. Pylint doesn't like that either.
+# pylint: disable=invalid-name
+_is_inited = False
+_is_flushing = False  # A task for flushing buffers to disk is running.
 
 
 def is_ok() -> bool:
@@ -49,6 +58,34 @@ def flush_to_disk() -> None:
                 if isinstance(h, BufferingHandler)]
     for handler in handlers:
         handler.flush()
+
+
+def start_flushing_regularly(seconds: float) -> None:
+    """Schedule regular flushing of the the buffered data to disk.
+
+    This needs a running asyncio event loop to work. Make sure one is running,
+    otherwise a RuntimeError is raised.
+
+    Specifying a long interval does not reliably avoid frequent writes, as the
+    buffers will flush automatically to prevent overflow for very verbose
+    programs.
+
+    :param seconds: Interval for flushing. See note on flushing interval above.
+    :raises RuntimeError: No event loop is running.
+    """
+    global _is_flushing
+    if not asyncio.get_event_loop().is_running():
+        raise RuntimeError("Can't schedule flushing, as no asyncio event loop "
+                           "is running.")
+    if _is_flushing:
+        logging.error("Flushing was scheduled already. Ignoring.")
+        return
+
+    async def worker() -> None:
+        while True:
+            flush_to_disk()
+            asyncio.sleep(float(seconds))
+    asyncio.ensure_future(worker())
 
 
 def start_new_files() -> None:

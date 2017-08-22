@@ -63,7 +63,9 @@ if __name__ == '__main__':
     # event_loop.set_debug(True)
 
     if not logger.is_ok:
+        # FIXME: make sure this doesn't fire unexpectedly...
         raise OSError("Failed to set up logging.")
+    logger.start_flushing_regularly(5)  # Write data to disk every 5 seconds.
     try:
         # Schedule main program for running and start central event loop.
         LOOP.run_until_complete(main())
