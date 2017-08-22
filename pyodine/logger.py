@@ -76,6 +76,8 @@ def start_flushing_regularly(seconds: float) -> None:
         logging.error("Flushing was already scheduled already. Ignoring.")
         return
     _is_flushing = True
+    if seconds < 2:
+        raise ValueError("Interval must be > 2 seconds to ensure asyncio flow.")
 
     if not asyncio.get_event_loop().is_running():
         logging.warning("Periodical disk flushing of logs might not work, as "
