@@ -583,10 +583,15 @@ class MenloStack:
 
             # Log untouched data to disk.
             if LOG_QUANTITIES:
-                logger.log_quantity(
-                    "menlo_{}_{}_{}".format(node, service,
-                                            self._name_service(node, service)),
-                    float(time.time()), float(val))
+                try:
+                    logger.log_quantity(
+                        "menlo_{}_{}_{}".format(node, service,
+                                                self._name_service(node, service)),
+                        float(time.time()), float(val))
+                except ValueError:
+                    logger.log_quantity(
+                        "menlo_{}_{}".format(node, service),
+                        float(time.time()), float(val))
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),
