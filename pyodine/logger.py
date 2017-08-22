@@ -85,8 +85,8 @@ def start_flushing_regularly(seconds: float) -> None:
 
     async def worker() -> None:
         while True:
+            await asyncio.sleep(float(seconds))
             flush_to_disk()
-            asyncio.sleep(float(seconds))
     asyncio.ensure_future(worker())
 
 
