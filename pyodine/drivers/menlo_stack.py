@@ -17,11 +17,13 @@ from typing import Dict, List, Tuple, Union
 import websockets
 
 from . import ati_tec
+from .. import logger
 from ..util import ntc_temp
 
 # Adjust as needed
 ROTATE_N = 128  # Keep log of received values smaller than this.
 DEFAULT_URL = 'ws://menlostack:8000'
+LOG_QUANTITIES = True  # Log quantities on disk as they are received.
 
 # Zero the average Peltier current measured over this time span.
 TEC_CALIBRATION_TIME = 10.0
@@ -578,6 +580,13 @@ class MenloStack:
                     LOGGER.error("Couldn't convert <%s> to either int or"
                                  "float.")
             self._rotate_log(self._buffers[node][service], val)
+
+            # Log untouched data to disk.
+            if LOG_QUANTITIES:
+                logger.log_quantity(
+                    "menlo_{}_{}_{}".format(node, service,
+                                            self._name_service(node, service)),
+                    float(time.time()), float(val))
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),
