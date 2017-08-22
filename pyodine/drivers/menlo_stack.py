@@ -47,15 +47,15 @@ TEC_CALIBRATION = {1: 1492, 2: 1464, 3: 1483, 4: 1487}
 
 # Provide dictionaries for the service IDs.
 OSC_SVC_GET = {
-    256: "temp setpoint",
-    257: "LD current setpoint",
-    272: "meas. LD temperature",
-    273: "UNKNOWN 01",
-    274: "meas. TEC current",
-    275: "meas. LD current",
-    288: "temp OK flag",
-    304: "TEC enabled",
-    305: "LD driver enabled"}
+    256: "temp_setpoint",
+    257: "LD_current_setpoint",
+    272: "temperature",
+    273: "UNKNOWN_01",
+    274: "TEC_current",
+    275: "LD_current",
+    288: "temp_OK",
+    304: "TEC_enabled",
+    305: "LD_driver enabled"}
 OSC_SVC_SET = {
     1: "TEC temperature",
     2: "enable TEC",
@@ -63,15 +63,15 @@ OSC_SVC_SET = {
     5: "enable LD",
     255: "update request"}
 PII_SVC_GET = {
-    256: "ramp offset",
+    256: "ramp_offset",
     257: "level",
-    258: "ramp value",
-    272: "lockbox monitor",
-    273: "P monitor",
-    304: "lock disabled",
-    305: "I1 disabled",
-    306: "I2 disabled",
-    307: "ramp active"}
+    258: "ramp_value",
+    272: "lockbox_monitor",
+    273: "P_monitor",
+    304: "lock_disabled",
+    305: "I1_disabled",
+    306: "I2_disabled",
+    307: "ramp_active"}
 PII_SVC_SET = {
     0: "disable lock",
     1: "disable I1",
@@ -82,24 +82,24 @@ PII_SVC_SET = {
     6: "ramp value",
     255: "update request"}
 ADC_SVC_GET = {
-    0: "ADC channel 0",
-    1: "ADC channel 1",
-    2: "ADC channel 2",
-    3: "ADC channel 3",
-    4: "ADC channel 4",
-    5: "ADC channel 5",
-    6: "ADC channel 6",
-    7: "ADC channel 7",
-    8: "ADC temp 0",
-    9: "ADC temp 1",
-    10: "ADC temp 2",
-    11: "ADC temp 3",
-    12: "ADC temp 4",
-    13: "ADC temp 5",
-    14: "ADC temp 6",
-    15: "ADC temp 7"}
+    0: "ADC_channel_0",
+    1: "ADC_channel_1",
+    2: "ADC_channel_2",
+    3: "ADC_channel_3",
+    4: "ADC_channel_4",
+    5: "ADC_channel_5",
+    6: "ADC_channel_6",
+    7: "ADC_channel_7",
+    8: "ADC_temp_0",
+    9: "ADC_temp_1",
+    10: "ADC_temp_2",
+    11: "ADC_temp_3",
+    12: "ADC_temp_4",
+    13: "ADC_temp_5",
+    14: "ADC_temp_6",
+    15: "ADC_temp_7"}
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
-MUC_SVC_GET = {1: "system time?"}
+MUC_SVC_GET = {1: "system_time"}
 
 # Define some custom types. As the typing library is quite a recent feature,
 # there are some inconveniencies regarding pylint:
@@ -585,13 +585,11 @@ class MenloStack:
             if LOG_QUANTITIES:
                 try:
                     logger.log_quantity(
-                        "menlo_{}_{}_{}".format(node, service,
-                                                self._name_service(node, service)),
+                        "menlo_{}_{}_{}".format(node, service, self._name_service(node, service)),
                         float(time.time()), float(val))
-                except ValueError:
-                    logger.log_quantity(
-                        "menlo_{}_{}".format(node, service),
-                        float(time.time()), float(val))
+                except ValueError:  # Don't use the name, as it's weird.
+                    logger.log_quantity("menlo_{}_{}".format(node, service),
+                                        float(time.time()), float(val))
         else:
             LOGGER.warning(("Combination of node id %s and service id %s "
                             "doesn't resolve into a documented quantity."),
