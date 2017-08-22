@@ -64,27 +64,29 @@ def start_flushing_regularly(seconds: float) -> None:
     """Schedule regular flushing of the the buffered data to disk.
 
     This needs a running asyncio event loop to work. Make sure one is running,
-    otherwise a RuntimeError is raised.
+    otherwise a warning is issued and the flushing is scheduled anyway.
 
     Specifying a long interval does not reliably avoid frequent writes, as the
-    buffers will flush automatically to prevent overflow for very verbose
-    programs.
+    buffers will flush automatically if necessary to prevent overflow.
 
     :param seconds: Interval for flushing. See note on flushing interval above.
-    :raises RuntimeError: No event loop is running.
     """
     global _is_flushing
-    if not asyncio.get_event_loop().is_running():
-        raise RuntimeError("Can't schedule flushing, as no asyncio event loop "
-                           "is running.")
     if _is_flushing:
-        logging.error("Flushing was scheduled already. Ignoring.")
+        logging.error("Flushing was already scheduled already. Ignoring.")
         return
+    _is_flushing = True
+    if seconds < 2:
+        raise ValueError("Interval must be > 2 seconds to ensure asyncio flow.")
+
+    if not asyncio.get_event_loop().is_running():
+        logging.warning("Periodical disk flushing of logs might not work, as "
+                        "no event loop is running. Scheduling anyway.")
 
     async def worker() -> None:
         while True:
+            await asyncio.sleep(float(seconds))
             flush_to_disk()
-            asyncio.sleep(float(seconds))
     asyncio.ensure_future(worker())
 
 
