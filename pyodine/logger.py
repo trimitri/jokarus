@@ -104,6 +104,17 @@ def start_new_files() -> None:
         handler.doRollover()
 
 
+def ellipsicate(message: str, max_length: int = 40) -> str:
+    """Return a shortened version of a string if it exceeds max_length.
+
+    This will turn 'bizbazfrobnicator' into "biz ... tor".
+    """
+    msg = str(message)
+    if len(msg) <= max_length:
+        return msg
+    snip_length = int((max_length - 5) / 2)  # ellipsis padded with spaces
+    return str(msg[:snip_length] + ' ... ' + msg[-snip_length:])
+
 def _get_qty_logger(name: str) -> logging.Logger:
     name = str(name)
     if not name.isidentifier():
