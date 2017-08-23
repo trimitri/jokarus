@@ -10,6 +10,7 @@ the module's methods will act on module-level ("static") variables.
 """
 import asyncio
 import logging
+import re
 from logging.handlers import (BufferingHandler, MemoryHandler,
                               TimedRotatingFileHandler)
 from typing import Dict  # pylint: disable=unused-import
@@ -109,11 +110,12 @@ def ellipsicate(message: str, max_length: int = 40) -> str:
 
     This will turn 'bizbazfrobnicator' into "biz ... tor".
     """
-    msg = str(message)
+    msg = re.sub(r'\s+', ' ', str(message))  # only allow ' ' for whitespace
     if len(msg) <= max_length:
         return msg
     snip_length = int((max_length - 5) / 2)  # ellipsis padded with spaces
     return str(msg[:snip_length] + ' ... ' + msg[-snip_length:])
+
 
 def _get_qty_logger(name: str) -> logging.Logger:
     name = str(name)
