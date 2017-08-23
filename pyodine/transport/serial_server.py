@@ -39,7 +39,7 @@ class SerialServer:
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._dev.write(bytestream)
         if n_transmitted_bytes == n_bytes:
-            LOGGER.debug("Transmitted Message: %s", logger.ellipsicate(data))
+            LOGGER.debug("Sent message: %s", logger.ellipsicate(data))
         else:
             LOGGER.warning("Error transmitting Message: %s",
                            logger.ellipsicate(data))
