@@ -8,6 +8,8 @@ import logging
 from typing import Callable
 import websockets
 
+from .. import logger
+
 LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
 # The websockets' protocol logger dumps every message sent and reiceived when
@@ -47,13 +49,13 @@ class WebsocketServer:
             lambda ws, _: self._register_subscriber(ws), port=self.port))
 
     async def publish(self, data: str) -> None:
-        LOGGER.debug("Trying to publish: %s", data[:30])
         if self.subscribers:
             # Send data to every subscriber.
             await asyncio.wait([ws.send(data) for ws in self.subscribers])
+            LOGGER.debug("Published: %s", logger.ellipsicate(data))
         else:
-            LOGGER.debug("Won't publish as there are "
-                         "no subscribers connected.")
+            LOGGER.debug("Won't publish as there are no subscribers "
+                         "connected.")
 
     async def _create_loopback(self, socket):
         while True:
