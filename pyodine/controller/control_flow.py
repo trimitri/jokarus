@@ -11,7 +11,6 @@ import logging
 from .subsystems import Subsystems, SubsystemError
 
 LOGGER = logging.getLogger('pyodine.controller.subsystems')
-LOGGER.setLevel(logging.DEBUG)
 
 
 class ReturnState(enum.IntEnum):
@@ -78,13 +77,8 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
         asyncio.sleep(1)
 
         subs.power_up_mo()
-    except SubsystemError as err:
-        LOGGER.error("There was a critical error in one of the subsystems "
-                     "(%s). Trying to reset.")
-
-        # FIXME: subs.reset_subsystems(err)
-        LOGGER.error("Don't know how to reset yet.")
-
+    except SubsystemError:
+        LOGGER.exception("There was a critical error in one of the "
+                         "subsystems. Trying to reset.")
         return ReturnState.FAIL
-
     return ReturnState.SUCCESS

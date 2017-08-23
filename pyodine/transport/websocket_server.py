@@ -10,6 +10,10 @@ import websockets
 
 LOGGER = logging.getLogger("pyodine.transport.websocket_server")
 
+# The websockets' protocol logger dumps every message sent and reiceived when
+# set to DEBUG. We thus degrade to INFO.
+logging.getLogger('websockets.protocol').setLevel(logging.INFO)
+
 
 class WebsocketServer:
     """Sets up a listening WebSocket server on given TCP port.
