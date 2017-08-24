@@ -34,7 +34,6 @@ async def main():
     LOGGER.info("Running Pyodine...")
 
     subs = subsystems.Subsystems()
-    await subs.init_async()
 
     face = interfaces.Interfaces(subs, start_serial_server=True)
     await face.init_async()

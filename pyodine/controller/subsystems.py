@@ -6,6 +6,7 @@ subsystem.
 SAFETY POLICY: This class silently assumes all passed arguments to be of
 correct type. The values are allowed to be wrong, though.
 """
+import asyncio
 import enum
 from functools import partial
 import logging
@@ -16,6 +17,7 @@ from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
 from ..drivers.dds9_control import Dds9Control
 from ..drivers import ecdl_mopa
+from ..util import io_tools
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -65,45 +67,11 @@ class Subsystems:
         self._laser = None  # type: ecdl_mopa.EcdlMopa
         # self._daq = None
 
-    async def init_async(self) -> None:
-        """Needs to be awaited after initialization.
-
-        It makes sure that all subsystems are ready."""
-
-        # Everything this method does relies on a running menlo stack. Thus we
-        # stop here if we don't have one.
-
-        await self.reset_menlo()
-
-        if self._menlo is None:
-            return
-
-        # Now that Menlo is up and running (TODO: check/except), initialize the
-        # laser controller.
-        get_mo = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['mo'])
-        get_pa = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['pa'])
-        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
-        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
-        disable_mo = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['mo'])
-        disable_pa = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['pa'])
-        enable_mo = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['mo'])
-        enable_pa = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['pa'])
-
-        self._laser = ecdl_mopa.EcdlMopa(
-            get_mo_callback=lambda: get_mo()[0][1],
-            get_pa_callback=lambda: get_pa()[0][1],
-            set_mo_callback=lambda c: set_mo(milliamps=c),
-            set_pa_callback=lambda c: set_pa(milliamps=c),
-            disable_mo_callback=disable_mo,
-            disable_pa_callback=disable_pa,
-            enable_mo_callback=enable_mo,
-            enable_pa_callback=enable_pa)
+        # Wait for Menlo to show up and initialize laser control as soon as
+        # they arrive.
+        asyncio.ensure_future(
+            io_tools.poll_resource(self._menlo, 5, self.reset_menlo, self._init_laser))
+        LOGGER.info("Initialized Subsystems.")
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
@@ -112,8 +80,7 @@ class Subsystems:
         try:
             await self._menlo.init_async()
         except ConnectionError:
-            LOGGER.exception("Couldn't connect to menlo stack. Starting in "
-                             "degraded mode.")
+            LOGGER.exception("Couldn't connect to menlo stack.")
             self._menlo = None
 
     async def refresh_status(self) -> None:
@@ -439,6 +406,7 @@ class Subsystems:
         self.switch_ld('pa', True)
         self.set_current('pa', self._laser.pa_powerup_current)
 
+
     # Private Methods
 
     def _init_temp_ramps(self) -> None:
@@ -484,6 +452,34 @@ class Subsystems:
         self._temp_ramps[TEC_CONTROLLERS['vhbg']].maximum_gradient = 1/5
         self._temp_ramps[TEC_CONTROLLERS['shga']].maximum_gradient = 1/5
         self._temp_ramps[TEC_CONTROLLERS['shgb']].maximum_gradient = 1/5
+
+    def _init_laser(self) -> None:
+        # Initalize a laser controller class using the methods that the menlo
+        # stack current drivers expose.
+        get_mo = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['mo'])
+        get_pa = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['pa'])
+        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
+        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
+        disable_mo = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['mo'])
+        disable_pa = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['pa'])
+        enable_mo = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['mo'])
+        enable_pa = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['pa'])
+
+        self._laser = ecdl_mopa.EcdlMopa(
+            get_mo_callback=lambda: get_mo()[0][1],
+            get_pa_callback=lambda: get_pa()[0][1],
+            set_mo_callback=lambda c: set_mo(milliamps=c),
+            set_pa_callback=lambda c: set_pa(milliamps=c),
+            disable_mo_callback=disable_mo,
+            disable_pa_callback=disable_pa,
+            enable_mo_callback=enable_mo,
+            enable_pa_callback=enable_pa)
 
     @staticmethod
     def _wrap_into_buffer(value: Union[MenloUnit, bool]) -> Buffer:
