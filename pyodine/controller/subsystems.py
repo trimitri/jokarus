@@ -77,12 +77,13 @@ class Subsystems:
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
         del self._menlo
-        self._menlo = menlo_stack.MenloStack()
+        attempt = menlo_stack.MenloStack()
         try:
-            await self._menlo.init_async()
+            await attempt.init_async()
         except ConnectionError:
             LOGGER.exception("Couldn't connect to menlo stack.")
-            self._menlo = None
+        else:
+            self._menlo = attempt
 
     async def refresh_status(self) -> None:
         if self._menlo is not None:
