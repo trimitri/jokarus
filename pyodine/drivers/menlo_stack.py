@@ -124,8 +124,7 @@ class MenloStack:
         """This does not do anything. Make sure to await the init() coro!"""
         LOGGER.info("Initializing Menlo stack...")
         self._buffers = None  # type: Buffers
-        self._connection = (
-            None)  # type: websockets.client.WebSocketClientProtocol
+        self._connection = None  # type: websockets.client.WebSocketClientProtocol
 
         # Calibratable offsets for TEC current readings. Those are >> 0, thus
         # calibration is mandatory to get useful readings.
@@ -146,8 +145,12 @@ class MenloStack:
         """
         try:
             self._connection = await websockets.connect(url)
-        except (websockets.InvalidURI, websockets.InvalidHandshake):
-            raise ConnectionError("Couldn't talk to server at given address.")
+
+        # There's multiple ways the connection to the MUC can fail. We don't
+        # really care what went wrong, we'll just tell the user what it was and
+        # fail. OSError is raised when nothing is connected to the port at all.
+        except (websockets.InvalidURI, websockets.InvalidHandshake, OSError) as err:
+            raise ConnectionError("Couldn't talk to server at given port/address.") from err
 
         self._init_buffers()
         asyncio.ensure_future(self._listen_to_socket())
