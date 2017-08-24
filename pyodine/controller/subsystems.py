@@ -112,8 +112,8 @@ class Subsystems:
         try:
             await self._menlo.init_async()
         except ConnectionError:
-            LOGGER.warning("Couldn't connect to menlo stack. Starting in "
-                           "degraded mode.")
+            LOGGER.exception("Couldn't connect to menlo stack. Starting in "
+                             "degraded mode.")
             self._menlo = None
 
     async def refresh_status(self) -> None:
