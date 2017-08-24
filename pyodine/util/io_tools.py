@@ -2,14 +2,17 @@
 
 import asyncio
 import inspect
+import logging
 from typing import Awaitable, Callable, Union
 
+LOGGER = logging.getLogger('pyodine.util.io_tools')
 
 async def poll_resource(indicator: Union[Callable[[], bool], bool],
                         delay: Union[float, int],
                         prober: Callable[[], Union[None, Awaitable[None]]] = lambda: None,
                         on_connect: Callable[[], None] = lambda: None,
                         on_disconnect: Callable[[], None] = lambda: None,
+                        name: str = '',
                         continuous: bool = False) -> None:
     """Wait for/periodically probe/check/monitor a resource.
 
@@ -38,10 +41,10 @@ async def poll_resource(indicator: Union[Callable[[], bool], bool],
     :raises TypeError: Supplied callback `probe` or `on_connect` is not
                 callable.
     """
-    for name, callback in (("prober", prober), ("on_connect", on_connect),
-                           ("on_disconnect", on_disconnect)):
+    for my_name, callback in (("prober", prober), ("on_connect", on_connect),
+                              ("on_disconnect", on_disconnect)):
         if not callable(callback):
-            raise TypeError('Callback "%s" is not callable.', name)
+            raise TypeError('Callback "%s" is not callable.', my_name)
 
     indicate = lambda: indicator() if callable(indicator) else indicator
     probe_is_async = inspect.iscoroutinefunction(prober)
@@ -50,16 +53,20 @@ async def poll_resource(indicator: Union[Callable[[], bool], bool],
     # currently healthy connection.
     while True:
         if not indicate():
-            # Try connecting until there is a connection.
+            LOGGER.info("Trying to connect connect %s.", name)
             while not indicate():
+                LOGGER.debug("Resource %s is still offline.", name)
                 if probe_is_async:
                     await prober()
                 else:
                     prober()
                 await asyncio.sleep(float(delay))
             on_connect()  # Notify the caller.
+            LOGGER.info("Resource %s is now available.", name)
         if not continuous:
+            LOGGER.info("Stopped polling of resource %s.", name)
             break
         if not indicate():  # There was a connection, but it got lost.
             on_disconnect()
+            LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))
