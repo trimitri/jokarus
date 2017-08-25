@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Union
 
 LOGGER = logging.getLogger('pyodine.util.io_tools')
 
-async def poll_resource(indicator: Union[Callable[[], bool], bool],
+async def poll_resource(indicator: Callable[[], bool],
                         delay: Union[float, int],
                         prober: Callable[[], Union[None, Awaitable[None]]] = lambda: None,
                         on_connect: Callable[[], None] = lambda: None,
@@ -20,10 +20,9 @@ async def poll_resource(indicator: Union[Callable[[], bool], bool],
     seconds. This will repeat until `indicator` is true in which case it will
     either standby (if `continuous` is True) or stop.
 
-    :param indicator: Something coercible to bool or a function returning
-                something coercible to bool that indicates if there is
-                currently a connection. This gets called quite often and should
-                ideally be cheap.
+    :param indicator: A function returning something coercible to bool that
+                indicates if there is currently a connection. This gets called
+                quite often and should ideally be cheap.
     :param delay: How long to wait after probing before checking `indicator`
                 again. Just sleeping for this time in case no `indicator` is
                 given.
@@ -46,15 +45,14 @@ async def poll_resource(indicator: Union[Callable[[], bool], bool],
         if not callable(callback):
             raise TypeError('Callback "%s" is not callable.', my_name)
 
-    indicate = lambda: indicator() if callable(indicator) else indicator
     probe_is_async = inspect.iscoroutinefunction(prober)
 
     # This outer loop will only run more than once if we are observing a
     # currently healthy connection.
     while True:
-        if not indicate():
+        if not indicator():
             LOGGER.info("Trying to connect connect %s.", name)
-            while not indicate():
+            while not indicator():
                 LOGGER.debug("Resource %s is still offline.", name)
                 if probe_is_async:
                     await prober()
@@ -66,7 +64,7 @@ async def poll_resource(indicator: Union[Callable[[], bool], bool],
         if not continuous:
             LOGGER.info("Stopped polling of resource %s.", name)
             break
-        if not indicate():  # There was a connection, but it got lost.
+        if not indicator():  # There was a connection, but it got lost.
             on_disconnect()
             LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))

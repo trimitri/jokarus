@@ -166,54 +166,55 @@ class MenloStack:
             self._get_osc_node_id(unit_number)
         except ValueError:
             LOGGER.exception("No such node.")
-        else:
+            return
 
-            # Find out if the unit is active.
-            is_disabled = None  # type: bool  # TEC unit is in standby.
+        # Find out if the unit is active.
+        is_disabled = None  # type: bool  # TEC unit is in standby.
 
-            # Wait at most ten seconds for data.
-            for _ in range(10):
-                # Did we receive the on/off flag already?
-                # Attention: We check for the length of the returned buffer
-                # here, this is not a boolean!
-                if self.is_tec_enabled(unit_number):
-                    # Extract the actual info from the Buffer.
-                    is_disabled = self.is_tec_enabled(unit_number)[0][1] == 0
-                    break  # Success! We know the state. Exit the loop.
-                else:
-                    await asyncio.sleep(1)  # Wait a for data.
-
-            # The user must disable the TEC themselves, as we don't want to be
-            # responsible for possible effects.
-            if is_disabled:
-                LOGGER.info("Calibrating TEC unit %s ...", unit_number)
-
-                # Reset current calibration.
-                self._tec_current_offsets[unit_number] = 0
-
-                # Take uncalibrated readings and average them to get a new
-                # calibration offset.
-                now = time.time()
-                await asyncio.sleep(TEC_CALIBRATION_TIME)
-                readings = self.get_tec_current(unit_number, since=now - 10)
-                if readings:
-                    offset = sum([r for (t, r) in readings]) / len(readings)
-                    self._tec_current_offsets[unit_number] = offset
-                    LOGGER.info("Calibrated TEC unit %s like %s -> 0 by using "
-                                "%s readings.",
-                                unit_number, offset, len(readings))
-                else:
-                    LOGGER.error("Didn't receive any current readings to "
-                                 "calibrate TEC unit %s against.", unit_number)
+        # Wait at most ten seconds for data.
+        for _ in range(10):
+            # Did we receive the on/off flag already?
+            # Attention: We check for the length of the returned buffer here,
+            # this is not a boolean!
+            if self.is_tec_enabled(unit_number):
+                # Extract the actual info from the Buffer.
+                is_disabled = self.is_tec_enabled(unit_number)[0][1] == 0
+                break  # Success! We know the state. Exit the loop.
             else:
-                canned_zero = TEC_CALIBRATION[unit_number]
-                self._tec_current_offsets[unit_number] = canned_zero
-                LOGGER.warning("Can't calibrate TEC %s, as it is running or "
-                               "sent no data. Using canned value %s mA as "
-                               "zero.", unit_number, canned_zero)
+                await asyncio.sleep(1)  # Wait a for data.
+
+        # The user must disable the TEC themselves, as we don't want to be
+        # responsible for possible effects.
+        if is_disabled:
+            LOGGER.info("Calibrating TEC unit %s ...", unit_number)
+
+            # Reset current calibration.
+            self._tec_current_offsets[unit_number] = 0
+
+            # Take uncalibrated readings and average them to get a new
+            # calibration offset.
+            now = time.time()
+            await asyncio.sleep(TEC_CALIBRATION_TIME)
+            readings = self.get_tec_current(unit_number, since=now - 10)
+            if readings:
+                offset = sum([r for (t, r) in readings]) / len(readings)
+                self._tec_current_offsets[unit_number] = offset
+                LOGGER.info("Calibrated TEC unit %s like %s -> 0 by using "
+                            "%s readings.",
+                            unit_number, offset, len(readings))
+            else:
+                LOGGER.error("Didn't receive any current readings to "
+                             "calibrate TEC unit %s against.", unit_number)
+        else:
+            canned_zero = TEC_CALIBRATION[unit_number]
+            self._tec_current_offsets[unit_number] = canned_zero
+            LOGGER.warning("Can't calibrate TEC %s, as it is running. Using "
+                           "canned value %s mA for zero.",
+                           unit_number, canned_zero)
 
     def calibrate_tecs(self) -> None:
         """Calibrate zero-crossings of all TEC units' current readings."""
+        LOGGER.info("Calibrating TECs...")
         tasks = [self.calibrate_tec(unit) for unit in range(1, 5)]
         asyncio.ensure_future(
             asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME))
