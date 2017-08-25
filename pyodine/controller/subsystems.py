@@ -76,7 +76,10 @@ class Subsystems:
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
+        # For lack of better understanding of the object destruction mechanism,
+        # we del here before we set it to None.
         del self._menlo
+        self._menlo = None
         attempt = menlo_stack.MenloStack()
         try:
             await attempt.init_async()
