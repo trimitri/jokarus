@@ -154,7 +154,7 @@ class MenloStack:
 
         self._init_buffers()
         asyncio.ensure_future(self._listen_to_socket())
-        self.calibrate_tecs()
+        await self.calibrate_tecs()
         LOGGER.info("Initialized Menlo stack.")
 
     async def calibrate_tec(self, unit_number: int) -> None:
@@ -212,12 +212,12 @@ class MenloStack:
                            "canned value %s mA for zero.",
                            unit_number, canned_zero)
 
-    def calibrate_tecs(self) -> None:
+    async def calibrate_tecs(self) -> None:
         """Calibrate zero-crossings of all TEC units' current readings."""
         LOGGER.info("Calibrating TECs...")
+        await self.request_full_status()
         tasks = [self.calibrate_tec(unit) for unit in range(1, 5)]
-        asyncio.ensure_future(
-            asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME))
+        await asyncio.wait(tasks, timeout=2 * TEC_CALIBRATION_TIME)
 
     def get_adc_voltage(self, channel: int, since: Time = None) -> Buffer:
         """Get reading of the analog-digital converter in Volts."""
@@ -618,6 +618,7 @@ class MenloStack:
             self._store_reply(int(parts[0]), int(parts[1]), parts[2])
 
     async def request_full_status(self) -> None:
+        """**Coroutine**! Ask all cards for info they don't regularly send."""
         for node in OSC_NODES + PII_NODES:
             self._send_command(node, 255, '0')
 
