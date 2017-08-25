@@ -15,8 +15,7 @@ from typing import Dict, List, Tuple, Union
 from ..drivers import menlo_stack
 from .temperature_ramp import TemperatureRamp
 # from ..drivers import mccdaq
-from ..drivers.dds9_control import Dds9Control
-from ..drivers import ecdl_mopa
+from ..drivers import ecdl_mopa, dds9_control
 from ..util import io_tools
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
@@ -60,7 +59,10 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
-        self._dds = Dds9Control(DDS_PORT, allow_unconnected=True)
+
+        # The DDS connection proved to be kinda unstable which is why we
+        # initialize and maintain it through polling in init_async().
+        self._dds = None  # type: dds9_control.Dds9Control
 
         # We will initialize the laser control in init_async(), as it depends
         # on Menlo being initialized first.
@@ -152,6 +154,11 @@ class Subsystems:
 
         These are the ones that don't usually change."""
         data = {}  # type: Dict[str, Buffer]
+
+        if not self._dds:  # DDS is not connected or not working.
+            LOGGER.debug("Returning empty setup params as there is no DDS.")
+            return data
+
         freqs = self._dds.frequencies
         amplitudes = self._dds.amplitudes
         data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
@@ -247,6 +254,9 @@ class Subsystems:
 
     def set_mixer_phase(self, degrees: float) -> None:
         """Set the phase offset between EOM and mixer drivers in degrees."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if not isinstance(degrees, (float, int)):
             LOGGER.error("Provide a mixer phase in degrees (%s given).",
                          degrees)
@@ -259,6 +269,9 @@ class Subsystems:
 
     def set_aom_frequency(self, freq: float) -> None:
         """Set the acousto-optic modulator driver frequency in MHz."""
+        if not self._dds:
+            LOGGER.error("Can't set AOM frequency as there is no DDS connection.")
+            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for AOM.")
             return
@@ -267,6 +280,9 @@ class Subsystems:
 
     def set_eom_frequency(self, freq: float) -> None:
         """Set the EOM and mixer frequency in MHz."""
+        if not self._dds:
+            LOGGER.error("Can't set EOM frequency as there is no DDS connection.")
+            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for EOM.")
             return
@@ -275,6 +291,9 @@ class Subsystems:
 
     def set_mixer_frequency(self, freq: float) -> None:
         """Set the Mixer frequency in MHz. Will usually be identical to EOM."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for Mixer.")
             return
@@ -283,6 +302,9 @@ class Subsystems:
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for AOM.")
             return
@@ -291,6 +313,9 @@ class Subsystems:
 
     def set_eom_amplitude(self, amplitude: float) -> None:
         """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for EOM.")
             return
@@ -299,6 +324,9 @@ class Subsystems:
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for mixer.")
             return
@@ -307,6 +335,9 @@ class Subsystems:
 
     def switch_rf_clock_source(self, which: str) -> None:
         """Pass "external" or "internal" to switch RF clock source."""
+        if not self._dds:
+            LOGGER.error("No DDS connection.")
+            return
         if which not in ['external', 'internal']:
             LOGGER.error('Can only switch to "external" or "internal" '
                          'reference, "%s" given.', which)

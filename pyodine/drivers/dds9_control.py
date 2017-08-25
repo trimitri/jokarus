@@ -28,7 +28,7 @@ DEFAULT_TO_EXT_SOURCE = True
 
 
 class Dds9Setting:
-    """A bunch of internal state variables received from DDS9.
+    """A complete set of internal state variables received from DDS9.
 
     This object consolidates most of the info that the device returns when
     asked for its internal state. As there is only one type of query command
@@ -169,9 +169,9 @@ class Dds9Control:
         # Initialize device.
         try:
             self._open_connection()  # Sets self._conn
-        except (serial.SerialException, FileNotFoundError):
+        except (serial.SerialException, FileNotFoundError) as err:
             if self._conn_state == ConnState.ASSERT:
-                raise
+                raise ConnectionError("Couldn't connect to DDS.") from err
             else:
                 LOGGER.error("Couldn't establish connection to DDS9. "
                              "Starting in offline mode.")
