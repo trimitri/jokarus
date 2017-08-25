@@ -70,8 +70,9 @@ class Subsystems:
         # Wait for Menlo to show up and initialize laser control as soon as
         # they arrive.
         asyncio.ensure_future(
-            io_tools.poll_resource(lambda: bool(self._menlo), self.reset_menlo,
-                                   self._init_laser, name="Menlo"))
+            io_tools.poll_resource(
+                lambda: bool(self._menlo), 5, self.reset_menlo,
+                self._init_laser, name="Menlo"))
         LOGGER.info("Initialized Subsystems.")
 
     async def reset_menlo(self) -> None:
