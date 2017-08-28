@@ -27,7 +27,8 @@ LOG_QUANTITIES = True  # Log quantities on disk as they are received.
 
 # Zero the average Peltier current measured over this time span.
 TEC_CALIBRATION_TIME = 10.0
-TEC_DAC_FACTOR = 27000  # Counts per volt for temp. setpoint DAC
+TEC_VREF = 4.975        # Voltage the ADC and DAC chips refer to
+TEC_DAC_FACTOR = 2**16 / TEC_VREF  # Counts per volt for temp. setpoint DAC
 TEC_ADC_FACTOR = 1000   # Counts per volt for actual temp ADC
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
