@@ -27,9 +27,19 @@ LOG_QUANTITIES = True  # Log quantities on disk as they are received.
 
 # Zero the average Peltier current measured over this time span.
 TEC_CALIBRATION_TIME = 10.0
-TEC_VREF = 4.975        # Voltage the ADC and DAC chips refer to
-TEC_DAC_FACTOR = 2**16 / TEC_VREF  # Counts per volt for temp. setpoint DAC
-TEC_ADC_FACTOR = 1000   # Counts per volt for actual temp ADC
+
+# Probably due to poor circuit design (output overload?), the digital-analog
+# converter used for setting the temperature setpoints performs very poorly
+# with increasing output voltage (up to 4% error). Although the actual
+# reference voltage used for this DAC is 4975mV, we will assume 4820mV here to
+# compensate for this offset.
+DAC_VREF = 4.820 # Voltage reference for the DAC chip
+TEC_DAC_FACTOR = 2**16 / DAC_VREF  # Counts per volt for temp. setpoint DAC
+
+# The ADC is part of a "closed-source" region of the circuit and seems to have
+# a one count per mV conversion factor. Thus we use 1000 and not 2^10 here. In
+# addition, there is a 1:1 current divider before the signal is fed to the ADC.
+TEC_ADC_FACTOR = 1000/2  # Counts per volt for actual temp ADC
 
 LOGGER = logging.getLogger('pyodine.drivers.menlo_stack')
 LOGGER.setLevel(logging.INFO)
