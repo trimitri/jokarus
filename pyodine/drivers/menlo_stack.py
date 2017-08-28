@@ -325,6 +325,8 @@ class MenloStack:
         node = self._get_osc_node_id(int(unit_number))
         dac_counts = self._to_dac_counts(float(ohms))
         self._send_command(node, 1, dac_counts)
+        logger.log_quantity('temp_sp',
+                            "%s\t%s\t%s".format(unit_number, ohms, dac_counts))
 
     def set_current(self, unit_number: int, milliamps: float) -> None:
         """Set the current driver setpoint to the given value in mA.

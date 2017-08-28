@@ -10,10 +10,10 @@ the module's methods will act on module-level ("static") variables.
 """
 import asyncio
 import logging
-import re
 from logging.handlers import (BufferingHandler, MemoryHandler,
                               TimedRotatingFileHandler)
-from typing import Dict  # pylint: disable=unused-import
+import re
+from typing import Dict, Union  # pylint: disable=unused-import
 
 PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
 QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
@@ -39,7 +39,7 @@ def is_ok() -> bool:
     return True
 
 
-def log_quantity(qty_id: str, value: float, time: float = None) -> None:
+def log_quantity(qty_id: str, value: Union[float, str], time: float = None) -> None:
     """Append "value" to the logfile of given name.
 
     :param id: This distinguishes logfiles from each other.
