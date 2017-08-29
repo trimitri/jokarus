@@ -35,13 +35,7 @@ Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
 
-class SubsystemError(RuntimeError):
-    """One of the subsystems experienced a critical problem. Reset is advised.
-    """
-    pass
-
-
-class DdsChannel(enum.IntEnum):  # noqa: E302
+class DdsChannel(enum.IntEnum):
     """The four channels of the DDS device."""
     AOM = 1
     EOM = 0
@@ -49,37 +43,49 @@ class DdsChannel(enum.IntEnum):  # noqa: E302
     FREE = 3  # not in use
 
 
+class DaqChannel(enum.IntEnum):
+    """The MCC USB1608G-2AO features 16 analog inputs."""
+    ERR_SIGNAL = 7
+    RAMP_MONITOR = 11
+
+
+class SubsystemError(RuntimeError):
+    """One of the subsystems experienced a critical problem. Reset is advised.
+    """
+    pass
+
+
 class Subsystems:
     """Provides a wrapper for all connected subsystems.
     Don't access the subsystems directly."""
 
     def __init__(self) -> None:
-        self._menlo = None  # type: menlo_stack.MenloStack
-        self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
-        self._init_temp_ramps()
 
-        # The DDS connection proved to be kinda unstable which is why we
-        # initialize and maintain it through polling in init_async().
+        # Initialize the DDS connection and monitor it for connection problems.
+        # We keep the poller alive to monitor the RS232 connection which got
+        # stuck sometimes during testing.
         self._dds = None  # type: dds9_control.Dds9Control
-
-        # We will initialize the laser control in init_async(), as it depends
-        # on Menlo being initialized first.
-        self._laser = None  # type: ecdl_mopa.EcdlMopa
-        # self._daq = None
+        asyncio.ensure_future(
+            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
+                                   continuous=True, name="DDS"))
 
         # Wait for Menlo to show up and initialize laser control as soon as
         # they arrive.
+        self._menlo = None  # type: menlo_stack.MenloStack
+        self._laser = None  # type: ecdl_mopa.EcdlMopa
         asyncio.ensure_future(
             io_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
                 self._init_laser, name="Menlo"))
 
-        # Initialize the DDS connection and monitor it for connection problems.
-        # We keep the poller alive to monitor the RS232 connection which got
-        # stuck sometimes during testing.
+        # The DAQ connection will be established and monitored through polling.
+        self._daq = None  # type: mccdaq.MccDaq
         asyncio.ensure_future(
-            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
-                                   continuous=True, name="DDS"))
+            io_tools.poll_resource(
+                
+
+        self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
+        self._init_temp_ramps()
 
         LOGGER.info("Initialized Subsystems.")
 
