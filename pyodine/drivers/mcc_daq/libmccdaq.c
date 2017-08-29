@@ -216,6 +216,17 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
   output_calibration = table_AO;  // return filled table
 }
 
+int Ping() {
+}
+
+uint16_t Status(libusb_device_handle *udev) {
+  uint8_t requesttype = (DEVICE_TO_HOST | VENDOR_TYPE | DEVICE_RECIPIENT);
+  uint16_t status = 0x0;
+
+  libusb_control_transfer(udev, requesttype, STATUS, 0x0, 0x0, (unsigned char *) &status, sizeof(status), 2000);
+  return status;
+}
+
 int TestFunc(double * result) {
   static int iteration_ctr;
   iteration_ctr++;

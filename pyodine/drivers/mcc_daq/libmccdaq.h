@@ -33,4 +33,10 @@ int TestFunc(double * result);
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
                               float output_calibration[NCHAN_AO_1608GX][2]);
 
+// 0: The DAQ connection is alive and DAQ seems healthy
+// 1: Something is wrong. Reset is advised.
+int Ping(void);
+
+uint16_t Status(libusb_device_handle *dev);
+
 #endif
