@@ -12,10 +12,8 @@ from functools import partial
 import logging
 import time
 from typing import Dict, List, Tuple, Union
-from ..drivers import menlo_stack
 from .temperature_ramp import TemperatureRamp
-# from ..drivers import mccdaq
-from ..drivers import ecdl_mopa, dds9_control
+from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq
 from ..util import io_tools
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
@@ -75,18 +73,21 @@ class Subsystems:
             io_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
                 self._init_laser, name="Menlo"))
-        LOGGER.info("Initialized Subsystems.")
 
         # Initialize the DDS connection and monitor it for connection problems.
-        def dds_alive() -> bool:
-            if self._dds and self._dds.ping():
-                return True
-            return False
         # We keep the poller alive to monitor the RS232 connection which got
         # stuck sometimes during testing.
         asyncio.ensure_future(
-            io_tools.poll_resource(dds_alive, 5.5, self.reset_dds, continuous=True))
+            io_tools.poll_resource(
+                self.dds_alive, 5.5, self.reset_dds, continuous=True))
 
+        LOGGER.info("Initialized Subsystems.")
+
+    def dds_alive(self) -> bool:
+        """The DDS is connected and healthy."""
+        if self._dds and self._dds.ping():
+            return True
+        return False
 
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
@@ -102,6 +103,24 @@ class Subsystems:
         else:
             LOGGER.info("Successfully reset Menlo stack.")
             self._menlo = attempt
+
+    async def reset_dds(self) -> None:
+        """Reset the connection to the Menlo subsystem.
+
+        This will not raise anything on failure. Check dds_alive() to for
+        success.
+        """
+        # For lack of better understanding of the object destruction mechanism,
+        # we del here before we set it to None.
+        del self._dds
+        self._dds = None
+        try:
+            attempt = dds9_control.Dds9Control(DDS_PORT)
+        except ConnectionError:
+            LOGGER.exception("Couldn't connect to DDS.")
+        else:
+            LOGGER.info("Successfully reset DDS.")
+            self._dds = attempt
 
     async def refresh_status(self) -> None:
         if self._menlo is not None:
@@ -165,28 +184,24 @@ class Subsystems:
 
         These are the ones that don't usually change."""
         data = {}  # type: Dict[str, Buffer]
-
-        if not self._dds:  # DDS is not connected or not working.
-            LOGGER.debug("Returning empty setup params as there is no DDS.")
+        try:
+            freqs = self._dds.frequencies
+            amplitudes = self._dds.amplitudes
+            phases = self._dds.phases
+            ext_clock = self._dds.runs_on_ext_clock_source
+        except (ConnectionError, AttributeError):
+            LOGGER.error("Couldn't get setup parameters as DDS is offline")
             return data
 
-        freqs = self._dds.frequencies
-        amplitudes = self._dds.amplitudes
         data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
         data['aom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.AOM])
-        data['aom_amplitude'] = self._wrap_into_buffer(
-            amplitudes[DdsChannel.AOM])
-        data['eom_amplitude'] = self._wrap_into_buffer(
-            amplitudes[DdsChannel.EOM])
-        data['mixer_amplitude'] = self._wrap_into_buffer(
-            amplitudes[DdsChannel.MIXER])
-        data['mixer_phase'] = self._wrap_into_buffer(
-            self._dds.phases[DdsChannel.MIXER])
+        data['aom_amplitude'] = self._wrap_into_buffer(amplitudes[DdsChannel.AOM])
+        data['eom_amplitude'] = self._wrap_into_buffer(amplitudes[DdsChannel.EOM])
+        data['mixer_amplitude'] = self._wrap_into_buffer(amplitudes[DdsChannel.MIXER])
+        data['mixer_phase'] = self._wrap_into_buffer(phases[DdsChannel.MIXER])
 
-        # Clock source may be unknown (None).
-        if isinstance(self._dds.runs_on_ext_clock_source, bool):
-            data['rf_use_external_clock'] = self._wrap_into_buffer(
-                self._dds.runs_on_ext_clock_source)
+        if isinstance(ext_clock, bool):  # May be unknown (None).
+            data['rf_use_external_clock'] = self._wrap_into_buffer(ext_clock)
         return data
 
     def set_current(self, unit_name: str, milliamps: float) -> None:
@@ -265,98 +280,106 @@ class Subsystems:
 
     def set_mixer_phase(self, degrees: float) -> None:
         """Set the phase offset between EOM and mixer drivers in degrees."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if not isinstance(degrees, (float, int)):
-            LOGGER.error("Provide a mixer phase in degrees (%s given).",
-                         degrees)
+            LOGGER.error("Provide a mixer phase in degrees (%s given).", degrees)
             return
-        LOGGER.debug("Setting mixer phase to %s°", degrees)
 
-        # To set the phase difference, we need to set phases of both channels.
-        self._dds.set_phase(0, int(DdsChannel.EOM))
-        self._dds.set_phase(degrees, int(DdsChannel.MIXER))
+        try:
+            # To set the phase difference, we need to set phases of both channels.
+            self._dds.set_phase(0, int(DdsChannel.EOM))
+            self._dds.set_phase(degrees, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("Can't set phase as DDS is offline")
+        else:
+            LOGGER.debug("Set mixer phase to %s°", degrees)
 
     def set_aom_frequency(self, freq: float) -> None:
         """Set the acousto-optic modulator driver frequency in MHz."""
-        if not self._dds:
-            LOGGER.error("Can't set AOM frequency as there is no DDS connection.")
-            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for AOM.")
             return
-        LOGGER.debug("Setting AOM frequency to %s MHz.", freq)
-        self._dds.set_frequency(freq, int(DdsChannel.AOM))
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.AOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Setting AOM frequency to %s MHz.", freq)
 
     def set_eom_frequency(self, freq: float) -> None:
         """Set the EOM and mixer frequency in MHz."""
-        if not self._dds:
-            LOGGER.error("Can't set EOM frequency as there is no DDS connection.")
-            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for EOM.")
             return
-        LOGGER.debug("Setting EOM frequency to %s MHz.", freq)
-        self._dds.set_frequency(freq, int(DdsChannel.EOM))
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.EOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set EOM frequency to %s MHz.", freq)
 
     def set_mixer_frequency(self, freq: float) -> None:
         """Set the Mixer frequency in MHz. Will usually be identical to EOM."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if not isinstance(freq, (float, int)) or not freq > 0:
             LOGGER.error("Provide valid frequency (float) for Mixer.")
             return
-        LOGGER.debug("Setting mixer frequency to %s MHz.", freq)
-        self._dds.set_frequency(freq, int(DdsChannel.MIXER))
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set mixer frequency to %s MHz.", freq)
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for AOM.")
             return
-        LOGGER.debug("Setting AOM amplitude to %s %%.", amplitude * 100)
-        self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set AOM amplitude to %s %%.", amplitude * 100)
 
     def set_eom_amplitude(self, amplitude: float) -> None:
         """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for EOM.")
             return
-        LOGGER.debug("Setting EOM amplitude to %s %%.", amplitude * 100)
-        self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set EOM amplitude to %s %%.", amplitude * 100)
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
             LOGGER.error("Provide valid amplitude for mixer.")
             return
-        LOGGER.debug("Setting mixer amplitude to %s %%.", amplitude * 100)
-        self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Setting mixer amplitude to %s %%.", amplitude * 100)
 
     def switch_rf_clock_source(self, which: str) -> None:
         """Pass "external" or "internal" to switch RF clock source."""
-        if not self._dds:
-            LOGGER.error("No DDS connection.")
-            return
         if which not in ['external', 'internal']:
             LOGGER.error('Can only switch to "external" or "internal" '
                          'reference, "%s" given.', which)
             return
-        if which == 'external':
-            self._dds.switch_to_ext_reference()
-        else:  # str == 'internal'
-            self._dds.switch_to_int_reference()
+        try:
+            if which == 'external':
+                self._dds.switch_to_ext_reference()
+            else:  # str == 'internal'
+                self._dds.switch_to_int_reference()
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Switched to %s clock reference.", which)
 
     def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""

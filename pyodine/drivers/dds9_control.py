@@ -161,7 +161,10 @@ class Dds9Control:
             raise ConnectionError("Unexpected DDS9 behaviour.")
 
     def set_frequency(self, freq: float, channel: int = -1) -> None:
-        """Set frequency in MHz for one or all (-1) channels.  """
+        """Set frequency in MHz for one or all (-1) channels.
+
+        :raises ConnectionError: The connection just broke or is broken.
+        """
         if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
             LOGGER.error('"channel" must cast to str like an int and hence '
                          'has to be an actual int.')
@@ -171,13 +174,7 @@ class Dds9Control:
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
 
-        try:
-            freq = float(freq)
-        except (ValueError, TypeError):
-            LOGGER.error("Could not parse given frequency. Resetting to 0 Hz.")
-            freq = 0.0
-
-        scaled_freq = freq * self._freq_scale_factor
+        scaled_freq = float(freq) * self._freq_scale_factor
 
         # The internal freq. generation chip only stores freq. values up to 171
         # MHz.
@@ -212,12 +209,9 @@ class Dds9Control:
         """Set amplitude (float in [0, 1]) for one or all channels.
 
         If argument "channel" is omitted, all channels are set.
-        """
-        if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
-            LOGGER.error('"channel" must cast to str like an int and hence '
-                         'has to be an actual int.')
-            return
 
+        :raises ConnectionError: The connection just broke or is broken.
+        """
         def set_channel(channel, encoded_value):
             command_string = 'V' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
@@ -252,6 +246,8 @@ class Dds9Control:
         """Set phase in degrees <360 for one or all channels.
 
         If argument "channel" is omitted, all channels are set.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
             LOGGER.error('"channel" must cast to str like an int and hence '
@@ -305,17 +301,24 @@ class Dds9Control:
             self._update_state()
             if not self._state.is_zero():
                 return True
-        except serial.SerialException:
+        except ConnectionError:
             pass
+        # Fall-through of "if" above
         return False
 
     def pause(self) -> None:
-        """Temporarily sets all outputs to zero voltage."""
+        """Temporarily sets all outputs to zero voltage.
+
+        :raises ConnectionError: The connection just broke or is broken.
+        """
         self._paused_amplitudes = self.amplitudes
         self.set_amplitude(0)
 
     def resume(self) -> None:
-        """Resume frequency generation with previously used amplitudes."""
+        """Resume frequency generation with previously used amplitudes.
+
+        :raises ConnectionError: The connection just broke or is broken.
+        """
         if isinstance(self._paused_amplitudes, list):
             for channel in range(4):
                 self.set_amplitude(self._paused_amplitudes[channel], channel)
@@ -332,6 +335,8 @@ class Dds9Control:
         in which case the output frequencies will change.
         Set adjust_frequencies to False if you want to disable the adjustment
         altogether.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         if self._ref_clock == 'ext':
             LOGGER.info("Already set to use ext. clock reference. "
@@ -364,6 +369,8 @@ class Dds9Control:
         in which case the output frequencies will change. Set
         adjust_frequencies to False if you want to disable that behaviour
         altogether.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         if self._ref_clock == 'int':
             LOGGER.info("Already set to use int. clock reference. "
@@ -392,6 +399,8 @@ class Dds9Control:
 
         The new device state will then be the default state when powering up.
         Use this with caution, as it "consumes" EEPROM writes.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         self._send_command('S')
         time.sleep(.5)
@@ -405,6 +414,8 @@ class Dds9Control:
         didn't know the clock source, we also wouldn't know the clock
         multiplier and hence wouldn't be able to set or read correct frequency
         values.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         self._send_command('R')
 
@@ -423,6 +434,8 @@ class Dds9Control:
         """Deletes ALL device config and restores to factory default.
 
         Use this only when necessary, as it will write to EEPROM.
+
+        :raises ConnectionError: The connection just broke or is broken.
         """
         self._send_command('CLR')
         time.sleep(2)  # Allow some generous 2 secs to recover.
