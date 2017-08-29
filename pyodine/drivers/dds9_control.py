@@ -13,7 +13,6 @@ dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 
 del(dds)  # close connection, device keeps running
 """
-import enum
 import copy
 import logging
 import time
@@ -99,18 +98,6 @@ class SetupParameters:
         self.ext_clock_multiplier_setting = '84'
 
 
-class ConnState(enum.IntEnum):
-    """The RS232 connection state.
-
-    The connection can either be established (LIVE) or lost (DEAD). There
-    is also the trivial "ASSERT" mode, in which the connection is
-    established once on initialization and then always assumed live.
-    """
-    ONLINE = 0   # Device is connected.
-    OFFLINE = 1  # Nothing is connected.
-    ASSERT = 2   # We always assume it to be connected, regardless.
-
-
 class Dds9Control:
     """A stateful controller for the DDS9m frequency generator.
 
@@ -125,7 +112,7 @@ class Dds9Control:
     # instances must derive their own set of settings
     # from this, see __init__ below.
 
-    def __init__(self, port: str, allow_unconnected: bool = False) -> None:
+    def __init__(self, port: str) -> None:
         """Set the device connection up and set some basic device parameters.
 
         Depending on the device state, calling this constructor may actually
@@ -157,57 +144,24 @@ class Dds9Control:
         self._freq_scale_factor = None  # type: float
 
         self._state = None  # type: Dds9Setting
-
-        # If we are allowed to instantiate on a dead connection, indicate that
-        # there is no connection. Otherwise blindly assume that there is one
-        # and hope for the best.
-        self._conn_state = \
-            ConnState.OFFLINE if allow_unconnected else ConnState.ASSERT
-
         self._conn = None  # type: serial.Serial
 
         # Initialize device.
         try:
             self._open_connection()  # Sets self._conn
         except (serial.SerialException, FileNotFoundError) as err:
-            if self._conn_state == ConnState.ASSERT:
-                raise ConnectionError("Couldn't connect to DDS.") from err
-            else:
-                LOGGER.error("Couldn't establish connection to DDS9. "
-                             "Starting in offline mode.")
+            raise ConnectionError("Couldn't connect to DDS.") from err
+
+        self._initialize_device()
+
+        # Conduct a basic health test.
+        if self.ping():  # ensure proper device connection
+            LOGGER.info("Connection to DDS9m established.")
         else:
-            self._initialize_device()
-
-            # Conduct a basic health test.
-            if self.ping():  # ensure proper device connection
-                LOGGER.info("Connection to DDS9m established.")
-            else:
-                if self._conn_state == ConnState.ASSERT:
-                    raise ConnectionError("Unexpected DDS9 behaviour.")
-                LOGGER.error("Unexpected DDS9 behaviour. Switching back to "
-                             "offline mode")
-                self._conn_state = ConnState.OFFLINE
-
-    @property
-    def is_connected(self) -> bool:
-        """The device is probably connected.
-
-        True means, that the device is either connected or at least assumed to
-        always be connected (depending on initialization method).
-        False indicates that no device is connected.
-        """
-        if self._conn_state == ConnState.OFFLINE:
-            LOGGER.warning("Cannot talk to DDS device, as it is disconnected.")
-            return False
-        # Either we are ConnState.ONLINE or have to assume that we are
-        # (ConnState.ASSERT).
-        return True
+            raise ConnectionError("Unexpected DDS9 behaviour.")
 
     def set_frequency(self, freq: float, channel: int = -1) -> None:
         """Set frequency in MHz for one or all (-1) channels.  """
-        if not self.is_connected:
-            return
-
         if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
             LOGGER.error('"channel" must cast to str like an int and hence '
                          'has to be an actual int.')
@@ -250,9 +204,6 @@ class Dds9Control:
     @property
     def frequencies(self) -> List[float]:
         """Returns the frequency of each channel in MHz."""
-        if not self.is_connected:
-            LOGGER.error("DDS is not connected. Returning NaN.")
-            return [float('nan') for p in range(4)]
 
         # The frequency is returned in units of 0.1Hz, but requested in MHz.
         return [f / self._freq_scale_factor * 1e-7 for f in self._state.freqs]
@@ -262,8 +213,6 @@ class Dds9Control:
 
         If argument "channel" is omitted, all channels are set.
         """
-        if not self.is_connected:
-            return
         if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
             LOGGER.error('"channel" must cast to str like an int and hence '
                          'has to be an actual int.')
@@ -297,9 +246,6 @@ class Dds9Control:
 
         The amplitudes are returned as a list of floats in [0,1].
         """
-        if not self.is_connected:
-            LOGGER.error("DDS is not connected. Returning NaN.")
-            return [float('nan') for p in range(4)]
         return [a/1023. for a in self._state.ampls]
 
     def set_phase(self, phase: float, channel: int = -1) -> None:
@@ -307,8 +253,6 @@ class Dds9Control:
 
         If argument "channel" is omitted, all channels are set.
         """
-        if not self.is_connected:
-            return
         if type(channel) is not int:  # pylint: disable=unidiomatic-typecheck
             LOGGER.error('"channel" must cast to str like an int and hence '
                          'has to be an actual int.')
@@ -340,19 +284,15 @@ class Dds9Control:
     @property
     def phases(self) -> List[float]:
         """The relative phases of all four channels in degrees."""
-        if not self.is_connected:
-            LOGGER.error("DDS is not connected. Returning NaN.")
-            return [float('nan') for p in range(4)]
         return [p*360/16384 for p in self._state.phases]
 
     @property
     def runs_on_ext_clock_source(self) -> Union[bool, None]:
         "Is the external clock source in use? Returns None if unknown."""
-        if self.is_connected:
-            if self._ref_clock == 'ext':
-                return True
-            if self._ref_clock == 'int':
-                return False
+        if self._ref_clock == 'ext':
+            return True
+        if self._ref_clock == 'int':
+            return False
         return None  # We don't know which source is in use.
 
     def get_settings(self) -> SetupParameters:
@@ -364,7 +304,6 @@ class Dds9Control:
         try:
             self._update_state()
             if not self._state.is_zero():
-                self._conn_state = ConnState.ONLINE
                 return True
         except serial.SerialException:
             pass
@@ -394,8 +333,6 @@ class Dds9Control:
         Set adjust_frequencies to False if you want to disable the adjustment
         altogether.
         """
-        if not self.is_connected:
-            return
         if self._ref_clock == 'ext':
             LOGGER.info("Already set to use ext. clock reference. "
                         "Doing nothing.")
@@ -428,8 +365,6 @@ class Dds9Control:
         adjust_frequencies to False if you want to disable that behaviour
         altogether.
         """
-        if not self.is_connected:
-            return
         if self._ref_clock == 'int':
             LOGGER.info("Already set to use int. clock reference. "
                         "Doing nothing.")
@@ -458,8 +393,6 @@ class Dds9Control:
         The new device state will then be the default state when powering up.
         Use this with caution, as it "consumes" EEPROM writes.
         """
-        if not self.is_connected:
-            return
         self._send_command('S')
         time.sleep(.5)
 
@@ -473,8 +406,6 @@ class Dds9Control:
         multiplier and hence wouldn't be able to set or read correct frequency
         values.
         """
-        if not self.is_connected:
-            return
         self._send_command('R')
 
         # If we don't let DDS9 rest after a reset, it gives all garbled values.
@@ -493,8 +424,6 @@ class Dds9Control:
 
         Use this only when necessary, as it will write to EEPROM.
         """
-        if not self.is_connected:
-            return
         self._send_command('CLR')
         time.sleep(2)  # Allow some generous 2 secs to recover.
 
@@ -511,7 +440,7 @@ class Dds9Control:
         LOGGER.debug("Queried new state. New Freq/s are %s", state.freqs)
 
     def _send_command(self, command: str = '') -> str:
-        """Prepare a command string and send it to the device."""
+        # Prepare a command string and send it to the device.
 
         def read_response() -> str:
             """Gets response from device through serial connection."""
@@ -533,25 +462,17 @@ class Dds9Control:
             response = read_response()
             LOGGER.debug("Sent %s, got %s back.", command, response)
             return response
-        except serial.SerialException:
-            if self._conn_state == ConnState.ONLINE:
-                LOGGER.error("An error occured while trying to send "
-                             "something. Switching to offline mode.")
-                self._conn_state = ConnState.OFFLINE
-            elif self._conn_state == ConnState.OFFLINE:
-                LOGGER.warning("Tried to send something in offline mode. "
-                               "Ignoring.")
-            else:  # _conn_state = ConnState.ASSERT
-                raise
-        return ''  # This point shouldn't be reached.
+        except serial.SerialException as err:
+            raise ConnectionError("DDS connection broke.") from err
 
     def _open_connection(self) -> None:
-        """Opens the device connection for reading and writing."""
+        # Open the device connection for reading and writing.
+
+        # This might raise, but is caught in caller.
         self._conn = serial.Serial(self._settings.port)
+
         self._conn.baudrate = self._settings.baudrate
         self._conn.timeout = self._settings.timeout
-        if self._conn_state == ConnState.OFFLINE:
-            self._conn_state = ConnState.ONLINE
         LOGGER.info("Connected to serial port " + self._conn.name)
 
     def _initialize_device(self) -> None:

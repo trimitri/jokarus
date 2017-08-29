@@ -77,6 +77,17 @@ class Subsystems:
                 self._init_laser, name="Menlo"))
         LOGGER.info("Initialized Subsystems.")
 
+        # Initialize the DDS connection and monitor it for connection problems.
+        def dds_alive() -> bool:
+            if self._dds and self._dds.ping():
+                return True
+            return False
+        # We keep the poller alive to monitor the RS232 connection which got
+        # stuck sometimes during testing.
+        asyncio.ensure_future(
+            io_tools.poll_resource(dds_alive, 5.5, self.reset_dds, continuous=True))
+
+
     async def reset_menlo(self) -> None:
         """Reset the connection to the Menlo subsystem."""
         # For lack of better understanding of the object destruction mechanism,
