@@ -78,8 +78,8 @@ class Subsystems:
         # We keep the poller alive to monitor the RS232 connection which got
         # stuck sometimes during testing.
         asyncio.ensure_future(
-            io_tools.poll_resource(
-                self.dds_alive, 5.5, self.reset_dds, continuous=True))
+            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
+                                   continuous=True, name="DDS"))
 
         LOGGER.info("Initialized Subsystems.")
 
@@ -209,8 +209,6 @@ class Subsystems:
 
         :raises SubsystemError: Something went wrong in calling a callback.
         """
-        LOGGER.debug("Setting diode current of unit %s to %s mA",
-                     unit_name, milliamps)
         try:
             if unit_name == 'mo':
                 self._laser.set_mo_current(milliamps)
@@ -218,11 +216,11 @@ class Subsystems:
                 self._laser.set_pa_current(milliamps)
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
-        except ValueError as err:
-            LOGGER.error(str(err))
-        except ecdl_mopa.CallbackError:
-            LOGGER.exception("Critical error in osc. sup. unit!")
-            raise SubsystemError("Critical error in osc. sup. unit!")
+        except ValueError:
+            LOGGER.exception("Failed to set laser current.")
+        except ecdl_mopa.CallbackError as err:
+            raise SubsystemError("Critical error in osc. sup. unit!") from err
+        LOGGER.info("Set diode current of unit %s to %s mA", unit_name, milliamps)
 
     def set_temp(self, unit_name, celsius: float,
                  bypass_ramp: bool = False) -> None:
@@ -363,7 +361,7 @@ class Subsystems:
         except (AttributeError, ConnectionError):
             LOGGER.error("DDS offline.")
         else:
-            LOGGER.info("Setting mixer amplitude to %s %%.", amplitude * 100)
+            LOGGER.info("Set mixer amplitude to %s %%.", amplitude * 100)
 
     def switch_rf_clock_source(self, which: str) -> None:
         """Pass "external" or "internal" to switch RF clock source."""
