@@ -12,7 +12,13 @@
 // "Dip" is a descent followed by an ascent.
 typedef enum SignalType {kDescent, kAscent, kDip} SignalType;
 
-typedef enum Error {kSuccess = 0, kValueError, kTypeError, kNotImplementedError} Error;
+typedef enum Error {
+    kSuccess = 0,
+    kConnectionError,
+    kValueError,
+    kTypeError,
+    kNotImplementedError
+} Error;
 
 // Generate a signal and read input channels while it is produced.
 Error FetchScan(double offset, double amplitude, double duration,

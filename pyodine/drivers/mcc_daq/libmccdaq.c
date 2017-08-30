@@ -31,7 +31,7 @@ static void Log(enum kLogLevel level, char *message) {
 
 Error FetchScan(double offset, double amplitude, double duration,
                 SignalType type, double *readings) {
-  const uint n_out_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE;
+  const uint n_out_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2;
   const double sample_rate = n_out_samples / duration;
   uint16_t signal[n_out_samples]; 
   Error ret = GenerateSignal(type, n_out_samples, 100, amplitude, offset, signal);
@@ -65,14 +65,20 @@ libusb_device_handle * OpenConnection(void) {
   if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
     usbInit_1608G(dev, 1);
   } else {
-    printf("Failure, did not find a USB 1608G series device!\n");
+    puts("Failure, did not find a USB 1608G series device!");
   }
   return dev;
 }
 
 Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
-  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE) return kValueError;
-  if (!(sample_rate > 0.)) return kValueError;
+  if (2 * n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE) {
+    puts("Too much data to send it at once.");
+    return kValueError; 
+  }
+  if (!(sample_rate > 0.)) {
+    puts("Provide sample rate in Hz.");
+    return kValueError;
+  }
 
   usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
 
@@ -84,14 +90,18 @@ Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
   // single period of data in it. This usually buys us enougth time to start
   // filling up the FIFO after the scan started.
   usbAOutScanClearFIFO_USB1608GX_2AO(dev);
-  int transferred_byte_ct, ret;
 
-  ret = libusb_bulk_transfer(
-      dev, LIBUSB_ENDPOINT_OUT|2, (unsigned char *) samples, (int) n_samples,
-      &transferred_byte_ct, kUsbTimeout);
-  printf("sent: %d, received: %d, ret: %d\n", n_samples, transferred_byte_ct, ret);
-
-  /* printf("rate: %f\n", rate); */
+  // The samples for the 16-bit output stage are 2-byte unsigned integers. As
+  // the USB transfer only accepts single bytes ("char"), we send double the
+  // amount of bytes as we have samples.
+  int n_transferred_bytes;
+  int ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
+      (unsigned char *) samples, 2 * (int) n_samples,
+      &n_transferred_bytes, kUsbTimeout);
+  if (2 * (int) n_samples != n_transferred_bytes || ret != 0) {
+    puts("Error transferring data to device.");
+    return kConnectionError;
+  }
   usbAOutScanStart_USB1608GX_2AO(dev,
       // total # of samples to produce before stopping scan automatically
       n_samples,
@@ -259,10 +269,21 @@ void GenerateTriangleSignal(uint length, double min, double max,
 
 Error GenerateSignal(enum SignalType signal, uint n_samples,
     uint n_prefix, double amplitude, double offset, uint16_t *samples) {
-  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE || n_prefix > n_samples
-      || amplitude < 0. || amplitude > 10.
-      || offset < -10. || offset > 10.
-      || offset + amplitude > 10. || offset - amplitude < -10) {
+  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE) {
+    puts("Won't generate more samples than the DAQ can take");
+    return kValueError;
+  }
+  if (n_prefix > n_samples) {
+    puts("Must not have more prefix than total samples.");
+    return kValueError;
+  }
+  if (amplitude < 0. || amplitude > 20.) {
+    puts("Total amplitude must not exceed 20 Volts");
+    return kValueError;
+  }
+  if (offset < -10 || offset > 10
+      || offset + amplitude / 2 > 10 || offset - amplitude / 2 < -10) {
+    puts("Combination of offset and amplitude must not exceed +/- 10 volts.");
     return kValueError;
   }
   uint n_signal_samples = n_samples - n_prefix - 1; 
@@ -328,6 +349,7 @@ Error IntegerSlope(uint16_t start, uint16_t stop, uint n_samples,
   for (uint i = 0; i < n_samples; i ++) {
     double exact = start + (stop - start) * (double) i / (n_samples - 1);
     samples[i] = (uint16_t) (exact + .5);
+    /* if (i % 50 == 0) printf("%d\n", samples[i]); */
   }
   return kSuccess;
 }
