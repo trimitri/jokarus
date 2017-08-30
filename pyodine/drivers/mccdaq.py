@@ -56,22 +56,31 @@ class MccDaq:
         :returns: A two-dimensional array of values read.
         """
 
+        # TODO:
+        # - Get return size from C
+        # - Try reading at higher sample rate than writing
+
         chan = np.array(channels, dtype='uint8')
-        samples = MAX_BULK_TRANSFER
-        frequency = MAX_BULK_TRANSFER / gate_time
+        samples = int(MAX_BULK_TRANSFER / 2)
 
         response = np.zeros([samples, len(chan)])
 
         # To emulate synchronous I/O operation, we first schedule the output
         # part and then immediately start reading.
-        self._daq.TriangleOnce(ct.c_double(gate_time),
-                               ct.c_double(min_val),
-                               ct.c_double(max_val))
-        self._daq.SampleChannelsAt10V(chan.ctypes.data,
-                                      ct.c_uint(len(chan)),
-                                      ct.c_uint(samples),
-                                      ct.c_double(frequency),
-                                      response.ctypes.data)
+        offset = ct.c_double(0)
+        ampl = ct.c_double(amplitude)
+        duration = ct.c_double(time)
+        signal_type = ct.c_int(0)
+        self._daq.FetchScan(offset, ampl, duration, signal_type,
+                            response.ctypes.data)
+        # self._daq.TriangleOnce(ct.c_double(gate_time),
+        #                        ct.c_double(min_val),
+        #                        ct.c_double(max_val))
+        # self._daq.SampleChannelsAt10V(chan.ctypes.data,
+        #                               ct.c_uint(len(chan)),
+        #                               ct.c_uint(samples),
+        #                               ct.c_double(frequency),
+        #                               response.ctypes.data)
         return response
 
     def ping(self) -> bool:
