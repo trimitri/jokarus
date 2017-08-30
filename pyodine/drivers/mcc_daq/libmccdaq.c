@@ -150,7 +150,7 @@ void SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double f
   usbAInScanStart_USB1608G(dev, n_samples, 0, frequency, 0x0);
   uint16_t *rcv_data = calloc(n_channels*n_samples, 2);
   int ret = usbAInScanRead_USB1608G(dev, (int) n_samples, (int) n_channels,
-                                    rcv_data, 20000);
+                                    rcv_data, 20000, 0);
 
   // Return error if USB connection failed.
   if (ret != (int) (sizeof(uint16_t) * n_channels * n_samples)) {
@@ -217,14 +217,15 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
 }
 
 int Ping() {
-}
-
-uint16_t Status(libusb_device_handle *udev) {
   uint8_t requesttype = (DEVICE_TO_HOST | VENDOR_TYPE | DEVICE_RECIPIENT);
   uint16_t status = 0x0;
 
-  libusb_control_transfer(udev, requesttype, STATUS, 0x0, 0x0, (unsigned char *) &status, sizeof(status), 2000);
-  return status;
+  libusb_control_transfer(dev, requesttype, 0x40, 0x0, 0x0,
+                          (unsigned char *) &status, sizeof(status), 2000);
+  if (status == 0x160) {
+    return 0;
+  }
+  return 1;
 }
 
 int TestFunc(double * result) {

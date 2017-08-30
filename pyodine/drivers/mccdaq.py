@@ -1,9 +1,11 @@
 """A python wrapper for the MCC linux driver."""
 
 import ctypes as ct
+import logging
 import numpy as np
 
 MAX_BULK_TRANSFER = 2560
+LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
 class MccDaq:
     """A stateful wrapper around the MCC DAQ device."""
@@ -43,4 +45,8 @@ class MccDaq:
 
     def ping(self) -> bool:
         """The DAQ talks to us and seems healthy."""
-        return self._daq.Ping() == 0
+        try:
+            return self._daq.Ping() == 0
+        except:  # Who knows what it might raise... # pylint: disable=bare-except
+            LOGGER.exception("DAQ got sick.")
+        return False

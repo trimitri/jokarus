@@ -35,8 +35,9 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
 
 // 0: The DAQ connection is alive and DAQ seems healthy
 // 1: Something is wrong. Reset is advised.
+//
+// This internally checks the "USB Status" of the device to be 0x160, which
+// seems to be "normal mode".
 int Ping(void);
-
-uint16_t Status(libusb_device_handle *dev);
 
 #endif
