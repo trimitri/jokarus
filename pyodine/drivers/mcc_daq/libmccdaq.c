@@ -203,7 +203,7 @@ void GenerateTriangleSignal(uint length, double min, double max,
   }
 }
 
-enum Error GenerateSignal(enum SignalType signal, uint n_samples,
+Error GenerateSignal(enum SignalType signal, uint n_samples,
     uint n_prefix, double amplitude, double offset, uint16_t *samples) {
   if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE || n_prefix > n_samples
       || amplitude < 0. || amplitude > 10.
@@ -224,10 +224,10 @@ enum Error GenerateSignal(enum SignalType signal, uint n_samples,
   // Actual signal.
   switch (signal) {
     case kDescent:
-      IntegerSlope(max, min, n_signal_samples, samples);
+      IntegerSlope(max, min, n_signal_samples, samples + n_prefix);
       break;
     case kAscent:
-      IntegerSlope(min, max, n_signal_samples, samples);
+      IntegerSlope(min, max, n_signal_samples, samples + n_prefix);
       break;
     default:
       return kNotImplementedError;
@@ -266,7 +266,7 @@ int Ping() {
 
 uint16_t VoltsToCounts(double volts) {
   // We round by adding .5 and then truncating to zero.
-  return (uint16_t) (kMaxAmplitude * (volts + 10.) + .5);
+  return (uint16_t) ((kMaxAmplitude * (volts + 10.) / 20.) + .5);
 }
 
 Error IntegerSlope(uint16_t start, uint16_t stop, uint n_samples,

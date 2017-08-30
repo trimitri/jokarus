@@ -5,6 +5,7 @@
 int main() {
 
   OpenConnection();
+  /*
   TriangleOnce(1., -10, 10);
   uint8_t channels[] = {10, 11, 12};
   uint n_channels = sizeof(channels);
@@ -20,16 +21,17 @@ int main() {
     printf("\n");
   }
   free(data);
+  */
 
   uint n = 20;
   uint16_t samples[n];
-  uint ret = GenerateSignal(0, 20, 5, 5., 1., samples);
+  uint ret = GenerateSignal(0, n, 5, 5., 0., samples);
   if (ret == 0) {
     printf("Success!\n");
     for (uint i = 0; i < n; i++) {
       printf("%d\n", samples[i]);
     }
   } else {
-    printf("Failure.");
+    printf("Failure.\n");
   }
 }
