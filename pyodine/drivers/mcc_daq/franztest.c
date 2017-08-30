@@ -23,15 +23,12 @@ int main() {
   free(data);
   */
 
-  uint n = 20;
-  uint16_t samples[n];
-  uint ret = GenerateSignal(0, n, 5, 5., 0., samples);
-  if (ret == 0) {
-    printf("Success!\n");
-    for (uint i = 0; i < n; i++) {
-      printf("%d\n", samples[i]);
+  double * data = calloc(LIBMCCDAQ_BULK_TRANSFER_SIZE * 2, sizeof(double));
+  int ret = FetchScan(0., 1., 1., kDescent, data);
+  printf("%d\n", ret);
+  for (uint i = 0; i < LIBMCCDAQ_BULK_TRANSFER_SIZE; i++) {
+    if (i % 50 == 0) {
+      printf("%g\t%g\n", data[2*i], data[2*i + 1]);
     }
-  } else {
-    printf("Failure.\n");
   }
 }

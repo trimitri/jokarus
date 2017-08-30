@@ -10,9 +10,6 @@
 #include "usb-1608G.h"
 #include "libmccdaq.h"
 
-// Max. count of 2-byte integers, USB bulk transfer can tolerate 5120 bytes.
-#define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
-
 static const uint kUsbTimeout = 1000;  // USB connection timout in ms.
 static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
@@ -32,6 +29,29 @@ static void Log(enum kLogLevel level, char *message) {
   free(output);
 }
 
+Error FetchScan(double offset, double amplitude, double duration,
+                SignalType type, double *readings) {
+  const uint n_out_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE;
+  const double sample_rate = n_out_samples / duration;
+  uint16_t signal[n_out_samples]; 
+  Error ret = GenerateSignal(type, n_out_samples, 100, amplitude, offset, signal);
+  if (ret != 0) {
+    puts("Error generating signal.");
+    return ret;
+  }
+  ret = OutputSignal(signal, n_out_samples, sample_rate);
+  if (ret != 0) {
+    puts("Error sending signal.");
+    return ret;
+  }
+
+  uint8_t channels[] = {7, 11};
+  uint n_chan = sizeof(channels) / sizeof(uint8_t);
+  ret = SampleChannelsAt10V(channels, n_chan, n_out_samples, sample_rate, readings); 
+  // Output is running. Now start reading ASAP.
+  return ret;
+}
+
 libusb_device_handle * OpenConnection(void) {
 
   // Initialize libusb.
@@ -48,6 +68,42 @@ libusb_device_handle * OpenConnection(void) {
     printf("Failure, did not find a USB 1608G series device!\n");
   }
   return dev;
+}
+
+Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
+  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE) return kValueError;
+  if (!(sample_rate > 0.)) return kValueError;
+
+  usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
+
+  // The device has an internal FIFO queue storing the values to be put out
+  // during an analog output scan. The output scan will start immediately after
+  // the ScanStart command is issued if and only if we "primed" the FIFO buffer
+  // first.
+  // To do this, we first make sure that the buffer is empty and then store a
+  // single period of data in it. This usually buys us enougth time to start
+  // filling up the FIFO after the scan started.
+  usbAOutScanClearFIFO_USB1608GX_2AO(dev);
+  int transferred_byte_ct, ret;
+
+  ret = libusb_bulk_transfer(
+      dev, LIBUSB_ENDPOINT_OUT|2, (unsigned char *) samples, (int) n_samples,
+      &transferred_byte_ct, kUsbTimeout);
+  printf("sent: %d, received: %d, ret: %d\n", n_samples, transferred_byte_ct, ret);
+
+  /* printf("rate: %f\n", rate); */
+  usbAOutScanStart_USB1608GX_2AO(dev,
+      // total # of samples to produce before stopping scan automatically
+      n_samples,
+      0,            // only relevant if using retrigger mode
+      sample_rate,  // sample rate, see comments in usb-1608G.c for details
+      AO_CHAN0);
+
+  // If we stopped the scan here, the device would cease processing it's FIFO
+  // queue (see above) immediately and not be able to output even a single
+  // period.  But as we provided the exact number of desired samples in the
+  // StartScan command, we don't need to explicitly stop the scan at all.
+  return kSuccess;
 }
 
 void Triangle() {
@@ -121,12 +177,9 @@ void TriangleOnce(double duration, double min_ampl, double max_ampl) {
   // FIFO queue (see above) immediately and not be able to output even a single
   // period.  But as we provided the exact number of desired samples in the
   // StartScan command, we don't need to explicitly stop the scan at all.
-
-
-
 }
 
-void SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double frequency,
+Error SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double frequency,
                     uint8_t gains[], double * results) {
 
   usbAInScanStop_USB1608G(dev);
@@ -165,9 +218,10 @@ void SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double f
     results[i] = (double) rcv_data[i] / (kMaxAmplitude) * 20. - 10.;
   }
   free(rcv_data);
+  return kSuccess;
 }
 
-void SampleChannelsAt10V(uint8_t *channels, uint n_channels,
+Error SampleChannelsAt10V(uint8_t *channels, uint n_channels,
     uint n_samples, double freq, double * results) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvla"
@@ -176,7 +230,7 @@ void SampleChannelsAt10V(uint8_t *channels, uint n_channels,
   for (uint i = 0; i < n_channels; i++) {
     gains[i] = BP_10V;
   }
-  SampleChannels(channels, n_channels, n_samples, freq, gains, results);
+  return SampleChannels(channels, n_channels, n_samples, freq, gains, results);
 }
 
 void GenerateTriangleSignal(uint length, double min, double max,
@@ -229,7 +283,7 @@ Error GenerateSignal(enum SignalType signal, uint n_samples,
     case kAscent:
       IntegerSlope(min, max, n_signal_samples, samples + n_prefix);
       break;
-    default:
+    case kDip:
       return kNotImplementedError;
   }
   // The DAQ output voltage will always stay at the last value, thus we return
