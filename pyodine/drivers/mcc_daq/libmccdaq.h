@@ -4,6 +4,11 @@
 #include <libusb-1.0/libusb.h>
 #include "usb-1608G.h"
 
+typedef enum Error {kSuccess = 0, kValueError, kTypeError} Error;
+
+// "Descent" is a linear ramp from max to min, "Ascent" from min to max and
+// "Dip" is a descent followed by an ascent.
+typedef enum SignalType {kDescent, kAscent, kDip} SignalType;
 
 libusb_device_handle * OpenConnection(void);
 
@@ -17,6 +22,10 @@ void TriangleOnce(double duration, double min_ampl, double max_ampl);
 // second-highest value, down to zero, ending with the highest value (2^16-1).
 void GenerateTriangleSignal(uint length, double min_volts, double max_volts,
                             uint16_t *amplitudes);
+
+// Generate a signal for analog output. It will span from zero to 2^16-1.
+enum Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
+                          double amplitude, double offset, uint16_t *samples);
 
 // Sample one or more analog outputs for the given number of samples at the
 // given frequency.

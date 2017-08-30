@@ -18,9 +18,9 @@ static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 static libusb_device_handle *dev = NULL;
 
-enum kLogLevels {kDebug, kInfo, kWarning, kError, kCritical};
+enum kLogLevel {kDebug, kInfo, kWarning, kError, kCritical};
 
-static void Log(enum kLogLevels level, char *message) {
+static void Log(enum kLogLevel level, char *message) {
   char *level_names[] = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
 
   char *output = calloc(strlen(message) + 30, 1);  // make room for prefix
@@ -201,6 +201,20 @@ void GenerateTriangleSignal(uint length, double min, double max,
     // before truncating towards zero through a cast.
     amplitudes[i] = (uint16_t) (kMaxAmplitude * (rel_ampl + offset) + .5);
   }
+}
+
+enum Error GenerateSignal(enum SignalType signal, uint n_samples,
+    uint n_prefix, double amplitude, double offset, uint16_t *samples) {
+  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE || n_prefix > n_samples
+      || amplitude < 0. || amplitude > 10.
+      || offset < -10. || offset > 10.
+      || offset + amplitude > 10. || offset - amplitude < -10) {
+    return kValueError;
+  }
+  uint n_signal_samples = n_samples - n_prefix - 1; 
+  uint16_t zero = (uint16_t) (kMaxAmplitude * ((offset + 10.) / 20.) + .5);
+  uint16_t max =  (uint16_t) (kMaxAmplitude * ((offset + 10.) / 20.) + .5);
+  return kSuccess;
 }
 
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],

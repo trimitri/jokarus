@@ -13,6 +13,7 @@ class MccDaq:
     def __init__(self):
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
         self._daq.OpenConnection()
+        self.offset = 0.0  # Offset voltage the ramp centers around.
 
     def scan_ramp(self, min_val: float = -10, max_val: float = 10,
                   gate_time: float = 1, channels: list = None) -> np.ndarray:
@@ -26,6 +27,36 @@ class MccDaq:
         """
 
         chan = np.array(channels if channels else [10, 11, 12], dtype='uint8')
+        samples = MAX_BULK_TRANSFER
+        frequency = MAX_BULK_TRANSFER / gate_time
+
+        response = np.zeros([samples, len(chan)])
+
+        # To emulate synchronous I/O operation, we first schedule the output
+        # part and then immediately start reading.
+        self._daq.TriangleOnce(ct.c_double(gate_time),
+                               ct.c_double(min_val),
+                               ct.c_double(max_val))
+        self._daq.SampleChannelsAt10V(chan.ctypes.data,
+                                      ct.c_uint(len(chan)),
+                                      ct.c_uint(samples),
+                                      ct.c_double(frequency),
+                                      response.ctypes.data)
+        return response
+
+    def scan_once(self, amplitude: float, time: float, channels: list) -> np.ndarray:
+        """Scan the output voltage once and read the inputs during that time.
+
+        The ramp will center around the current `offset` voltage, thus only an
+        amplitude is given.
+
+        :param amplitude: Peak-peak amplitude of the generated ramp.
+        :param time: Approx time it takes from ramp maximum to ramp minimum.
+        :param channels: Which output channels to log during sweep?
+        :returns: A two-dimensional array of values read.
+        """
+
+        chan = np.array(channels, dtype='uint8')
         samples = MAX_BULK_TRANSFER
         frequency = MAX_BULK_TRANSFER / gate_time
 
