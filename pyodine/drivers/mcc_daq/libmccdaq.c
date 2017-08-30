@@ -212,8 +212,30 @@ enum Error GenerateSignal(enum SignalType signal, uint n_samples,
     return kValueError;
   }
   uint n_signal_samples = n_samples - n_prefix - 1; 
-  uint16_t zero = (uint16_t) (kMaxAmplitude * ((offset + 10.) / 20.) + .5);
-  uint16_t max =  (uint16_t) (kMaxAmplitude * ((offset + 10.) / 20.) + .5);
+  uint16_t zero = VoltsToCounts(offset);
+  uint16_t min =  VoltsToCounts(offset - amplitude / 2.);
+  uint16_t max =  VoltsToCounts(offset + amplitude / 2.);
+
+  // Prefix zero padding.
+  for (uint i = 0; i < n_prefix; i++) {
+    samples[i] = zero;
+  }
+
+  // Actual signal.
+  switch (signal) {
+    case kDescent:
+      IntegerSlope(max, min, n_signal_samples, samples);
+      break;
+    case kAscent:
+      IntegerSlope(min, max, n_signal_samples, samples);
+      break;
+    default:
+      return kNotImplementedError;
+  }
+  // The DAQ output voltage will always stay at the last value, thus we return
+  // to "zero" here.
+  samples[n_samples - 1] = zero;
+
   return kSuccess;
 }
 
@@ -242,11 +264,16 @@ int Ping() {
   return 1;
 }
 
-int TestFunc(double * result) {
-  static int iteration_ctr;
-  iteration_ctr++;
-  for (uint i = 0; i<32; i++) {
-    result[i] = (double) i;
+uint16_t VoltsToCounts(double volts) {
+  // We round by adding .5 and then truncating to zero.
+  return (uint16_t) (kMaxAmplitude * (volts + 10.) + .5);
+}
+
+Error IntegerSlope(uint16_t start, uint16_t stop, uint n_samples,
+                   uint16_t *samples) {
+  for (uint i = 0; i < n_samples; i ++) {
+    double exact = start + (stop - start) * (double) i / (n_samples - 1);
+    samples[i] = (uint16_t) (exact + .5);
   }
-  return iteration_ctr;
+  return kSuccess;
 }

@@ -4,7 +4,12 @@
 #include <libusb-1.0/libusb.h>
 #include "usb-1608G.h"
 
-typedef enum Error {kSuccess = 0, kValueError, kTypeError} Error;
+typedef enum Error {
+  kSuccess = 0,
+  kValueError,
+  kTypeError,
+  kNotImplementedError}
+Error;
 
 // "Descent" is a linear ramp from max to min, "Ascent" from min to max and
 // "Dip" is a descent followed by an ascent.
@@ -37,8 +42,6 @@ void SampleChannels(uint8_t *channels, uint channel_count,
 void SampleChannelsAt10V(uint8_t *channels, uint channel_count,
     uint sample_count, double frequency, double * results);
 
-int TestFunc(double * result);
-
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
                               float output_calibration[NCHAN_AO_1608GX][2]);
 
@@ -48,5 +51,15 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
 // This internally checks the "USB Status" of the device to be 0x160, which
 // seems to be "normal mode".
 int Ping(void);
+
+// Convert the given voltage to a digital value in "levels" alias "LSB" alias
+// "counts". This will always work and does not check for legal values!
+uint16_t VoltsToCounts(double volts);
+
+// Fill `n_samples` uint16_t's into the passed array `samples`. The first value
+// is `start`, the last value is `stop` and in between we approximate a linear
+// slope as good as possible.
+Error IntegerSlope(uint16_t start, uint16_t stop, uint n_samples,
+                   uint16_t *samples);
 
 #endif
