@@ -61,14 +61,6 @@ class Subsystems:
 
     def __init__(self) -> None:
 
-        # Initialize the DDS connection and monitor it for connection problems.
-        # We keep the poller alive to monitor the RS232 connection which got
-        # stuck sometimes during testing.
-        self._dds = None  # type: dds9_control.Dds9Control
-        asyncio.ensure_future(
-            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
-                                   continuous=True, name="DDS"))
-
         # Wait for Menlo to show up and initialize laser control as soon as
         # they arrive.
         self._menlo = None  # type: menlo_stack.MenloStack
@@ -78,11 +70,17 @@ class Subsystems:
                 lambda: bool(self._menlo), 5, self.reset_menlo,
                 self._init_laser, name="Menlo"))
 
+        # Initialize the DDS connection and monitor it for connection problems.
+        # We keep the poller alive to monitor the RS232 connection which got
+        # stuck sometimes during testing.
+        self._dds = None  # type: dds9_control.Dds9Control
+        asyncio.ensure_future(
+            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
+                                   continuous=True, name="DDS"))
+
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
-        asyncio.ensure_future(
-            io_tools.poll_resource(
-                
+        # TODO: Implement DAQ here.
 
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
