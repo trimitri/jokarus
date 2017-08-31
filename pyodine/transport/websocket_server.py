@@ -83,7 +83,8 @@ class WebsocketServer:
                 if callable(self._rcv_callback):
                     self._rcv_callback(message)
                 LOGGER.debug("Received message: %s", message)
-        except (websockets.exceptions.ConnectionClosed, ConnectionError):
+        except (websockets.exceptions.ConnectionClosed, ConnectionError,
+                AssertionError):
             self.subscribers.remove(socket)
             LOGGER.info("Unsubscribed a client. %d clients left.",
                         len(self.subscribers))
