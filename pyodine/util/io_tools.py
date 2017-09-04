@@ -47,8 +47,8 @@ async def poll_resource(indicator: Callable[[], bool],
 
     probe_is_async = inspect.iscoroutinefunction(prober)
 
-    # This outer loop will only run more than once if we are observing a
-    # currently healthy connection.
+    # This outer loop will only run more than once if the user wants us to keep
+    # observing a currently healthy connection.
     while True:
         if not indicator():
             LOGGER.info("Trying to connect connect %s.", name)
