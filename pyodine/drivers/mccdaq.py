@@ -12,7 +12,12 @@ class MccDaq:
 
     def __init__(self):
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
-        self._daq.OpenConnection()
+        state = self._daq.OpenConnection()
+        if state == 1:  # 'kConnectionError in error types enum in C'
+            raise ConnectionError("Couldn't connect to DAQ.")
+        if not state == 0:
+            raise ConnectionError("Unexpected error while trying to connect "
+                                  "to DAQ.")
         self.offset = 0.0  # Offset voltage the ramp centers around.
 
     def scan_ramp(self, min_val: float = -10, max_val: float = 10,

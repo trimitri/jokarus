@@ -14,19 +14,28 @@ typedef enum SignalType {kDescent, kAscent, kDip} SignalType;
 
 typedef enum Error {
     kSuccess = 0,
-    kConnectionError,
-    kValueError,
-    kTypeError,
-    kNotImplementedError
+    kConnectionError = 1,     // connection to an external device failed
+    kValueError = 2,          // function argument out of bounds or illegal
+    kTypeError = 3,           // wrong argument type
+    kNotImplementedError = 4,
+    kOSError = 5              // error loading a library or using a system call
 } Error;
 
 // Generate a signal and read input channels while it is produced.
 Error FetchScan(double offset, double amplitude, double duration,
                 SignalType type, double *readings);
 
+void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
+                              float output_calibration[NCHAN_AO_1608GX][2]);
+
 // Generate a signal for analog output. It will span from zero to 2^16-1.
 Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
                           double amplitude, double offset, uint16_t *samples);
+
+// Fills the array in amplitudes with a V-Shaped int series, starting with the
+// second-highest value, down to zero, ending with the highest value (2^16-1).
+void GenerateTriangleSignal(uint length, double min_volts, double max_volts,
+                            uint16_t *amplitudes);
 
 // Fill `n_samples` uint16_t's into the passed array `samples`. The first value
 // is `start`, the last value is `stop` and in between we approximate a linear
@@ -34,7 +43,7 @@ Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
 Error IntegerSlope(uint16_t start, uint16_t stop, uint n_samples,
                    uint16_t *samples);
 
-libusb_device_handle * OpenConnection(void);
+Error OpenConnection(void);
 
 // Generate an actual signal at the device output port.
 Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate);
@@ -46,21 +55,6 @@ Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate);
 // seems to be "normal mode".
 int Ping(void);
 
-// Convert the given voltage to a digital value in "levels" alias "LSB" alias
-// "counts". This will always work and does not check for legal values!
-uint16_t VoltsToCounts(double volts);
-
-// Fills the array in amplitudes with a V-Shaped int series, starting with the
-// second-highest value, down to zero, ending with the highest value (2^16-1).
-void GenerateTriangleSignal(uint length, double min_volts, double max_volts,
-                            uint16_t *amplitudes);
-
-// Generate continuous triangle signal using full 20 volt range.
-void Triangle(void);
-
-// Generate one triangle signal, starting with the down-slope.
-void TriangleOnce(double duration, double min_ampl, double max_ampl);
-
 // Sample one or more analog outputs for the given number of samples at the
 // given frequency.
 Error SampleChannels(uint8_t *channels, uint channel_count,
@@ -71,7 +65,14 @@ Error SampleChannels(uint8_t *channels, uint channel_count,
 Error SampleChannelsAt10V(uint8_t *channels, uint channel_count,
     uint sample_count, double frequency, double * results);
 
-void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
-                              float output_calibration[NCHAN_AO_1608GX][2]);
+// Generate continuous triangle signal using full 20 volt range.
+void Triangle(void);
+
+// Generate one triangle signal, starting with the down-slope.
+void TriangleOnce(double duration, double min_ampl, double max_ampl);
+
+// Convert the given voltage to a digital value in "levels" alias "LSB" alias
+// "counts". This will always work and does not check for legal values!
+uint16_t VoltsToCounts(double volts);
 
 #endif

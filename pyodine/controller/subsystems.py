@@ -88,6 +88,12 @@ class Subsystems:
 
         LOGGER.info("Initialized Subsystems.")
 
+    def daq_alive(self) -> bool:
+        """The DAQ is connected and healthy."""
+        if self._daq and self._daq.ping():
+            return True
+        return False
+
     def dds_alive(self) -> bool:
         """The DDS is connected and healthy."""
         if self._dds and self._dds.ping():
@@ -197,6 +203,21 @@ class Subsystems:
         if self._menlo is not None:
             await self._menlo.request_full_status()
 
+    def reset_daq(self) -> None:
+        """Reset the USB connection to the DAQ. Does not clear internal state.
+        """
+        # For lack of better understanding of the object destruction mechanism,
+        # we del here before we set it to None.
+        del self._daq
+        self._daq = None
+        try:
+            attempt = mccdaq.MccDaq()
+        except ConnectionError:
+            LOGGER.exception("Couldn't connect to DAQ.")
+        else:
+            LOGGER.info("Successfully (re-)set DAQ.")
+            self._daq = attempt
+
     async def reset_dds(self) -> None:
         """Reset the connection to the Menlo subsystem.
 
@@ -212,7 +233,7 @@ class Subsystems:
         except ConnectionError:
             LOGGER.exception("Couldn't connect to DDS.")
         else:
-            LOGGER.info("Successfully reset DDS.")
+            LOGGER.info("Successfully (re-)set DDS.")
             self._dds = attempt
 
     async def reset_menlo(self) -> None:

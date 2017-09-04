@@ -52,22 +52,23 @@ Error FetchScan(double offset, double amplitude, double duration,
   return ret;
 }
 
-libusb_device_handle * OpenConnection(void) {
+Error OpenConnection(void) {
 
   // Initialize libusb.
   int ret = libusb_init(NULL);
   if (ret < 0) {
-    perror("libusb_init: Failed to initialize libusb");
-    exit(1);
+    puts("Failed to initialize libusb");
+    return kOSError;
   }
 
   // Initialize USB connection.
   if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
     usbInit_1608G(dev, 1);
+    return kSuccess;
   } else {
     puts("Failure, did not find a USB 1608G series device!");
+    return kConnectionError;
   }
-  return dev;
 }
 
 Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
