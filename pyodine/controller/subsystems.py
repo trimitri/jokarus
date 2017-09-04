@@ -94,43 +94,6 @@ class Subsystems:
             return True
         return False
 
-    async def reset_menlo(self) -> None:
-        """Reset the connection to the Menlo subsystem."""
-        # For lack of better understanding of the object destruction mechanism,
-        # we del here before we set it to None.
-        del self._menlo
-        self._menlo = None
-        attempt = menlo_stack.MenloStack()
-        try:
-            await attempt.init_async()
-        except ConnectionError:
-            LOGGER.exception("Couldn't connect to menlo stack.")
-        else:
-            LOGGER.info("Successfully reset Menlo stack.")
-            self._menlo = attempt
-
-    async def reset_dds(self) -> None:
-        """Reset the connection to the Menlo subsystem.
-
-        This will not raise anything on failure. Check dds_alive() to for
-        success.
-        """
-        # For lack of better understanding of the object destruction mechanism,
-        # we del here before we set it to None.
-        del self._dds
-        self._dds = None
-        try:
-            attempt = dds9_control.Dds9Control(DDS_PORT)
-        except ConnectionError:
-            LOGGER.exception("Couldn't connect to DDS.")
-        else:
-            LOGGER.info("Successfully reset DDS.")
-            self._dds = attempt
-
-    async def refresh_status(self) -> None:
-        if self._menlo is not None:
-            await self._menlo.request_full_status()
-
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
@@ -209,6 +172,88 @@ class Subsystems:
             data['rf_use_external_clock'] = self._wrap_into_buffer(ext_clock)
         return data
 
+    def power_up_mo(self) -> None:
+        """
+        Switch on master oscillator and crank it to startup current.
+
+        This will only succeed, if PA is at a sufficient power level. Consider
+        running .power_up_pa() before to ensure this.
+
+        :raises SubsystemError:
+        """
+        self.switch_ld('mo', True)
+        self.set_current('mo', self._laser.mo_powerup_current)
+
+    def power_up_pa(self) -> None:
+        """
+        Switch on power amplifier and crank it to startup current.
+
+        :raises SubsystemError:
+        """
+        self.switch_ld('pa', True)
+        self.set_current('pa', self._laser.pa_powerup_current)
+
+    async def refresh_status(self) -> None:
+        if self._menlo is not None:
+            await self._menlo.request_full_status()
+
+    async def reset_dds(self) -> None:
+        """Reset the connection to the Menlo subsystem.
+
+        This will not raise anything on failure. Check dds_alive() to for
+        success.
+        """
+        # For lack of better understanding of the object destruction mechanism,
+        # we del here before we set it to None.
+        del self._dds
+        self._dds = None
+        try:
+            attempt = dds9_control.Dds9Control(DDS_PORT)
+        except ConnectionError:
+            LOGGER.exception("Couldn't connect to DDS.")
+        else:
+            LOGGER.info("Successfully reset DDS.")
+            self._dds = attempt
+
+    async def reset_menlo(self) -> None:
+        """Reset the connection to the Menlo subsystem."""
+        # For lack of better understanding of the object destruction mechanism,
+        # we del here before we set it to None.
+        del self._menlo
+        self._menlo = None
+        attempt = menlo_stack.MenloStack()
+        try:
+            await attempt.init_async()
+        except ConnectionError:
+            LOGGER.exception("Couldn't connect to menlo stack.")
+        else:
+            LOGGER.info("Successfully reset Menlo stack.")
+            self._menlo = attempt
+
+    def set_aom_amplitude(self, amplitude: float) -> None:
+        """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for AOM.")
+            return
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set AOM amplitude to %s %%.", amplitude * 100)
+
+    def set_aom_frequency(self, freq: float) -> None:
+        """Set the acousto-optic modulator driver frequency in MHz."""
+        if not isinstance(freq, (float, int)) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for AOM.")
+            return
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.AOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Setting AOM frequency to %s MHz.", freq)
+
     def set_current(self, unit_name: str, milliamps: float) -> None:
         """Set diode current setpoint of given unit.
 
@@ -226,6 +271,103 @@ class Subsystems:
         except ecdl_mopa.CallbackError as err:
             raise SubsystemError("Critical error in osc. sup. unit!") from err
         LOGGER.info("Set diode current of unit %s to %s mA", unit_name, milliamps)
+
+    def set_eom_amplitude(self, amplitude: float) -> None:
+        """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for EOM.")
+            return
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set EOM amplitude to %s %%.", amplitude * 100)
+
+    def set_eom_frequency(self, freq: float) -> None:
+        """Set the EOM and mixer frequency in MHz."""
+        if not isinstance(freq, (float, int)) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for EOM.")
+            return
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.EOM))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set EOM frequency to %s MHz.", freq)
+
+    def set_error_offset(self, unit_name: str, percent: float) -> None:
+        """Set the scaling factor for error signal input to lockbox."""
+        try:
+            percent = float(percent)
+        except (TypeError, ValueError):
+            LOGGER.exception("Please give a number for error signal offset.")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+
+        self._menlo.set_error_offset(LOCKBOXES[unit_name], percent)
+
+    def set_error_scale(self, unit_name: str, factor: float) -> None:
+        """Set the scaling factor for error signal input to lockbox."""
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            LOGGER.exception("Please give a number for scaling factor.")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+
+        self._menlo.set_error_scale(LOCKBOXES[unit_name], factor)
+
+    def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
+        """Set the amplitude of the Menlo-generated ramp. (deprecated!)"""
+        # TODO Remove this as ramp is not actually implemented in hardware.
+        if not isinstance(millivolts, int):
+            LOGGER.error("Please give ramp amplitude in millivolts (int).")
+            return
+        if not self._is_pii_unit(unit_name):
+            return
+        self._menlo.set_ramp_amplitude(LOCKBOXES[unit_name], millivolts)
+
+    def set_mixer_amplitude(self, amplitude: float) -> None:
+        """Set the mixer driver amplitude betw. 0 and 1."""
+        if not isinstance(amplitude, (float, int)) or amplitude < 0:
+            LOGGER.error("Provide valid amplitude for mixer.")
+            return
+        try:
+            self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set mixer amplitude to %s %%.", amplitude * 100)
+
+    def set_mixer_frequency(self, freq: float) -> None:
+        """Set the Mixer frequency in MHz. Will usually be identical to EOM."""
+        if not isinstance(freq, (float, int)) or not freq > 0:
+            LOGGER.error("Provide valid frequency (float) for Mixer.")
+            return
+        try:
+            self._dds.set_frequency(freq, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("DDS offline.")
+        else:
+            LOGGER.info("Set mixer frequency to %s MHz.", freq)
+
+    def set_mixer_phase(self, degrees: float) -> None:
+        """Set the phase offset between EOM and mixer drivers in degrees."""
+        if not isinstance(degrees, (float, int)):
+            LOGGER.error("Provide a mixer phase in degrees (%s given).", degrees)
+            return
+
+        try:
+            # To set the phase difference, we need to set phases of both channels.
+            self._dds.set_phase(0, int(DdsChannel.EOM))
+            self._dds.set_phase(degrees, int(DdsChannel.MIXER))
+        except (AttributeError, ConnectionError):
+            LOGGER.error("Can't set phase as DDS is offline")
+        else:
+            LOGGER.debug("Set mixer phase to %s°", degrees)
 
     def set_temp(self, unit_name, celsius: float,
                  bypass_ramp: bool = False) -> None:
@@ -247,127 +389,6 @@ class Subsystems:
                 ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
                 ramp.target_temperature = temp
 
-    def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
-        """Set the amplitude of the Menlo-generated ramp. (deprecated!)"""
-        # TODO Remove this as ramp is not actually implemented in hardware.
-        if not isinstance(millivolts, int):
-            LOGGER.error("Please give ramp amplitude in millivolts (int).")
-            return
-        if not self._is_pii_unit(unit_name):
-            return
-        self._menlo.set_ramp_amplitude(LOCKBOXES[unit_name], millivolts)
-
-    def set_error_scale(self, unit_name: str, factor: float) -> None:
-        """Set the scaling factor for error signal input to lockbox."""
-        try:
-            factor = float(factor)
-        except (TypeError, ValueError):
-            LOGGER.exception("Please give a number for scaling factor.")
-            return
-        if not self._is_pii_unit(unit_name):
-            return
-
-        self._menlo.set_error_scale(LOCKBOXES[unit_name], factor)
-
-    def set_error_offset(self, unit_name: str, percent: float) -> None:
-        """Set the scaling factor for error signal input to lockbox."""
-        try:
-            percent = float(percent)
-        except (TypeError, ValueError):
-            LOGGER.exception("Please give a number for error signal offset.")
-            return
-        if not self._is_pii_unit(unit_name):
-            return
-
-        self._menlo.set_error_offset(LOCKBOXES[unit_name], percent)
-
-    def set_mixer_phase(self, degrees: float) -> None:
-        """Set the phase offset between EOM and mixer drivers in degrees."""
-        if not isinstance(degrees, (float, int)):
-            LOGGER.error("Provide a mixer phase in degrees (%s given).", degrees)
-            return
-
-        try:
-            # To set the phase difference, we need to set phases of both channels.
-            self._dds.set_phase(0, int(DdsChannel.EOM))
-            self._dds.set_phase(degrees, int(DdsChannel.MIXER))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("Can't set phase as DDS is offline")
-        else:
-            LOGGER.debug("Set mixer phase to %s°", degrees)
-
-    def set_aom_frequency(self, freq: float) -> None:
-        """Set the acousto-optic modulator driver frequency in MHz."""
-        if not isinstance(freq, (float, int)) or not freq > 0:
-            LOGGER.error("Provide valid frequency (float) for AOM.")
-            return
-        try:
-            self._dds.set_frequency(freq, int(DdsChannel.AOM))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Setting AOM frequency to %s MHz.", freq)
-
-    def set_eom_frequency(self, freq: float) -> None:
-        """Set the EOM and mixer frequency in MHz."""
-        if not isinstance(freq, (float, int)) or not freq > 0:
-            LOGGER.error("Provide valid frequency (float) for EOM.")
-            return
-        try:
-            self._dds.set_frequency(freq, int(DdsChannel.EOM))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Set EOM frequency to %s MHz.", freq)
-
-    def set_mixer_frequency(self, freq: float) -> None:
-        """Set the Mixer frequency in MHz. Will usually be identical to EOM."""
-        if not isinstance(freq, (float, int)) or not freq > 0:
-            LOGGER.error("Provide valid frequency (float) for Mixer.")
-            return
-        try:
-            self._dds.set_frequency(freq, int(DdsChannel.MIXER))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Set mixer frequency to %s MHz.", freq)
-
-    def set_aom_amplitude(self, amplitude: float) -> None:
-        """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or amplitude < 0:
-            LOGGER.error("Provide valid amplitude for AOM.")
-            return
-        try:
-            self._dds.set_amplitude(amplitude, int(DdsChannel.AOM))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Set AOM amplitude to %s %%.", amplitude * 100)
-
-    def set_eom_amplitude(self, amplitude: float) -> None:
-        """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or amplitude < 0:
-            LOGGER.error("Provide valid amplitude for EOM.")
-            return
-        try:
-            self._dds.set_amplitude(amplitude, int(DdsChannel.EOM))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Set EOM amplitude to %s %%.", amplitude * 100)
-
-    def set_mixer_amplitude(self, amplitude: float) -> None:
-        """Set the mixer driver amplitude betw. 0 and 1."""
-        if not isinstance(amplitude, (float, int)) or amplitude < 0:
-            LOGGER.error("Provide valid amplitude for mixer.")
-            return
-        try:
-            self._dds.set_amplitude(amplitude, int(DdsChannel.MIXER))
-        except (AttributeError, ConnectionError):
-            LOGGER.error("DDS offline.")
-        else:
-            LOGGER.info("Set mixer amplitude to %s %%.", amplitude * 100)
-
     def switch_rf_clock_source(self, which: str) -> None:
         """Pass "external" or "internal" to switch RF clock source."""
         if which not in ['external', 'internal']:
@@ -383,38 +404,6 @@ class Subsystems:
             LOGGER.error("DDS offline.")
         else:
             LOGGER.info("Switched to %s clock reference.", which)
-
-    def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
-        """Start or halt ramping the temperature setpoint."""
-        if self._is_tec_unit(unit_name):
-            ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
-            if enable:
-                ramp.start_ramp()
-            else:
-                ramp.pause_ramp()
-
-    def switch_tec(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_tec_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
-
-    def switch_pii_ramp(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_pii_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_ramp(LOCKBOXES[unit_name], switch_on)
-            else:
-                LOGGER.error('Please provide boolean "on" argument when '
-                             'switching pii ramp generation of unit %s.',
-                             unit_name)
-
-    def switch_lock(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_pii_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_lock(LOCKBOXES[unit_name], switch_on)
-            else:
-                LOGGER.error("Please provide boolean \"on\" argument when "
-                             "switching pii lock electronics of unit %s.",
-                             unit_name)
 
     def switch_integrator(
             self, unit_name: str, stage: int, switch_on: bool) -> None:
@@ -460,29 +449,68 @@ class Subsystems:
             LOGGER.exception("Critical error in osc. sup. unit!")
             raise SubsystemError("Critical error in osc. sup. unit!")
 
-    def power_up_mo(self) -> None:
-        """
-        Switch on master oscillator and crank it to startup current.
+    def switch_lock(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_pii_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_lock(LOCKBOXES[unit_name], switch_on)
+            else:
+                LOGGER.error("Please provide boolean \"on\" argument when "
+                             "switching pii lock electronics of unit %s.",
+                             unit_name)
 
-        This will only succeed, if PA is at a sufficient power level. Consider
-        running .power_up_pa() before to ensure this.
+    def switch_pii_ramp(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_pii_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_ramp(LOCKBOXES[unit_name], switch_on)
+            else:
+                LOGGER.error('Please provide boolean "on" argument when '
+                             'switching pii ramp generation of unit %s.',
+                             unit_name)
 
-        :raises SubsystemError:
-        """
-        self.switch_ld('mo', True)
-        self.set_current('mo', self._laser.mo_powerup_current)
+    def switch_tec(self, unit_name: str, switch_on: bool) -> None:
+        if self._is_tec_unit(unit_name):
+            if isinstance(switch_on, bool):
+                self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
 
-    def power_up_pa(self) -> None:
-        """
-        Switch on power amplifier and crank it to startup current.
-
-        :raises SubsystemError:
-        """
-        self.switch_ld('pa', True)
-        self.set_current('pa', self._laser.pa_powerup_current)
+    def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
+        """Start or halt ramping the temperature setpoint."""
+        if self._is_tec_unit(unit_name):
+            ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
+            if enable:
+                ramp.start_ramp()
+            else:
+                ramp.pause_ramp()
 
 
     # Private Methods
+
+    def _init_laser(self) -> None:
+        # Initalize a laser controller class using the methods that the menlo
+        # stack current drivers expose.
+        get_mo = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['mo'])
+        get_pa = partial(self._menlo.get_diode_current,
+                         unit_number=LD_DRIVERS['pa'])
+        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
+        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
+        disable_mo = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['mo'])
+        disable_pa = partial(self._menlo.switch_ld,
+                             switch_on=False, unit_number=LD_DRIVERS['pa'])
+        enable_mo = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['mo'])
+        enable_pa = partial(self._menlo.switch_ld,
+                            switch_on=True, unit_number=LD_DRIVERS['pa'])
+
+        self._laser = ecdl_mopa.EcdlMopa(
+            get_mo_callback=lambda: get_mo()[0][1],
+            get_pa_callback=lambda: get_pa()[0][1],
+            set_mo_callback=lambda c: set_mo(milliamps=c),
+            set_pa_callback=lambda c: set_pa(milliamps=c),
+            disable_mo_callback=disable_mo,
+            disable_pa_callback=disable_pa,
+            enable_mo_callback=enable_mo,
+            enable_pa_callback=enable_pa)
 
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
@@ -528,33 +556,21 @@ class Subsystems:
         self._temp_ramps[TEC_CONTROLLERS['shga']].maximum_gradient = 1/5
         self._temp_ramps[TEC_CONTROLLERS['shgb']].maximum_gradient = 1/5
 
-    def _init_laser(self) -> None:
-        # Initalize a laser controller class using the methods that the menlo
-        # stack current drivers expose.
-        get_mo = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['mo'])
-        get_pa = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['pa'])
-        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
-        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
-        disable_mo = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['mo'])
-        disable_pa = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['pa'])
-        enable_mo = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['mo'])
-        enable_pa = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['pa'])
+    def _is_tec_unit(self, name: str) -> bool:
+        if self._menlo is None:
+            return False
+        if name not in TEC_CONTROLLERS:
+            LOGGER.error('There is no TEC controller named "%s".', name)
+            return False
+        return True
 
-        self._laser = ecdl_mopa.EcdlMopa(
-            get_mo_callback=lambda: get_mo()[0][1],
-            get_pa_callback=lambda: get_pa()[0][1],
-            set_mo_callback=lambda c: set_mo(milliamps=c),
-            set_pa_callback=lambda c: set_pa(milliamps=c),
-            disable_mo_callback=disable_mo,
-            disable_pa_callback=disable_pa,
-            enable_mo_callback=enable_mo,
-            enable_pa_callback=enable_pa)
+    def _is_pii_unit(self, name: str) -> bool:
+        if self._menlo is None:
+            return False
+        if name not in LOCKBOXES:
+            LOGGER.error('There is no Lockbox by the name "%s".', name)
+            return False
+        return True
 
     @staticmethod
     def _wrap_into_buffer(value: Union[MenloUnit, bool]) -> Buffer:
@@ -575,19 +591,3 @@ class Subsystems:
         LOGGER.error("Type %s is not convertible into a MenloUnit.",
                      type(value))
         return []
-
-    def _is_tec_unit(self, name: str) -> bool:
-        if self._menlo is None:
-            return False
-        if name not in TEC_CONTROLLERS:
-            LOGGER.error('There is no TEC controller named "%s".', name)
-            return False
-        return True
-
-    def _is_pii_unit(self, name: str) -> bool:
-        if self._menlo is None:
-            return False
-        if name not in LOCKBOXES:
-            LOGGER.error('There is no Lockbox by the name "%s".', name)
-            return False
-        return True
