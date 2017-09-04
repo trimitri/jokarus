@@ -1,6 +1,6 @@
 """This module houses the LockBuddy class for analog lockbox management."""
 # from inspect import iscoroutinefunction
-from typing import Awaitable, Callable, List, Union
+from typing import Any, Awaitable, Callable, List, Union
 import logging
 
 import numpy as np
@@ -11,7 +11,7 @@ from . import feature_locator
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
 # Type definition for signals fetched for prelock.
-Signal = np.ndarray  # pylint: disable=invalid-name
+Signal = Any  # TODO Any is not nice # pylint: disable=invalid-name
 
 # To make the code more readable, we differentiate between numbers that
 # represent the lock system's tunable quantity (e.g. frequency) and all other
@@ -71,10 +71,10 @@ class Tuner:
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
 
-    def __init__(self, lock: Callable[Union[None, Awaitable[None]]],
-                 unlock: Callable[Union[None, Awaitable[None]]],
+    def __init__(self, lock: Callable[[], None],
+                 unlock: Callable[[], None],
                  locked: Callable[[], bool],
-                 scanner: Callable[float, Signal],
+                 scanner: Callable[[float], Signal],
                  tuners: List[Tuner]) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
@@ -123,7 +123,7 @@ class LockBuddy:
         return self.last_signal
 
     def prelock(self, threshold: float, autolock: bool = True,
-                proximity_callback: Callable[Union[None, Awaitable[None]]] = lambda: None) -> None:
+                proximity_callback: Callable[[], None] = lambda: None) -> None:
         """Start the prelock algorithm and get as close as possible to target.
 
         As soon as we can reasonable assume to be closer than `threshold` to

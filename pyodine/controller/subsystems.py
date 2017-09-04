@@ -178,6 +178,10 @@ class Subsystems:
             data['rf_use_external_clock'] = self._wrap_into_buffer(ext_clock)
         return data
 
+    def nu_locked(self) -> bool:
+        """Is the frequency lock engaged?"""
+        return False  # FIXME
+
     def power_up_mo(self) -> None:
         """
         Switch on master oscillator and crank it to startup current.
@@ -250,6 +254,9 @@ class Subsystems:
         else:
             LOGGER.info("Successfully reset Menlo stack.")
             self._menlo = attempt
+
+    def scan_ramp(self, amplitude: float = 1):
+        return self._daq.scan_once(amplitude * 10, .2, [7, 11])  # FIXME
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""

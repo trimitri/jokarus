@@ -13,8 +13,8 @@ from typing import Dict, Any
 
 import aioconsole
 
-from .controller import interfaces, subsystems, instruction_handler
-from .controller import control_flow as flow
+from .controller import (control_flow, interfaces, instruction_handler,
+                         lock_buddy, subsystems)
 from . import logger
 
 
@@ -27,6 +27,27 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
                                               streams=streams)
     asyncio.ensure_future(
         aioconsole.start_interactive_server(factory=console_factory))
+
+def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
+    """Initialize the frequency prelock and lock system."""
+    def get_miob_temp():
+        return 0.5  # FIXME
+
+    def set_miob_temp(value: float):
+        pass  # FIXME
+
+    miob_temp = lock_buddy.Tuner(scale=50, accuracy=.01, delay=120,
+                                 getter=get_miob_temp, setter=set_miob_temp)  # FIXME scale!
+    # mo_current = lock_buddy.Tuner()  # FIXME
+    # ramp_offset = lock_buddy.Tuner()  # FIXME
+
+    locker = lock_buddy.LockBuddy(
+        lock=lambda: subs.switch_lock('nu', True),
+        unlock=lambda: subs.switch_lock('nu', False),
+        locked=subs.nu_locked,
+        scanner=subs.scan_ramp,
+        tuners=[miob_temp])  # FIXME Add other tuners.
+    return locker
 
 
 async def main():
@@ -44,14 +65,16 @@ async def main():
     handler = instruction_handler.InstructionHandler(subs, face)
     face.register_on_receive_callback(handler.handle_instruction)
 
-    flow.hot_start(subs)
+    control_flow.hot_start(subs)
+
+    locker = init_locker(subs)
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
-    open_backdoor({'subs': subs, 'face': face})
+    open_backdoor({'subs': subs, 'face': face, 'locker': locker})
 
     while True:
-        await asyncio.sleep(1)
+        await asyncio.sleep(25)
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
