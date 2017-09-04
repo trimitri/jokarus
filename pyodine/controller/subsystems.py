@@ -80,7 +80,8 @@ class Subsystems:
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
-        # TODO: Implement DAQ here.
+        # asyncio.ensure_future(io_tools.poll_resource(
+        #     self.daq_alive, 3.7, self.reset_daq, name="DAQ"))
 
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
         self._init_temp_ramps()
