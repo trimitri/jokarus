@@ -156,7 +156,10 @@ class Interfaces:
         compression.
         """
         raw_data = self._locker.last_signal
-        if not raw_data:
+
+        # Check if a scan was already performed. Contrary to pyton lists, numpy
+        # arrays don't always support bool().
+        if not raw_data.any():
             LOGGER.warning("Couldn't publish signal as no signal was generated yet")
             return
 

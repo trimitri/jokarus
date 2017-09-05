@@ -89,7 +89,7 @@ class LockBuddy:
                 raise TypeError('Callback "%s" is not callable.', name)
 
         self.prelock_running = False  # The prelock algorithm is running.
-        self.last_signal = None  # type: np.ndarray
+        self.last_signal = np.empty(0)
 
         self._scanner = scanner
         self._lock = lock
