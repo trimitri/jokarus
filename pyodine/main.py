@@ -30,23 +30,73 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
 
 def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
-    def get_miob_temp():
-        return 0.5  # FIXME
+
+    ##
+    # Tuning by Temperature of the Micro-Optical Bench
+    ##
+
+    def get_miob_temp() -> float:
+        temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
+        return (temp - 20) / 10
 
     def set_miob_temp(value: float):
-        pass  # FIXME
+        temp = 10 * value + 20
+        subs.set_temp('miob', temp)
 
-    miob_temp = lock_buddy.Tuner(scale=50, accuracy=.01, delay=120,
-                                 getter=get_miob_temp, setter=set_miob_temp)  # FIXME scale!
-    # mo_current = lock_buddy.Tuner()  # FIXME
-    # ramp_offset = lock_buddy.Tuner()  # FIXME
+    # FIXME: provide estimates of tuning characteristic (#122)
+    miob_temp = lock_buddy.Tuner(scale=50, granularity=.01, delay=60,
+                                 getter=get_miob_temp, setter=set_miob_temp)
+
+    ##
+    # Tuning by Diode Current
+    ##
+
+    # Based on the FBH preliminary spec sheet we assume a usable MO current
+    # tuning range of 60 to 160 mA. In those 100mA of movement, the laser spans
+    # about 7600 MHz.
+    #
+    # The granularity however is quite bad, as 125μA is the smallest step
+    # possible. This yields 0.125mA / 100mA = 1.25e-3 for granularity.
+    #
+    # The delay for MO tuning originates mostly in the websocket protocol and
+    # the Menlo firmware and is estimated to be about a second.
+    #
+    # The setter and getter methods project the mA values like 0 = 60mA,
+    # 1 = 160mA.
+    def mo_getter() -> float:
+        return (subs.laser.get_mo_current() - 60) / 100
+
+    def mo_setter(arb_units: float) -> None:
+        subs.laser.set_mo_current(arb_units * 100 + 60)
+
+    mo_current = lock_buddy.Tuner(scale=7600, granularity=1.25e-3, delay=1,
+                                  getter=mo_getter,
+                                  setter=mo_setter)
+
+    ##
+    # Tuning by Modulation Ramp Offset
+    ##
+
+    # The diode driver modulation port does about 1mA/V. As we have a 10V range
+    # of motion for our ramp offset, and the Laser does about 74MHz/mA, this
+    # leads to 740MHz of tuning range.
+    def ramp_getter() -> float:
+        return (subs.get_ramp_offset() + 5) / 10
+
+    def ramp_setter(value: float) -> None:
+        subs.set_ramp_offset(value * 10 + 5)
+
+    ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
+                                   getter=ramp_getter, setter=ramp_setter)
+
+    # Assemble the actual lock buddy using the tuners above.
 
     locker = lock_buddy.LockBuddy(
         lock=lambda: subs.switch_lock('nu', True),
         unlock=lambda: subs.switch_lock('nu', False),
         locked=subs.nu_locked,
-        scanner=subs.scan_ramp,
-        tuners=[miob_temp])  # FIXME Add other tuners.
+        scanner=subs.fetch_scan,
+        tuners=[miob_temp, mo_current, ramp_offset])
     return locker
 
 
@@ -85,8 +135,9 @@ if __name__ == '__main__':
     # event_loop.set_debug(True)
 
     if not logger.is_ok:
-        # FIXME: make sure this doesn't fire unexpectedly...
+        # FIXME: make sure this doesn't fire unexpectedly (#123)
         raise OSError("Failed to set up logging.")
+
     logger.start_flushing_regularly(7)  # Write data to disk every 7 seconds.
     try:
         # Schedule main program for running and start central event loop.

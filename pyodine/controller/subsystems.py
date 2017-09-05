@@ -7,7 +7,7 @@ SAFETY POLICY: This class silently assumes all passed arguments to be of
 correct type. The values are allowed to be wrong, though.
 """
 import asyncio
-import enum
+from enum import IntEnum
 from functools import partial
 import logging
 import time
@@ -19,11 +19,16 @@ from ..util import io_tools
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
+# TODO: Drop this and use `LdDriver` below instead.
 LD_DRIVERS = {'mo': 1, 'pa': 3}
+
+# TODO: Drop this and use `TecUnit` below instead.
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
 
 LOCKBOXES = {'nu': 2}
 DDS_PORT = '/dev/ttyUSB2'
+
+SCAN_TIME = 0.2  # The time to take for a frequency scan in seconds.
 
 # Define some custom types.
 # pylint: disable=invalid-name
@@ -35,19 +40,28 @@ Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
 
-class DdsChannel(enum.IntEnum):
+class DaqChannel(IntEnum):
+    """The MCC USB1608G-2AO features 16 analog inputs."""
+    ERR_SIGNAL = 7
+    RAMP_MONITOR = 11
+
+class DdsChannel(IntEnum):
     """The four channels of the DDS device."""
     AOM = 1
     EOM = 0
     MIXER = 2
     FREE = 3  # not in use
 
+class LdDriver(IntEnum):
+    MASTER_OSCILLATOR = 1
+    POWER_AMPLIFIER = 2
 
-class DaqChannel(enum.IntEnum):
-    """The MCC USB1608G-2AO features 16 analog inputs."""
-    ERR_SIGNAL = 7
-    RAMP_MONITOR = 11
-
+class TecUnit(IntEnum):
+    """The Menlo stack's TEC controllers."""
+    MIOB = 1
+    VHBG = 2
+    SHGA = 3
+    SHGB = 4
 
 class SubsystemError(RuntimeError):
     """One of the subsystems experienced a critical problem. Reset is advised.
@@ -57,14 +71,16 @@ class SubsystemError(RuntimeError):
 
 class Subsystems:
     """Provides a wrapper for all connected subsystems.
-    Don't access the subsystems directly."""
+
+    The instance will provide access to the Laser at .laser .
+    """
 
     def __init__(self) -> None:
 
         # Wait for Menlo to show up and initialize laser control as soon as
         # they arrive.
         self._menlo = None  # type: menlo_stack.MenloStack
-        self._laser = None  # type: ecdl_mopa.EcdlMopa
+        self.laser = None  # type: ecdl_mopa.EcdlMopa
         asyncio.ensure_future(
             io_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
@@ -99,6 +115,21 @@ class Subsystems:
         if self._dds and self._dds.ping():
             return True
         return False
+
+    def fetch_scan(self, amplitude: float = 1):
+        """Scan the frequency once and return the readings acquired.
+
+        This is the main method used by the `lock_buddy` module to perform
+        prelock.
+
+        :param amplitude: The peak-to-peak amplitude to use for scanning,
+                    ranging [0, 1]. 1 corresponds to 10V peak-peak.
+        """
+        return self._daq.fetch_scan(
+            amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
+            SCAN_TIME,
+            [DaqChannel.RAMP_MONITOR, DaqChannel.ERR_SIGNAL],
+            mccdaq.RampShape.DESCENT)
 
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
@@ -153,6 +184,30 @@ class Subsystems:
 
         return data
 
+    def get_ld_current(self, unit: LdDriver) -> float:
+        """Return the latest laser diode current in milliamperes.
+
+        :param unit: The LD driver unit to act on. Either an `LdDriver` enum
+                member or a plain int may be given.
+        :raises ValueError: Given unit is not a `LdDriver`
+        """
+        return self._unwrap_buffer(
+            self._menlo.get_diode_current(LdDriver(unit)))
+
+    def get_ramp_offset(self) -> float:
+        """The zero position of the ramp used to acquire the error signal"""
+        return self._daq.ramp_offset
+
+    def set_ramp_offset(self, volts) -> None:
+        """The zero position of the ramp used to acquire the error signal
+
+        :param volts: Offset in volts, must be in [-5, 5]
+        """
+        try:
+            self._daq.ramp_offset = volts
+        except ValueError:
+            LOGGER.exception("Couldn't set ramp offset.")
+
     def get_setup_parameters(self) -> Dict[str, Buffer]:
         """Return a dict of all setup parameters.
 
@@ -178,9 +233,38 @@ class Subsystems:
             data['rf_use_external_clock'] = self._wrap_into_buffer(ext_clock)
         return data
 
+    def get_temp(self, unit: int) -> float:
+        """Returns the temperature of the given unit in °C.
+
+        Consider using this module's provided Enums for choice of unit number.
+        """
+        # The structure right now is more complicated than it would need to be
+        # (see get_temp_setpt() for comparison), but we prepared this for
+        # fetching all kinds of temperatures from around the system, not only
+        # Menlo TEC units.
+        try:
+            tec_enum = TecUnit(unit)
+        except ValueError:
+            pass
+        else:
+            return self._unwrap_buffer(self._menlo.get_temperature(tec_enum))
+
+        raise ValueError("Unknown unit number {}.".format(unit))
+
+    def get_temp_setpt(self, unit: TecUnit) -> float:
+        """Returns the temperature setpoint of the given unit in °C.
+
+        :param unit: The TEC unit to fetch from. See provided enum TecUnit for
+                    available units.
+
+        :raises ValueError: The provided unit is not a TecUnit.
+        """
+        return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
+
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?"""
-        return self._menlo.is_lock_enabled(LOCKBOXES['nu'])
+        return self._unwrap_buffer(
+            self._menlo.is_lock_enabled(LOCKBOXES['nu'])) == 1
 
     def power_up_mo(self) -> None:
         """
@@ -192,7 +276,7 @@ class Subsystems:
         :raises SubsystemError:
         """
         self.switch_ld('mo', True)
-        self.set_current('mo', self._laser.mo_powerup_current)
+        self.set_current('mo', self.laser.mo_powerup_current)
 
     def power_up_pa(self) -> None:
         """
@@ -201,7 +285,7 @@ class Subsystems:
         :raises SubsystemError:
         """
         self.switch_ld('pa', True)
-        self.set_current('pa', self._laser.pa_powerup_current)
+        self.set_current('pa', self.laser.pa_powerup_current)
 
     async def refresh_status(self) -> None:
         if self._menlo is not None:
@@ -255,9 +339,6 @@ class Subsystems:
             LOGGER.info("Successfully reset Menlo stack.")
             self._menlo = attempt
 
-    def scan_ramp(self, amplitude: float = 1):
-        return self._daq.scan_descending(amplitude * 10, .2, [7, 11])  # FIXME
-
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
         if not isinstance(amplitude, (float, int)) or amplitude < 0:
@@ -289,9 +370,9 @@ class Subsystems:
         """
         try:
             if unit_name == 'mo':
-                self._laser.set_mo_current(milliamps)
+                self.laser.set_mo_current(milliamps)
             elif unit_name == 'pa':
-                self._laser.set_pa_current(milliamps)
+                self.laser.set_pa_current(milliamps)
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
         except ValueError:
@@ -347,16 +428,6 @@ class Subsystems:
             return
 
         self._menlo.set_error_scale(LOCKBOXES[unit_name], factor)
-
-    def set_ramp_amplitude(self, unit_name: str, millivolts: int) -> None:
-        """Set the amplitude of the Menlo-generated ramp. (deprecated!)"""
-        # TODO Remove this as ramp is not actually implemented in hardware.
-        if not isinstance(millivolts, int):
-            LOGGER.error("Please give ramp amplitude in millivolts (int).")
-            return
-        if not self._is_pii_unit(unit_name):
-            return
-        self._menlo.set_ramp_amplitude(LOCKBOXES[unit_name], millivolts)
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
@@ -461,14 +532,14 @@ class Subsystems:
         try:
             if unit_name == 'mo':
                 if switch_on:
-                    self._laser.enable_mo()
+                    self.laser.enable_mo()
                 else:
-                    self._laser.disable_mo()
+                    self.laser.disable_mo()
             elif unit_name == 'pa':
                 if switch_on:
-                    self._laser.enable_pa()
+                    self.laser.enable_pa()
                 else:
-                    self._laser.disable_pa()
+                    self.laser.disable_pa()
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
         except ValueError as err:
@@ -530,9 +601,9 @@ class Subsystems:
         enable_pa = partial(self._menlo.switch_ld,
                             switch_on=True, unit_number=LD_DRIVERS['pa'])
 
-        self._laser = ecdl_mopa.EcdlMopa(
-            get_mo_callback=lambda: get_mo()[0][1],
-            get_pa_callback=lambda: get_pa()[0][1],
+        self.laser = ecdl_mopa.EcdlMopa(
+            get_mo_callback=lambda: self._unwrap_buffer(get_mo()),
+            get_pa_callback=lambda: self._unwrap_buffer(get_pa()),
             set_mo_callback=lambda c: set_mo(milliamps=c),
             set_pa_callback=lambda c: set_pa(milliamps=c),
             disable_mo_callback=disable_mo,
@@ -546,30 +617,30 @@ class Subsystems:
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
         for name, unit in TEC_CONTROLLERS.items():
-            def getter(u=unit) -> float:
+            def getter(bound_unit=unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
 
                 # We need to bind the loop variable "unit" to a local variable
                 # here, e.g. using lambdas.
-                temp_readings = self._menlo.get_temperature(u)
+                temp_readings = self._menlo.get_temperature(bound_unit)
                 if temp_readings:
-                    return temp_readings[0][1]
+                    return self._unwrap_buffer(temp_readings)
 
                 LOGGER.error("Couldn't determine temperature.")
                 return float('nan')
 
-            def setpt_getter(u=unit) -> float:
+            def setpt_getter(bound_unit=unit) -> float:
                 """Gets the current TEC setpoint."""
-                temp_setpts = self._menlo.get_temp_setpoint(u)
+                temp_setpts = self._menlo.get_temp_setpoint(bound_unit)
                 if temp_setpts:
-                    return temp_setpts[0][1]
+                    return self._unwrap_buffer(temp_setpts)
 
                 LOGGER.error("Couldn't determine temp. setpoint.")
                 return float('nan')
 
-            def setter(temp: float, u=unit) -> None:
+            def setter(temp: float, bound_unit=unit) -> None:
                 # Same here (see above).
-                self._menlo.set_temp(u, temp)
+                self._menlo.set_temp(bound_unit, temp)
 
             self._temp_ramps[unit] = TemperatureRamp(
                 get_temp_callback=getter,
@@ -619,3 +690,8 @@ class Subsystems:
         LOGGER.error("Type %s is not convertible into a MenloUnit.",
                      type(value))
         return []
+
+    @staticmethod
+    def _unwrap_buffer(buffer: Buffer) -> MenloUnit:
+        # Extract the latest reading from a buffer.
+        return buffer[0][1]

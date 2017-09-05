@@ -1,11 +1,6 @@
 """This module houses the LockBuddy class for analog lockbox management."""
-# from inspect import iscoroutinefunction
-from typing import Any, Awaitable, Callable, List, Union
+from typing import Any, Callable, List
 import logging
-
-import numpy as np
-
-from . import feature_locator
 
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
@@ -26,7 +21,7 @@ class Tuner:
     respective ranges of motion to [0, 1] in order to keep the usage of a
     multi-variable control system straightforward and easy to read.
     """
-    def __init__(self, scale: Unit, accuracy: float, delay: float,
+    def __init__(self, scale: Unit, granularity: float, delay: float,
                  getter: Callable[[], float],
                  setter: Callable[[float], None]) -> None:
         """A tuner must scale it's full range of motion [0, 1] interval.
@@ -34,8 +29,8 @@ class Tuner:
         :param scale: (Approximate) number of "LockBuddy units" that fit into
                     the controllers [0, 1] range. The range is expected to be
                     linearized.
-        :param accuracy: Smallest step that will make an actual difference in
-                    the controlled system. This must be given with respect to
+        :param granularity: Smallest step that will make an actual difference
+                    in the controlled system. This must be given relative to
                     the linearized [0, 1] range.
         :param delay: Delay in seconds between control input and actual effect
                     on the controlled quantity.
@@ -46,15 +41,15 @@ class Tuner:
         """
         if not scale > 0:
             raise ValueError("Provide scale >0")
-        if not accuracy > 0 or not accuracy < 1:
-            raise ValueError("Provide accuracy in ]0, 1[ interval.")
+        if not granularity > 0 or not granularity < 1:
+            raise ValueError("Provide granularity in ]0, 1[ interval.")
         if not delay >= 0:
             raise ValueError("Provide delay in seconds.")
         if not callable(getter) or not callable(setter):
             raise TypeError("Provide callable getter and setter.")
 
         self.scale = float(scale)
-        self.accuracy = float(accuracy)
+        self.granularity = float(granularity)
         self.delay = float(delay)
         self._setter = setter
         self._getter = getter

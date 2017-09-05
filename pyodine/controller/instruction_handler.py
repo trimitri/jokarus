@@ -70,8 +70,6 @@ class InstructionHandler:
             'set_shgb_temp_raw_set': lambda t: self._subs.set_temp(
                 'shgb', float(t), bypass_ramp=True),
 
-            'set_nu_ramp_amplitude': lambda a: self._subs.set_ramp_amplitude(
-                'nu', int(a)),
             'set_nu_prop': lambda f: self._subs.set_error_scale('nu', f),
             'set_nu_offset': lambda p: self._subs.set_error_offset('nu', p),
             'switch_rf_clock_source': self._subs.switch_rf_clock_source,

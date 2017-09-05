@@ -245,6 +245,7 @@ class MenloStack:
         return self._get_osc_prop(unit_number, 304)
 
     def is_lock_enabled(self, unit_number: int) -> Buffer:
+        """Is the closed-loop lock currently engaged? Returns a Buffer!"""
         readings = self._get_pii_prop(unit_number, 304)
         return [(time, 1 if reading == 0 else 0)
                 for (time, reading) in readings]
@@ -282,6 +283,7 @@ class MenloStack:
         return self._get_osc_prop(unit_number, 288)
 
     def get_temperature(self, unit_number: int, since: Time = None) -> Buffer:
+        """Buffer of temp. readings in °C of given unit since `since`."""
         return [(time, self._to_temperature(int(val)))
                 for (time, val)
                 in self._get_osc_prop(unit_number, 272, since)]

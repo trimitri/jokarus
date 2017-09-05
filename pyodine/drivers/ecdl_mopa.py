@@ -1,11 +1,9 @@
-"""A generic driver for the combined current drivers of an ECDL.
+"""A generic driver for the combined current drivers of an ECDL MOPA.
 
 As a "Master Oscillator"-"Power Amplifier" setup does not allow for arbitrary
 combinations of MO and PA current which is why the fitness of every state
 change must be checked before it is applied.
 """
-# Diode current in mA at which the amplifier becomes transparent
-
 import collections
 import logging
 from typing import Callable
