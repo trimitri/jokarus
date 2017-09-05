@@ -28,12 +28,16 @@ class MccDaq:
         if not state == 0:
             raise ConnectionError("Unexpected error while trying to connect "
                                   "to DAQ.")
-        self.ramp_offset = 0.0  # Offset voltage the ramp centers around.
+        self._offset = 0.0  # Offset voltage the ramp centers around.
+
+    @property
+    def ramp_offset(self) -> float:
+        return self._offset
 
     @ramp_offset.setter
     def ramp_offset(self, volts: float) -> None:
         if volts <= 5 and volts >= -5:
-            self.ramp_offset = volts
+            self._offset = volts
         else: raise ValueError("Ramp value out of bounds [-5, 5]")
 
     def fetch_scan(self, amplitude: float, time: float, channels: List[int],
