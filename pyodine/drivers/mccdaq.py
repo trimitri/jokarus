@@ -55,7 +55,7 @@ class MccDaq:
         # TODO:
         # - Get return size from C
         # - Try reading at higher sample rate than writing
-        if not amplitude <= 1 or not amplitude > 0:
+        if not amplitude <= 10 or not amplitude > 0:
             raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
         if not time > 0:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
