@@ -2,13 +2,15 @@
 """
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any  # pylint: disable=unused-import
 
 LOGGER = logging.getLogger('pyodine.transport.packer')
-MESSAGE_TYPES = ['readings', 'texus', 'setup']
+MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal']
 
 
 def create_message(payload: dict, msg_type: str) -> str:
+    """Wrap the passed payload into a pyodine-flavoured JSON-String.
+    """
     if msg_type in MESSAGE_TYPES:
         container = {}  # type: Dict[str, Any]
         container['data'] = payload
@@ -18,7 +20,8 @@ def create_message(payload: dict, msg_type: str) -> str:
         message = message.replace('NaN', 'null')
         message += "\n\n\n"
     else:
-        LOGGER.warning("Unknown message type. Returning empty message.")
+        LOGGER.warning("Unknown message type %s. Returning empty message.",
+                       msg_type)
         message = ''
     return message
 
