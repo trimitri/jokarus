@@ -105,19 +105,18 @@ async def main():
     LOGGER.info("Running Pyodine...")
 
     subs = subsystems.Subsystems()
-
-    face = interfaces.Interfaces(subs, start_serial_server=True)
+    locker = init_locker(subs)
+    face = interfaces.Interfaces(subs, locker, start_ws_server=True, start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(
         readings_interval=.5, flags_interval=2, setup_interval=12,
-        status_update_interval=17)
+        signal_interval=7, status_update_interval=17)
 
     handler = instruction_handler.InstructionHandler(subs, face)
     face.register_on_receive_callback(handler.handle_instruction)
 
     control_flow.hot_start(subs)
 
-    locker = init_locker(subs)
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
