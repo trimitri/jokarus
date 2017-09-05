@@ -104,9 +104,10 @@ class LockBuddy:
         return self._locked()
 
     def acquire_signal(self, rel_range: float = 1) -> np.ndarray:
-        """Run one scan and store the result. Disengage lock first.
+        """Run one scan and store the result. Lock must be disengaged.
 
         :raises RuntimeError: Lock was not disengaged before.
+        :raises ValueError: Range is out of ]0, 1].
         """
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.

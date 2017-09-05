@@ -56,9 +56,9 @@ class MccDaq:
         # - Get return size from C
         # - Try reading at higher sample rate than writing
         if not amplitude <= 1 or not amplitude > 0:
-            raise ValueError("Passed amplitude not in ]0, 1].")
+            raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
         if not time > 0:
-            raise ValueError("Passed time not in ]0, inf[.")
+            raise ValueError("Passed time {} not in ]0, inf[.".format(time))
         for chan in channels:
             if not chan >= 1 or not chan <= 32:
                 raise ValueError("DAQ only features channels 1 to 32.")
