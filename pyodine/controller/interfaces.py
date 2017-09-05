@@ -176,7 +176,7 @@ class Interfaces:
 
         # Use base64 encoding, as it is common with browsers and saves further
         # bandwidth.
-        data = str(base64.b64encode(integer_data.tobytes()))
+        data = base64.b64encode(integer_data.tobytes()).decode()
         payload = {'data': data}
 
         await self._publish_message(packer.create_message(payload, 'signal'))
