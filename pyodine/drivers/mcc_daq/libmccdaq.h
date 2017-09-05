@@ -10,7 +10,7 @@
 
 // "Descent" is a linear ramp from max to min, "Ascent" from min to max and
 // "Dip" is a descent followed by an ascent.
-typedef enum SignalType {kDescent, kAscent, kDip} SignalType;
+typedef enum SignalType {kDescent = 1, kAscent = 2, kDip = 3} SignalType;
 
 typedef enum Error {
     kSuccess = 0,

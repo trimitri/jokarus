@@ -1,11 +1,15 @@
 """A python wrapper for the MCC linux driver."""
 
 import ctypes as ct
+from enum import IntEnum
 import logging
 import numpy as np
 
 MAX_BULK_TRANSFER = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
+
+"""Possible ways to ramp the frequency"""
+RampShape = IntEnum('RampShape', {'DESCENT': 1, 'ASCENT': 2, 'DIP': 3})
 
 class MccDaq:
     """A stateful wrapper around the MCC DAQ device."""

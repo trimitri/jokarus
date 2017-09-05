@@ -180,7 +180,7 @@ class Subsystems:
 
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?"""
-        return False  # FIXME
+        return self._menlo.is_lock_enabled(LOCKBOXES['nu'])
 
     def power_up_mo(self) -> None:
         """
@@ -256,7 +256,7 @@ class Subsystems:
             self._menlo = attempt
 
     def scan_ramp(self, amplitude: float = 1):
-        return self._daq.scan_once(amplitude * 10, .2, [7, 11])  # FIXME
+        return self._daq.scan_descending(amplitude * 10, .2, [7, 11])  # FIXME
 
     def set_aom_amplitude(self, amplitude: float) -> None:
         """Set the acousto-optic modulator driver amplitude betw. 0 and 1."""
