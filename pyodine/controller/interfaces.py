@@ -3,32 +3,35 @@
 It may set up downlinks to clients, regularly send data to them and deal with
 control requests they might transmit.
 """
-# System Libraries
 import asyncio
+import base64
 import logging
 import time
 from typing import Callable
 
-# Own Stuff
+import numpy as np
+
 from ..transport.websocket_server import WebsocketServer
 from ..transport.serial_server import SerialServer
 from ..transport import texus_relay
 from ..transport import packer
-from ..controller.subsystems import Subsystems
+from ..controller import lock_buddy, subsystems
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 # LOGGER.setLevel(logging.DEBUG)
 WS_PORT = 56320
+MAX_SIGNAL_SAMPLES = 1024
 
 
 class Interfaces:
     """This is how to talk to Pyodine.
 
-    It sets up the services and reiceives instructions.
+    It sets up the services and receives instructions.
     """
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, subsystem_controller: Subsystems,
+    def __init__(self, subsystem_controller: subsystems.Subsystems,
+                 locker: lock_buddy.LockBuddy,
                  start_ws_server: bool = True,
                  start_serial_server: bool = False,
                  on_receive: Callable[[str], None] = None) -> None:
@@ -41,6 +44,7 @@ class Interfaces:
         self._rs232 = None  # type: SerialServer
         self._texus = None  # type: texus_relay.TexusRelay
         self._subs = subsystem_controller
+        self._locker = locker
         self._rcv_callback = on_receive
 
         # Keep track of when we sent the prev. publication to the clients.
@@ -82,6 +86,7 @@ class Interfaces:
     def start_publishing_regularly(self, readings_interval: float,
                                    flags_interval: float,
                                    setup_interval: float,
+                                   signal_interval: float,
                                    status_update_interval: float) -> None:
         """Schedule asyncio tasks to publish data regularly.
 
@@ -112,15 +117,20 @@ class Interfaces:
                     those params.
         """
 
-        async def serve_readings():
+        async def serve_error_signal():
             while True:
-                await self.publish_readings()
-                await asyncio.sleep(readings_interval)
+                await self.publish_error_signal()
+                await asyncio.sleep(signal_interval)
 
         async def serve_flags():
             while True:
                 await self.publish_flags()
                 await asyncio.sleep(flags_interval)
+
+        async def serve_readings():
+            while True:
+                await self.publish_readings()
+                await asyncio.sleep(readings_interval)
 
         async def serve_setup_params():
             while True:
@@ -132,10 +142,47 @@ class Interfaces:
                 await self._subs.refresh_status()
                 await asyncio.sleep(status_update_interval)
 
-        asyncio.ensure_future(serve_readings())
+        asyncio.ensure_future(serve_error_signal())
         asyncio.ensure_future(serve_flags())
+        asyncio.ensure_future(serve_readings())
         asyncio.ensure_future(serve_setup_params())
         asyncio.ensure_future(regularly_inquire_status())
+
+    async def publish_error_signal(self) -> None:
+        """Publish the most recently acquired error signal.
+
+        As we need to be considerate about bandwidth and the data is only
+        intended for display and backup logging, we will apply some
+        compression.
+        """
+        raw_data = self._locker.last_signal
+        if not raw_data:
+            LOGGER.warning("Couldn't publish signal as no signal was generated yet")
+            return
+
+        # Drop some values if this was a high-res scan.
+        while raw_data.shape[0] > MAX_SIGNAL_SAMPLES:
+            # Delete one third of the samples. That's not a very elegant way to
+            # do it but it gets the job done in OK time.
+            raw_data = np.delete(raw_data, np.arange(1, raw_data.size, 3))
+
+        # As the readings originally were 16-bit integers, we undo the
+        # conversion here and transfer them as such.
+        unscaled_data = (raw_data + 10.) / 20. * 2**16
+        integer_data = np.rint(unscaled_data).astype('uint16')
+
+        # Use base64 encoding, as it is common with browsers and saves further
+        # bandwidth.
+        data = base64.b64encode(integer_data.tobytes())
+        payload = {'data': data}
+
+        await self._publish_message(packer.create_message(payload, 'signal'))
+        LOGGER.debug("Published error signal.")
+
+    async def publish_flags(self) -> None:
+        if isinstance(self._texus, texus_relay.TexusRelay):
+            data = self._texus.get_full_set()
+            await self._publish_message(packer.create_message(data, 'texus'))
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
@@ -146,11 +193,6 @@ class Interfaces:
         data = self._subs.get_full_set_of_readings(since=prev)
         await self._publish_message(packer.create_message(data, 'readings'))
         self._readings_published_at = time.time()
-
-    async def publish_flags(self) -> None:
-        if isinstance(self._texus, texus_relay.TexusRelay):
-            data = self._texus.get_full_set()
-            await self._publish_message(packer.create_message(data, 'texus'))
 
     async def publish_setup_parameters(self) -> None:
         """Publish all setup parameters over all open connections once."""

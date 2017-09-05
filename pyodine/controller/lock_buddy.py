@@ -1,12 +1,11 @@
 """This module houses the LockBuddy class for analog lockbox management."""
-from typing import Any, Callable, List
+from typing import Callable, List
 import logging
+
+import numpy as np
 
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
-
-# Type definition for signals fetched for prelock.
-Signal = Any  # TODO Any is not nice # pylint: disable=invalid-name
 
 # To make the code more readable, we differentiate between numbers that
 # represent the lock system's tunable quantity (e.g. frequency) and all other
@@ -69,7 +68,7 @@ class LockBuddy:
     def __init__(self, lock: Callable[[], None],
                  unlock: Callable[[], None],
                  locked: Callable[[], bool],
-                 scanner: Callable[[float], Signal],
+                 scanner: Callable[[float], np.ndarray],
                  tuners: List[Tuner]) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
@@ -90,7 +89,7 @@ class LockBuddy:
                 raise TypeError('Callback "%s" is not callable.', name)
 
         self.prelock_running = False  # The prelock algorithm is running.
-        self.last_signal = None  # type: Signal
+        self.last_signal = None  # type: np.ndarray
 
         self._scanner = scanner
         self._lock = lock
@@ -104,7 +103,7 @@ class LockBuddy:
     def lock_engaged(self) -> bool:
         return self._locked()
 
-    def acquire_signal(self, rel_range: float = 1) -> Signal:
+    def acquire_signal(self, rel_range: float = 1) -> np.ndarray:
         """Run one scan and store the result. Disengage lock first.
 
         :raises RuntimeError: Lock was not disengaged before.
