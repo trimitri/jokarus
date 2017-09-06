@@ -73,7 +73,7 @@ class MccDaq:
 
         # To emulate synchronous I/O operation, we first schedule the output
         # operation and then immediately start reading.
-        offset = ct.c_double(0)
+        offset = ct.c_double(float(self._offset))
         ampl = ct.c_double(amplitude)
         duration = ct.c_double(time)
         signal_type = ct.c_int(int(shape))
