@@ -20,7 +20,7 @@ from ..controller import lock_buddy, subsystems
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 # LOGGER.setLevel(logging.DEBUG)
 WS_PORT = 56320
-MAX_SIGNAL_SAMPLES = 1024
+MAX_SIGNAL_SAMPLES = 2048
 
 
 class Interfaces:
