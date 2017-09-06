@@ -4,7 +4,6 @@
 const N_KEEP_POINTS = 2000;  // I'm craving for ES7 modules to avoid globals.
 
 class Plotter {  // eslint-disable-line no-unused-vars
-
   // Convert a "Pyodine JSON" data point into a CanvasJS plot point.
   static convertToPlotPoint(jsonDataPoint) {
     return {
@@ -84,10 +83,8 @@ class Plotter {  // eslint-disable-line no-unused-vars
     const displayTime = document.getElementById('display_time').value;
     const prefix = plotDiv.dataset.unitName;
     if (!prefix) return;
-    const monitorVals = readingsObj[`${prefix}_monitor`].map(
-      Plotter.convertToPlotPoint);
-    const pMonitorVals = readingsObj[`${prefix}_p_monitor`].map(
-      Plotter.convertToPlotPoint);
+    const monitorVals = readingsObj[`${prefix}_monitor`].map(Plotter.convertToPlotPoint);
+    const pMonitorVals = readingsObj[`${prefix}_p_monitor`].map(Plotter.convertToPlotPoint);
     if (typeof div.data('chart') === 'undefined') {
       // Create a new plot.
       const chart = new CanvasJS.Chart(plotDiv, {
@@ -180,13 +177,10 @@ class Plotter {  // eslint-disable-line no-unused-vars
       }
       const chart = div.data('chart');
       Array.prototype.push.apply(chart.options.data[0].dataPoints, temps);
-      Array.prototype.push.apply(chart.options.data[1].dataPoints,
-        tempRawSetpoints);
-      Array.prototype.push.apply(chart.options.data[2].dataPoints,
-        tecCurrents);
+      Array.prototype.push.apply(chart.options.data[1].dataPoints, tempRawSetpoints);
+      Array.prototype.push.apply(chart.options.data[2].dataPoints, tecCurrents);
       if (hasCurrentDriver) {
-        Array.prototype.push.apply(chart.options.data[3].dataPoints,
-                                   diodeCurrents);
+        Array.prototype.push.apply(chart.options.data[3].dataPoints, diodeCurrents);
       }
 
       // Upate setpoint indicator lines.

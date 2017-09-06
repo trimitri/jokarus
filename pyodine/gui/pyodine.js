@@ -1,8 +1,8 @@
 /* eslint-env es6, browser, jquery */
 /* eslint no-alert: "off" */
 /* eslint no-lone-blocks: "off" */
-/* global CanvasJS */
 /* global Plotter */
+/* global FbgUtil */
 
 // Require jQuery. Don't use global scope. (IIFE)
 (function jqueryWrapper($) {
@@ -71,8 +71,7 @@
 
       // Update "last updated" fields if any are present for qty.
       const timeOfMeasurement = new Date(newValuesObj[qty][0][0] * 1000);
-      $(`.update_indicator[data-qty=${qty}]`).html(
-        timeOfMeasurement.toLocaleTimeString());
+      $(`.update_indicator[data-qty=${qty}]`).html(timeOfMeasurement.toLocaleTimeString());
     });
 
     // General indicators
@@ -96,12 +95,18 @@
         $('div.osc_plot').each(function plotUpdater() {
           Plotter.updateOscPlot(this, message.data);
         });
-        document.querySelectorAll('div.pii.plot[data-unit-name]').forEach(
-          plotDiv => Plotter.updatePiiPlot(plotDiv, message.data));
+        document.querySelectorAll('div.pii.plot[data-unit-name]')
+          .forEach(plotDiv => Plotter.updatePiiPlot(plotDiv, message.data));
         updateIndicators(message.data);
         break;
       case 'setup':
         updateIndicators(message.data);
+        break;
+      case 'signal':
+        Plotter.updateSignalPlot(
+          document.getElementById('signalPlot'),
+          message.data,
+        );
         break;
       case 'texus':
         updateTexusFlags(message.data);
@@ -125,8 +130,10 @@
 
     const hostSelector = document.getElementsByName('host')[0];
     operateHostSelector(hostSelector);
-    hostSelector.addEventListener('change', event =>
-                                  operateHostSelector(event.target));
+    hostSelector.addEventListener(
+      'change',
+      event => operateHostSelector(event.target),
+    );
   }
 
   function armSetterBtns(conn) {
@@ -210,17 +217,21 @@
       $('tr[data-flag]').each(function armSendFlagBtns() {
         const container = $(this);
         $('.switch', this).on('click', function send() {
-          sendFlag(CONNECTION, container.data('flag'),
-                   $(this).hasClass('on'));
+          sendFlag(
+            CONNECTION, container.data('flag'),
+            $(this).hasClass('on'),
+          );
         });
       });
 
       armSetterBtns(CONNECTION);
-      $('#mod_demod_settings').on('click',
-                                  () => sendModDemodSettings(CONNECTION));
+      $('#mod_demod_settings').on(
+        'click',
+        () => sendModDemodSettings(CONNECTION),
+      );
 
-      $('input[type=button][data-method][data-arguments]').each(
-        function armMethodCallBtn() {
+      $('input[type=button][data-method][data-arguments]')
+        .each(function armMethodCallBtn() {
           const button = $(this);
           button.on('click', () => {
             const commandName = button.data('method');
