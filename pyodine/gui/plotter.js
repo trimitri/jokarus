@@ -278,7 +278,16 @@ class Plotter {  // eslint-disable-line no-unused-vars
   }
 
   static updateSignalPlot(plotDiv, data) {
-    // `data` is a typed array of uint16 values.
+    const chart = new CanvasJS.Chart(plotDiv, {
+      title: { text: "Error Signal" },
+      data: [{
+        type: "line",
+        dataPoints: data
+          .sort((pointA, pointB) => pointA[1] - pointB[1])
+          .map(point => ({ x: point[1], y: point[0] })),
+      }],
+    });
+    chart.render();
   }
 }
 

@@ -105,7 +105,15 @@
       case 'signal':
         Plotter.updateSignalPlot(
           document.getElementById('signalPlot'),
-          message.data,
+
+          // Unpack serial data into x and y values.
+          FbgUtil.reshapeArray(
+
+            // Create JS array from TypedArray and convert to voltages.
+            Array.from(FbgUtil.base64toUint16(message.data.data))
+              .map(entry => entry / 2 ** 16 * 10 - 5), /* eslint no-mixed-operators: "off" */
+            2,
+          ),
         );
         break;
       case 'texus':
