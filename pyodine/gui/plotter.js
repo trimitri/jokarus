@@ -282,5 +282,9 @@ class Plotter {  // eslint-disable-line no-unused-vars
       $(plotDiv).data('chart', chart);
     }
   }
+
+  static updateSignalPlot(plotDiv, data) {
+    // `data` is a typed array of uint16 values.
+  }
 }
 

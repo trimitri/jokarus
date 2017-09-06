@@ -11,8 +11,9 @@
 		<script src="lib/jquery-3.1.1.min.js"></script>
 		<script src="lib/jquery-ui-1.12.1.min.js"></script>
 		<script src="lib/jquery.canvasjs.min.js"></script>
-		<script src="pyodine-gui.js"></script>
+		<script src="pyodine.js"></script>
 		<script src="plotter.js"></script>
+		<script src="fbg_util.js"></script>
 	</head>
 	<body>
 		<h1>Pyodine Client</h1>
@@ -198,8 +199,8 @@
 			<section id="tab_control">
 				<div class="tabs">
 					<ul>
-						<li><a href="#tab_osc">Oscillator Supplies</a></li>
-						<li><a href="#tab_pii">PII Controllers</a></li>
+						<li><a href="#tab_osc">Laser</a></li>
+						<li><a href="#tab_pii">Lock</a></li>
 					</ul>
 					<div id="tab_osc" class="flex_container">
 						<div class="layout_block osc">  <!-- Master Oscillator -->
@@ -457,6 +458,10 @@
 									</p>
 								</div>
 							</div>
+						</div>
+						<div class="layout_block error_signal">
+							<h2>Error Signal</h2>
+							<div class="error plot"></div>
 						</div>
 					</div>
 				</div>
