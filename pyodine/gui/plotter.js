@@ -278,22 +278,25 @@ class Plotter {  // eslint-disable-line no-unused-vars
   }
 
   static updateSignalPlot(plotDiv, data, plotXY = true) {
+    const sortedData = data.sort((pointA, pointB) => pointA[0] - pointB[0]);
     const chart = new CanvasJS.Chart(plotDiv, {
       title: { text: "Error Signal" },
       data: [
         plotXY ? {
           type: "line",
-          dataPoints: data
-            .sort((pointA, pointB) => pointA[1] - pointB[1])
-            .map(point => ({ x: point[1], y: point[0] })),
+          dataPoints: sortedData.map(point => ({ x: point[0], y: point[1] })),
+        } : {},
+        plotXY && (sortedData[0].length > 2) ? {
+          type: "line",
+          dataPoints: sortedData.map(point => ({ x: point[0], y: point[2] })),
         } : {},
         plotXY ? {} : {
           type: "line",
-          dataPoints: data.map(point => ({ y: point[1] })),
+          dataPoints: data.map(point => ({ y: point[0] })),
         },
         plotXY ? {} : {
           type: "line",
-          dataPoints: data.map(point => ({ y: point[0] })),
+          dataPoints: data.map(point => ({ y: point[1] })),
         },
       ],
     });
