@@ -58,14 +58,11 @@ class MccDaq:
             raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
         if not time > 0:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
-        for chan in channels:
-            if not chan >= 1 or not chan <= 32:
+        for channel in channels:
+            if not channel >= 1 or not channel <= 32:
                 raise ValueError("DAQ only features channels 1 to 32.")
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
-
-        # channel setting to be passed to DAQ
-        chan = np.array(channels, dtype='uint8')
 
         n_samples = int(MAX_BULK_TRANSFER / len(channels))
         if n_samples % 8 != 0:  # Make sure we're at a nice sample count.
@@ -78,6 +75,8 @@ class MccDaq:
             ct.c_double(amplitude),
             ct.c_double(time),
             ct.c_uint(n_samples),
+            np.array(channels, dtype='uint8').ctypes.data,
+            ct.c_uint(len(channels)),
             ct.c_int(int(shape)),
             response.ctypes.data)
         if ret != 0:

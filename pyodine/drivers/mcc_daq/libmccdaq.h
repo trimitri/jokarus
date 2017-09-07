@@ -22,8 +22,14 @@ typedef enum Error {
 } Error;
 
 // Generate a signal and read input channels while it is produced.
-Error FetchScan(const double offset, const double amplitude,
-    const double duration, const uint n_samples, const SignalType type,
+Error FetchScan(
+    const double offset,
+    const double amplitude,
+    const double duration,
+    const uint n_samples,
+    const uint8_t * channels,
+    const uint n_chan,
+    const SignalType type,
     double *readings);
 
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
@@ -58,13 +64,22 @@ int Ping(void);
 
 // Sample one or more analog outputs for the given number of samples at the
 // given frequency.
-Error SampleChannels(uint8_t *channels, uint channel_count,
-    uint sample_count, double frequency, uint8_t gains[], double * results);
+Error SampleChannels(
+    const uint8_t *channels,
+    const uint channel_count,
+    const uint sample_count,
+    const double frequency,
+    const uint8_t gains[],
+    double * results);
 
 // This overloads the standard definition of SampleChannels() with a variant using
 // the maximum possible input gain.
-Error SampleChannelsAt10V(uint8_t *channels, uint channel_count,
-    uint sample_count, double frequency, double * results);
+Error SampleChannelsAt10V(
+    const uint8_t *channels,
+    const uint channel_count,
+    const uint sample_count,
+    const double frequency,
+    double * results);
 
 // Generate continuous triangle signal using full 20 volt range.
 void Triangle(void);

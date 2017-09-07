@@ -20,6 +20,8 @@ Error FetchScan(
     const double amplitude,
     const double duration,
     const uint n_samples,
+    const uint8_t * channels,
+    const uint n_chan,
     const SignalType type,
     double *readings) {
   if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE / 2) return kValueError;
@@ -36,8 +38,6 @@ Error FetchScan(
     return ret;
   }
 
-  uint8_t channels[] = {7, 11};
-  uint n_chan = sizeof(channels) / sizeof(uint8_t);
   ret = SampleChannelsAt10V(channels, n_chan, n_samples, sample_rate, readings); 
   // Output is running. Now start reading ASAP.
   return ret;
@@ -204,8 +204,9 @@ int Ping() {
   return 1;
 }
 
-Error SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double frequency,
-                    uint8_t gains[], double * results) {
+Error SampleChannels(const uint8_t *channels,const uint n_channels,const uint
+    n_samples, const double frequency, const uint8_t gains[],
+    double * results) {
 
   usbAInScanStop_USB1608G(dev);
   usbAInScanClearFIFO_USB1608G(dev);
@@ -246,8 +247,8 @@ Error SampleChannels(uint8_t *channels, uint n_channels, uint n_samples, double 
   return kSuccess;
 }
 
-Error SampleChannelsAt10V(uint8_t *channels, uint n_channels,
-    uint n_samples, double freq, double * results) {
+Error SampleChannelsAt10V(const uint8_t *channels, const uint n_channels,
+    const uint n_samples, const double freq, double * results) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvla"
   uint8_t gains[n_channels];

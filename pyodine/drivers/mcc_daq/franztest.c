@@ -7,7 +7,6 @@ int main() {
   OpenConnection();
   /*
   TriangleOnce(1., -10, 10);
-  uint8_t channels[] = {7, 12, 13};
   uint n_channels = sizeof(channels);
   uint n_samples = 600;
   double frequency = 500;
@@ -25,14 +24,16 @@ int main() {
   free(data);
   */
 
-  uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2;
-  uint n_channels = 2;
-  double * data = calloc(n_samples * n_channels, sizeof(double));
-  FetchScan(0., 19.99, .05, 2000, kDescent, data);
-  for (uint i = 0; i < n_samples; i++) {
-    if (i % 3 == 0) {
-      printf("%g\t%g\n", data[2*i], data[2*i + 1]);
-    }
-  }
-  free(data);
+  /* uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2; */
+  /* uint8_t channels[] = {7, 12, 4}; */
+  /* uint n_channels = 3; */
+  /* double * data = calloc(n_samples * n_channels, sizeof(double)); */
+  /* uint8_t */
+  /* FetchScan(0., 19.99, .05, 2000, channels, n_channels, kDescent, data); */
+  /* for (uint i = 0; i < n_samples; i++) { */
+  /*   if (i % 3 == 0) { */
+  /*     printf("%g\t%g\n", data[2*i], data[2*i + 1]); */
+  /*   } */
+  /* } */
+  /* free(data); */
 }
