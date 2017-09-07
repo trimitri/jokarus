@@ -77,8 +77,10 @@ class MccDaq:
         ampl = ct.c_double(amplitude)
         duration = ct.c_double(time)
         signal_type = ct.c_int(int(shape))
-        self._daq.FetchScan(offset, ampl, duration, signal_type,
-                            response.ctypes.data)
+        ret = self._daq.FetchScan(offset, ampl, duration, signal_type, response.ctypes.data)
+        if ret != 0:
+            raise ConnectionError(
+                "Failed to fetch scan. `FetchScan()` returned {}".format(ret))
         return response
 
     def ping(self) -> bool:

@@ -111,8 +111,8 @@
 
             // Create JS array from TypedArray and convert to voltages.
             Array.from(FbgUtil.base64toUint16(message.data.data))
-              .map(entry => entry / 2 ** 16 * 20 - 10), /* eslint no-mixed-operators: "off" */
-            2,
+              .map(entry => ((entry / (2 ** 16)) * 20) - 10),
+            message.data.shape[1],  // # of readings per sample
           ),
         );
         break;

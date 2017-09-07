@@ -183,10 +183,10 @@ class Interfaces:
         integer_data = np.rint(unscaled_data).astype('uint16')
         LOGGER.debug("Sending %s uint16 values.", integer_data.size)
 
-        # Use base64 encoding, as it is common with browsers and saves further
-        # bandwidth.
+        # Use base64 encoding, as it is common with browsers and saves a lot of
+        # bandwidth when compared to plaintext encoding.
         data = base64.b64encode(integer_data.tobytes()).decode()
-        payload = {'data': data}
+        payload = {'data': data, 'shape': integer_data.shape}
 
         await self._publish_message(packer.create_message(payload, 'signal'))
         LOGGER.debug("Published error signal.")

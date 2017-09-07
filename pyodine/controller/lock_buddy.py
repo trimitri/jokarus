@@ -77,6 +77,12 @@ class LockBuddy:
                     params.
         :param scanner: Callback acquiring a signal for prelock. Is passed one
                     float parameter in [0, 1] to set the relative scan range.
+                    The callback should return a NumPy array of shape (n, m)
+                    with:
+                    - n: number of samples (usually ca. 1e3)
+                    - m: number of readings per sample; must be >= 2 with the
+                      first column containing the x values (tunable quantity!)
+                      and all following columngs readings plotted against that
         :param tuner_coarse: A Tuner object that provides control over the
                     tunable quantity.
         :param tuner_medium: See tuner_coarse.

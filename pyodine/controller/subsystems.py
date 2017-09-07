@@ -12,6 +12,9 @@ from functools import partial
 import logging
 import time
 from typing import Dict, List, Tuple, Union
+
+import numpy as np
+
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq
 from ..util import io_tools
@@ -42,8 +45,10 @@ Buffer = List[DataPoint]
 
 class DaqChannel(IntEnum):
     """The MCC USB1608G-2AO features 16 analog inputs."""
+    REF_5V = 4
     ERR_SIGNAL = 7
     RAMP_MONITOR = 11
+    PUMP_DIODE = 12
 
 class DdsChannel(IntEnum):
     """The four channels of the DDS device."""
@@ -116,7 +121,7 @@ class Subsystems:
             return True
         return False
 
-    def fetch_scan(self, amplitude: float = 1):
+    def fetch_scan(self, amplitude: float = 1) -> np.ndarray:
         """Scan the frequency once and return the readings acquired.
 
         This is the main method used by the `lock_buddy` module to perform
@@ -124,12 +129,17 @@ class Subsystems:
 
         :param amplitude: The peak-to-peak amplitude to use for scanning,
                     ranging [0, 1]. 1 corresponds to 10V peak-peak.
+        :raises ConnectionError: DAQ is unavailable.
         """
-        return self._daq.fetch_scan(
-            amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
-            SCAN_TIME,
-            [DaqChannel.RAMP_MONITOR, DaqChannel.ERR_SIGNAL],
-            mccdaq.RampShape.DESCENT)
+        try:
+            return self._daq.fetch_scan(
+                amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
+                SCAN_TIME,
+                [DaqChannel.RAMP_MONITOR, DaqChannel.ERR_SIGNAL, DaqChannel.PUMP_DIODE],
+                mccdaq.RampShape.DESCENT)
+        except (AttributeError, ConnectionError) as err:
+            raise ConnectionError(
+                "Couldn't fetch signal as DAQ is unavailable.") from err
 
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:
