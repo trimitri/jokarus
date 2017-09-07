@@ -36,7 +36,10 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     ##
 
     def get_miob_temp() -> float:
-        temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
+        try:
+            temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
+        except ConnectionError:
+            return float('nan')
         return (temp - 20) / 10
 
     def set_miob_temp(value: float):
@@ -90,11 +93,18 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
                                    getter=ramp_getter, setter=ramp_setter)
 
     # Assemble the actual lock buddy using the tuners above.
+    def nu_locked() -> bool:
+        try:
+            return subs.nu_locked()
+        except ConnectionError:
+            logging.warning("Couldn't fetch actual frequency lockbox state. "
+                            'Assuming "Not Locked".')
+            return False
 
     locker = lock_buddy.LockBuddy(
         lock=lambda: subs.switch_lock('nu', True),
         unlock=lambda: subs.switch_lock('nu', False),
-        locked=subs.nu_locked,
+        locked=nu_locked,
         scanner=subs.fetch_scan,
         tuners=[miob_temp, mo_current, ramp_offset])
     return locker

@@ -237,6 +237,12 @@ class Subsystems:
         """Returns the temperature of the given unit in °C.
 
         Consider using this module's provided Enums for choice of unit number.
+
+        :param unit: Unique identifier of the temperature to be fetched.
+                    Possible values are in `.TecUnit`, (TODO to be continued...).
+        :raises ConnectionError: Couldn't get the requested temperature from
+                    from the concerned subsystem.
+        :raises ValueError: There is no temperature with the ID `unit`.
         """
         # The structure right now is more complicated than it would need to be
         # (see get_temp_setpt() for comparison), but we prepared this for
@@ -247,7 +253,10 @@ class Subsystems:
         except ValueError:
             pass
         else:
-            return self._unwrap_buffer(self._menlo.get_temperature(tec_enum))
+            try:
+                return self._unwrap_buffer(self._menlo.get_temperature(tec_enum))
+            except AttributeError as err:
+                raise ConnectionError("Menlo seems offline.") from err
 
         raise ValueError("Unknown unit number {}.".format(unit))
 
@@ -257,14 +266,25 @@ class Subsystems:
         :param unit: The TEC unit to fetch from. See provided enum TecUnit for
                     available units.
 
+        :raises ConnectionError: Couldn't reach the concerned subsystem.
         :raises ValueError: The provided unit is not a TecUnit.
         """
-        return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
+        try:
+            return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
+        except AttributeError as err:
+            raise ConnectionError("Menlo seems offline.") from err
 
     def nu_locked(self) -> bool:
-        """Is the frequency lock engaged?"""
-        return self._unwrap_buffer(
-            self._menlo.is_lock_enabled(LOCKBOXES['nu'])) == 1
+        """Is the frequency lock engaged?
+
+        :raises ConnectionError: Menlo couldn't be reached.
+        """
+        try:
+            return self._unwrap_buffer(
+                self._menlo.is_lock_enabled(LOCKBOXES['nu'])) == 1
+        except AttributeError as err:  # Menlo is not available.
+            raise ConnectionError(
+                "Can't inquire nu lock state, as Menlo is unavailable.") from err
 
     def power_up_mo(self) -> None:
         """
