@@ -88,23 +88,21 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         return self._spec.mo_max
 
     def get_mo_current(self) -> float:
-        """The master oscillator laser diode current in milliamps."""
+        """The master oscillator laser diode current in milliamps.
+
+        :raises CallbackError: Some exception occured in callback function.
+        """
         try:
             return self._get_mo_current()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error while executing get_mo_current_callback.")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
-
-        # Is never reached.
-        return float('nan')
+        except Exception as err:  # pylint: disable=bare-except
+            raise CallbackError("Error executing get_mo_current_callback.") from err
 
     def set_mo_current(self, milliamps: float) -> None:
         """Set the current setpoint for the master oscillator laser diode.
 
         :raises ValueError: The given value must not be applied in the current
                             operating regime.
-        :raises CallbackError:
+        :raises CallbackError: Some exception occured in callback function.
         """
         try:  # type check
             current = float(milliamps)
@@ -138,29 +136,25 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         # new current.
         try:
             self._set_mo_current(current)
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error excecuting get_mo_callback:")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
+        except Exception as err:
+            raise CallbackError("Error executing set_mo_current_callback.") from err
 
     def get_pa_current(self) -> float:
-        """The laser power amplifier current in milliamps."""
+        """The laser power amplifier current in milliamps.
+
+        :raises CallbackError: Some exception occured in callback function.
+        """
         try:
             return self._get_pa_current()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error while executing get_pa_current_callback.")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
-
-        # We never get here.
-        return float('nan')
+        except Exception as err:
+            raise CallbackError("Error executing get_pa_current_callback.") from err
 
     def set_pa_current(self, milliamps: float) -> None:
         """Set the current setpoint for the laser power amplifier.
 
         :raises ValueError: The given value must not be applied in the current
                             operating regime.
-        :raises CallbackError:
+        :raises CallbackError: Some exception occured in callback function.
         """
         try:  # type check
             current = float(milliamps)
@@ -195,10 +189,8 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         # new current.
         try:
             self._set_pa_current(current)
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error excecuting get_mo_callback:")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
+        except Exception as err:
+            raise CallbackError("Error executing set_pa_current_callback.") from err
 
     def disable_mo(self, force: bool = False) -> None:
         """Switch off master oscillator if safe. Use force to skip checks.

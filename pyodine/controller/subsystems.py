@@ -200,9 +200,14 @@ class Subsystems:
         :param unit: The LD driver unit to act on. Either an `LdDriver` enum
                 member or a plain int may be given.
         :raises ValueError: Given unit is not a `LdDriver`
+        :raises ConnectionError: Requested data couldn't be acquired, probably
+                    because Menlo is not available (yet).
         """
-        return self._unwrap_buffer(
-            self._menlo.get_diode_current(LdDriver(unit)))
+        try:
+            return self._unwrap_buffer(
+                self._menlo.get_diode_current(LdDriver(unit)))
+        except (ValueError, AttributeError) as err:
+            raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
 
     def get_ramp_offset(self) -> float:
         """The zero position of the ramp used to acquire the error signal"""
@@ -265,8 +270,8 @@ class Subsystems:
         else:
             try:
                 return self._unwrap_buffer(self._menlo.get_temperature(tec_enum))
-            except AttributeError as err:
-                raise ConnectionError("Menlo seems offline.") from err
+            except (ValueError, AttributeError) as err:
+                raise ConnectionError("Couldn't fetch temp from Menlo.") from err
 
         raise ValueError("Unknown unit number {}.".format(unit))
 
@@ -281,8 +286,8 @@ class Subsystems:
         """
         try:
             return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
-        except AttributeError as err:
-            raise ConnectionError("Menlo seems offline.") from err
+        except (AttributeError, ValueError) as err:
+            raise ConnectionError("Couldn't fetch temp. setpt. from Menlo.") from err
 
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?
@@ -292,7 +297,7 @@ class Subsystems:
         try:
             return self._unwrap_buffer(
                 self._menlo.is_lock_enabled(LOCKBOXES['nu'])) == 1
-        except AttributeError as err:  # Menlo is not available.
+        except (AttributeError, ValueError) as err:  # Menlo is not available.
             raise ConnectionError(
                 "Can't inquire nu lock state, as Menlo is unavailable.") from err
 
@@ -632,6 +637,8 @@ class Subsystems:
                             switch_on=True, unit_number=LD_DRIVERS['pa'])
 
         self.laser = ecdl_mopa.EcdlMopa(
+            # _unwrap_buffer may raise if there's no data yet, but EcdlMopa can
+            # handle Exceptions raised in callbacks.
             get_mo_callback=lambda: self._unwrap_buffer(get_mo()),
             get_pa_callback=lambda: self._unwrap_buffer(get_pa()),
             set_mo_callback=lambda c: set_mo(milliamps=c),
@@ -646,6 +653,8 @@ class Subsystems:
 
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
+        # TODO: Look again at all those NaN's and if's. Maybe use exceptions
+        # instead?
         for name, unit in TEC_CONTROLLERS.items():
             def getter(bound_unit=unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
@@ -723,5 +732,8 @@ class Subsystems:
 
     @staticmethod
     def _unwrap_buffer(buffer: Buffer) -> MenloUnit:
-        # Extract the latest reading from a buffer.
-        return buffer[0][1]
+        # Extract the latest reading from a buffer if possible. Raises!
+        try:
+            return buffer[0][1]
+        except IndexError as err:
+            raise ValueError("Buffer is empty!") from err
