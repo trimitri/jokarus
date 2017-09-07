@@ -65,9 +65,10 @@ class MccDaq:
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
 
-
+        # channel setting to be passed to DAQ
         chan = np.array(channels, dtype='uint8')
-        samples = int(MAX_BULK_TRANSFER / 2)
+
+        samples = int(MAX_BULK_TRANSFER / len(channels))
 
         response = np.zeros([samples, len(channels)])
 
