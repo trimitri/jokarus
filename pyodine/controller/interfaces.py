@@ -109,6 +109,8 @@ class Interfaces:
                     seconds). Set to zero to disable publishing flags.
         :param setup_interval: Setup data is sent at roughly this interval (in
                     seconds). Set to zero to disable publishing setup data.
+        :param signal_interval: The error signal is fetched and sent at this
+                    rate.
         :param status_update_interval: Some subsystems do comprise params that
                     seldomly change. Those are consequently not periodically
                     communicated by those systems but only if they change.
@@ -119,7 +121,12 @@ class Interfaces:
 
         async def serve_error_signal():
             while True:
-                await self.publish_error_signal()
+                try:
+                    self._locker.acquire_signal()
+                except RuntimeError:
+                    LOGGER.warning("Lock is engaged: didn't publish error signal")
+                else:
+                    await self.publish_error_signal()
                 await asyncio.sleep(signal_interval)
 
         async def serve_flags():
@@ -152,10 +159,10 @@ class Interfaces:
         """Publish the most recently acquired error signal.
 
         As we need to be considerate about bandwidth and the data is only
-        intended for display and backup logging, we will apply some
+        intended for display and backup logging, we might apply some
         compression.
         """
-        raw_data = self._locker.last_signal
+        raw_data = self._locker.recent_signal
 
         # Check if a scan was already performed. Contrary to pyton lists, numpy
         # arrays don't always support bool().

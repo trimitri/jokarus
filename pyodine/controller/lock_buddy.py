@@ -89,7 +89,8 @@ class LockBuddy:
                 raise TypeError('Callback "%s" is not callable.', name)
 
         self.prelock_running = False  # The prelock algorithm is running.
-        self.last_signal = np.empty(0)
+        self.recent_signal = np.empty(0)  # The most recent signal acquired.
+        self.range = 1.  # The range used for acquiring .recent_signal
 
         self._scanner = scanner
         self._lock = lock
@@ -103,9 +104,11 @@ class LockBuddy:
     def lock_engaged(self) -> bool:
         return self._locked()
 
-    def acquire_signal(self, rel_range: float = 1) -> np.ndarray:
+    def acquire_signal(self, rel_range: float = None) -> np.ndarray:
         """Run one scan and store the result. Lock must be disengaged.
 
+        :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
+                    is used again if `None` is given.
         :raises RuntimeError: Lock was not disengaged before.
         :raises ValueError: Range is out of ]0, 1].
         """
@@ -113,9 +116,13 @@ class LockBuddy:
         # is currently disengaged.
         if self.lock_engaged:
             raise RuntimeError("Disengage lock before acquiring signals.")
+        if not rel_range:
+            rel_range = self.range
+        else:
+            self.range = rel_range
 
-        self.last_signal = self._scanner(rel_range)
-        return self.last_signal
+        self.recent_signal = self._scanner(rel_range)
+        return self.recent_signal
 
     def prelock(self, threshold: float, autolock: bool = True,
                 proximity_callback: Callable[[], None] = lambda: None) -> None:
