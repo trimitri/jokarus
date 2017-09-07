@@ -15,8 +15,6 @@ static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 static libusb_device_handle *dev = NULL;
 
-enum kLogLevel {kDebug, kInfo, kWarning, kError, kCritical};
-
 Error FetchScan(
     const double offset,
     const double amplitude,
@@ -51,7 +49,7 @@ void GenerateTriangleSignal(uint length, double min, double max,
   if (min < -10. || min > 10. || max < -10. || max > 10. || min > max) {
     min = -10.;
     max = 10.;
-    Log(kWarning, "Invalid range for triangle signal. Defaulting to +-10V.");
+    puts("Invalid range for triangle signal. Defaulting to +-10V.");
   }
 
   // Generate inverse triangle signal, starting and ending with max.
@@ -127,18 +125,6 @@ void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
   float table_AO[NCHAN_AO_1608GX][2];
   usbBuildGainTable_USB1608GX_2AO(dev, table_AO);
   output_calibration = table_AO;  // return filled table
-}
-
-static void Log(enum kLogLevel level, char *message) {
-  char *level_names[] = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"};
-
-  char *output = calloc(strlen(message) + 30, 1);  // make room for prefix
-  strcpy(output, level_names[level]);
-  strcat(output, ": libmccdaq: ");
-  strcat(output, message);
-  strcat(output, "\n");
-  fprintf(stderr, "%s", output);
-  free(output);
 }
 
 Error OpenConnection(void) {
