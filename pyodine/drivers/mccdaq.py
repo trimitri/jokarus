@@ -53,7 +53,6 @@ class MccDaq:
         :returns: A two-dimensional array of values read.
         """
         # TODO:
-        # - Get return size from C
         # - Try reading at higher sample rate than writing
         if not amplitude <= 10 or not amplitude > 0:
             raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
@@ -68,17 +67,19 @@ class MccDaq:
         # channel setting to be passed to DAQ
         chan = np.array(channels, dtype='uint8')
 
-        samples = int(MAX_BULK_TRANSFER / len(channels))
+        n_samples = int(MAX_BULK_TRANSFER / len(channels))
+        if n_samples % 8 != 0:  # Make sure we're at a nice sample count.
+            n_samples = n_samples + 8 - (n_samples % 8)
 
-        response = np.zeros([samples, len(channels)])
+        response = np.zeros([n_samples, len(channels)])
 
-        # To emulate synchronous I/O operation, we first schedule the output
-        # operation and then immediately start reading.
-        offset = ct.c_double(float(self._offset))
-        ampl = ct.c_double(amplitude)
-        duration = ct.c_double(time)
-        signal_type = ct.c_int(int(shape))
-        ret = self._daq.FetchScan(offset, ampl, duration, signal_type, response.ctypes.data)
+        ret = self._daq.FetchScan(
+            ct.c_double(float(self._offset)),
+            ct.c_double(amplitude),
+            ct.c_double(time),
+            ct.c_uint(n_samples),
+            ct.c_int(int(shape)),
+            response.ctypes.data)
         if ret != 0:
             raise ConnectionError(
                 "Failed to fetch scan. `FetchScan()` returned {}".format(ret))

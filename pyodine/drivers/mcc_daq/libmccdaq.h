@@ -22,8 +22,9 @@ typedef enum Error {
 } Error;
 
 // Generate a signal and read input channels while it is produced.
-Error FetchScan(double offset, double amplitude, double duration,
-                SignalType type, double *readings);
+Error FetchScan(const double offset, const double amplitude,
+    const double duration, const uint n_samples, const SignalType type,
+    double *readings);
 
 void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
                               float output_calibration[NCHAN_AO_1608GX][2]);
