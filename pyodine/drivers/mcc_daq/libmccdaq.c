@@ -24,23 +24,27 @@ Error FetchScan(
     const uint8_t * gains,
     const uint n_chan,
     const SignalType type,
-    double *readings) {
+    uint16_t *readings) {
   if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE / 2) return kValueError;
   const double sample_rate = n_samples / duration;
-  uint16_t signal[n_samples]; 
+
+  // Generate a signal and send it to the device.
+
+  uint16_t *signal = calloc(n_samples, sizeof(uint16_t)); 
   Error ret = GenerateSignal(type, n_samples, 100, amplitude, offset, signal);
   if (ret != 0) {
     puts("Error generating signal.");
     return ret;
   }
   ret = OutputSignal(signal, n_samples, sample_rate);
+  free(signal);
   if (ret != 0) {
     puts("Error sending signal.");
     return ret;
   }
 
-  ret = SampleChannels(n_samples, sample_rate, channels, gains, n_chan, readings); 
   // Output is running. Now start reading ASAP.
+  ret = SampleChannels(n_samples, sample_rate, channels, gains, n_chan, readings); 
   return ret;
 }
 
@@ -113,19 +117,6 @@ Error GenerateSignal(enum SignalType signal, uint n_samples,
   samples[n_samples - 1] = zero;
 
   return kSuccess;
-}
-
-void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
-                              float output_calibration[NCHAN_AO_1608GX][2]) {
-
-  // Build a lookup table of voltages vs. values based on previous calibration.
-  float table_AIN[NGAINS_1608G][2];
-  usbBuildGainTable_USB1608G(dev, table_AIN);
-  input_calibration = table_AIN;  // return filled table
-
-  float table_AO[NCHAN_AO_1608GX][2];
-  usbBuildGainTable_USB1608GX_2AO(dev, table_AO);
-  output_calibration = table_AO;  // return filled table
 }
 
 Error OpenConnection(void) {
@@ -211,7 +202,7 @@ Error SampleChannels(
     const uint8_t *channels,
     const uint8_t gains[],
     const uint n_channels,
-    double * results) {
+    uint16_t * results) {
 
   usbAInScanStop_USB1608G(dev);
   usbAInScanClearFIFO_USB1608G(dev);
@@ -257,23 +248,10 @@ Error SampleChannels(
 
   // Convert to voltages and return them.
   for (uint i = 0; i < n_channels * n_samples; i++) {
-    results[i] = (double) rcv_data[i] / (kMaxAmplitude) * 20. - 10.;
+    results[i] = rcv_data[i];
   }
   free(rcv_data);
   return kSuccess;
-}
-
-Error SampleChannelsAt10V(
-    const uint n_samples,
-    const double freq,
-    const uint8_t *channels,
-    const uint n_channels,
-    double * results) {
-  uint8_t gains[n_channels];
-  for (uint i = 0; i < n_channels; i++) {
-    gains[i] = BP_10V;
-  }
-  return SampleChannels(n_samples, freq, channels, gains, n_channels, results);
 }
 
 void Triangle() {
@@ -309,44 +287,6 @@ void Triangle() {
 
   // As we started the scan in continuous mode, we need to manually stop it.
   usbAOutScanStop_USB1608GX_2AO(dev);
-}
-
-void TriangleOnce(double duration, double min_ampl, double max_ampl) {
-
-  fprintf(stdout, "min: %f, max: %f, duration: %f\n", min_ampl, max_ampl, duration);
-  usbAOutScanStop_USB1608GX_2AO(dev);  // Stop any prev. running scan.
-
-  // The device has an internal FIFO queue storing the values to be put out
-  // during an analog output scan. The output scan will start immediately after
-  // the ScanStart command is issued if and only if we "primed" the FIFO buffer
-  // first.
-  // To do this, we first make sure that the buffer is empty and then store a
-  // single period of data in it. This usually buys us enougth time to start
-  // filling up the FIFO after the scan started.
-  usbAOutScanClearFIFO_USB1608GX_2AO(dev);
-  int transferred_byte_ct, ret;
-
-  uint16_t amplitudes[LIBMCCDAQ_BULK_TRANSFER_SIZE];
-  GenerateTriangleSignal(LIBMCCDAQ_BULK_TRANSFER_SIZE, min_ampl, max_ampl,
-                         amplitudes);
-  ret = libusb_bulk_transfer(dev, LIBUSB_ENDPOINT_OUT|2,
-      (unsigned char *) amplitudes, sizeof(amplitudes),
-      &transferred_byte_ct, kUsbTimeout);
-  /* printf("transferred: %d, ret: %d\n", transferred_byte_ct, ret); */
-
-  double rate = LIBMCCDAQ_BULK_TRANSFER_SIZE * 1/duration;
-  /* printf("rate: %f\n", rate); */
-  usbAOutScanStart_USB1608GX_2AO(dev,
-      // total # of samples to produce before stopping scan automatically
-      LIBMCCDAQ_BULK_TRANSFER_SIZE,
-      0,     // only relevant if using retrigger mode
-      rate,  // sample rate, see comments in usb-1608G.c for details
-      AO_CHAN1);
-
-  // If we stopped the scan here, the device would cease processing it's
-  // FIFO queue (see above) immediately and not be able to output even a single
-  // period.  But as we provided the exact number of desired samples in the
-  // StartScan command, we don't need to explicitly stop the scan at all.
 }
 
 uint16_t VoltsToCounts(double volts) {

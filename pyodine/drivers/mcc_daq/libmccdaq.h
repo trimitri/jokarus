@@ -31,10 +31,7 @@ Error FetchScan(
     const uint8_t * gains,
     const uint n_chan,
     const SignalType type,
-    double *readings);
-
-void GenerateCalibrationTable(float input_calibration[NGAINS_1608G][2],
-                              float output_calibration[NCHAN_AO_1608GX][2]);
+    uint16_t *readings);
 
 // Generate a signal for analog output. It will span from zero to 2^16-1.
 Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
@@ -71,22 +68,10 @@ Error SampleChannels(
     const uint8_t *channels,
     const uint8_t gains[],
     const uint n_channels,
-    double * results);
-
-// This overloads the standard definition of SampleChannels() with a variant using
-// the maximum possible input gain.
-Error SampleChannelsAt10V(
-    const uint n_samples,
-    const double freq,
-    const uint8_t *channels,
-    const uint n_channels,
-    double * results);
+    uint16_t * results);
 
 // Generate continuous triangle signal using full 20 volt range.
 void Triangle(void);
-
-// Generate one triangle signal, starting with the down-slope.
-void TriangleOnce(double duration, double min_ampl, double max_ampl);
 
 // Convert the given voltage to a digital value in "levels" alias "LSB" alias
 // "counts". This will always work and does not check for legal values!

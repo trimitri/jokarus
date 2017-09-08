@@ -67,7 +67,7 @@ class MccDaq:
         else: raise ValueError("Ramp value out of bounds [-5, 5]")
 
     def fetch_scan(self, amplitude: float, time: float,
-                   channels: List[Tuple[int, InputRange]],
+                   channels: List[Tuple[DaqChannel, InputRange]],
                    shape: RampShape = RampShape.DESCENT) -> np.ndarray:
         """Scan the output voltage once and read the inputs during that time.
 
@@ -77,11 +77,12 @@ class MccDaq:
         :param amplitude: Peak-peak amplitude of the generated ramp.
         :param time: Approx time it takes from ramp maximum to ramp minimum.
         :param channels: Which output channels to log during sweep?
-        :returns: A two-dimensional array of values read.
+        :returns: A two-dimensional array of values read. Those are raw uint16,
+                    as received from the device's 16-bit ADC chip.
         """
         # TODO:
         # - Try reading at higher sample rate than writing
-        # - Validate channels
+        # - Validate `channels`
         if not amplitude <= 10 or not amplitude > 0:
             raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
         if not time > 0:
@@ -93,7 +94,8 @@ class MccDaq:
         if n_samples % 8 != 0:  # Make sure we're at a nice sample count.
             n_samples = n_samples + 8 - (n_samples % 8)
 
-        response = np.zeros([n_samples, len(channels)])
+        # Allocate some memory for the C library to save it's result in.
+        response = np.empty([n_samples, len(channels)], dtype=np.uint16)
 
         ret = self._daq.FetchScan(
             ct.c_double(float(self._offset)),

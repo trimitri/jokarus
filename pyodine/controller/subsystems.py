@@ -136,9 +136,9 @@ class Subsystems:
                 amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
                 SCAN_TIME,
                 [
-                    (DaqChannel.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
-                    (DaqChannel.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
-                    (DaqChannel.PUMP_DIODE, mccdaq.InputRange.PM_5V)
+                    (mccdaq.DaqChannel(DaqChannel.RAMP_MONITOR), mccdaq.InputRange.PM_10V),
+                    (mccdaq.DaqChannel(DaqChannel.ERR_SIGNAL), mccdaq.InputRange.PM_2V),
+                    (mccdaq.DaqChannel(DaqChannel.PUMP_DIODE), mccdaq.InputRange.PM_5V)
                 ],
                 mccdaq.RampShape.DESCENT)
         except (AttributeError, ConnectionError) as err:

@@ -163,6 +163,7 @@ class Interfaces:
         compression.
         """
         raw_data = self._locker.recent_signal
+        LOGGER.debug(raw_data)
 
         # Check if a scan was already performed. Contrary to pyton lists, numpy
         # arrays don't always support bool().
@@ -170,23 +171,19 @@ class Interfaces:
             LOGGER.warning("Couldn't publish signal as no signal was generated yet")
             return
 
-        # Drop some values if this was a high-res scan.
+        # Drop some values before publishing if this was a high-res scan.
         while raw_data.shape[0] > MAX_SIGNAL_SAMPLES:
             # Delete one third of the samples. That's not a very elegant way to
             # do it but it gets the job done in OK time.
             raw_data = np.delete(raw_data, np.arange(1, raw_data.size, 3),
                                  axis=0)
 
-        # As the readings originally were 16-bit integers, we undo the
-        # conversion here and transfer them as such.
-        unscaled_data = (raw_data + 10.) / 20. * 2**16
-        integer_data = np.rint(unscaled_data).astype('uint16')
-        LOGGER.debug("Sending %s uint16 values.", integer_data.size)
+        LOGGER.debug("Sending %s uint16 values.", raw_data.size)
 
         # Use base64 encoding, as it is common with browsers and saves a lot of
         # bandwidth when compared to plaintext encoding.
-        data = base64.b64encode(integer_data.tobytes()).decode()
-        payload = {'data': data, 'shape': integer_data.shape}
+        encoded_string = base64.b64encode(raw_data.tobytes()).decode()
+        payload = {'data': encoded_string, 'shape': raw_data.shape}
 
         await self._publish_message(packer.create_message(payload, 'signal'))
         LOGGER.debug("Published error signal.")
@@ -245,5 +242,4 @@ class Interfaces:
         Attention: As there might be RS232 clients as well, this might not get
         called at all."""
         asyncio.ensure_future(self.publish_setup_parameters())
-        asyncio.ensure_future(self.publish_readings())
         asyncio.ensure_future(self.publish_flags())
