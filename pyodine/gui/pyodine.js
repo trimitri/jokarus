@@ -105,13 +105,11 @@
       case 'signal':
         Plotter.updateSignalPlot(
           document.getElementById('signalPlot'),
-
           // Unpack serial data into x and y values.
           FbgUtil.reshapeArray(
-
             // Create JS array from TypedArray and convert to voltages.
             Array.from(FbgUtil.base64toUint16(message.data.data))
-              .map(entry => ((entry / (2 ** 16)) * 20) - 10),
+              .map(entry => (entry - 2**15) / 2**15),
             message.data.shape[1],  // # of readings per sample
           ),
         );

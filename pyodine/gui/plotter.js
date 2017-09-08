@@ -279,36 +279,35 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
   static updateSignalPlot(plotDiv, data, plotXY = true) {
     const sortedData = data.sort((pointA, pointB) => pointA[0] - pointB[0]);
+    const plotData = [
+      plotXY ? {
+        axisYType: 'primary',
+        type: "line",
+        dataPoints: sortedData.map(point => ({ x: point[0], y: point[1] })),
+      } : {},
+      plotXY && (sortedData[0].length > 2) ? {
+        axisYType: 'secondary',
+        type: "scatter",
+        dataPoints: sortedData.map(point => ({ x: point[0], y: point[2] })),
+      } : {},
+      plotXY ? {} : {
+        type: "line",
+        dataPoints: data.map(point => ({ y: point[0] })),
+      },
+      plotXY ? {} : {
+        type: "line",
+        dataPoints: data.map(point => ({ y: point[1] })),
+      },
+    ];
     const chart = new CanvasJS.Chart(plotDiv, {
       axisX: { title: "Frequency in a.u." },
       axisY: { title: "MTS Signal" },
-      axisY2: {
-        includeZero: false,
-        title: "Pump Signal",
-      },
+      axisY2: { title: "Pump Signal", includeZero: false },
       title: { text: "Error Signal" },
-      data: [
-        plotXY ? {
-          axisYType: 'primary',
-          type: "line",
-          dataPoints: sortedData.map(point => ({ x: point[0], y: point[1] })),
-        } : {},
-        plotXY && (sortedData[0].length > 2) ? {
-          axisYType: 'secondary',
-          type: "scatter",
-          dataPoints: sortedData.map(point => ({ x: point[0], y: point[2] })),
-        } : {},
-        plotXY ? {} : {
-          type: "line",
-          dataPoints: data.map(point => ({ y: point[0] })),
-        },
-        plotXY ? {} : {
-          type: "line",
-          dataPoints: data.map(point => ({ y: point[1] })),
-        },
-      ],
+      data: plotData,
     });
     chart.render();
+    $(plotDiv).data('chart', chart);
   }
 }
 
