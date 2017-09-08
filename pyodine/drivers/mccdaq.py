@@ -26,7 +26,7 @@ class DaqChannel(IntEnum):
     C_12 = 12
     C_13 = 13
     C_14 = 14
-    C_14 = 15
+    C_15 = 15
     C_16 = 16
 
 class RampShape(IntEnum):
