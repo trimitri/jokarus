@@ -3,18 +3,44 @@
 import ctypes as ct
 from enum import IntEnum
 import logging
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
 MAX_BULK_TRANSFER = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
+class DaqChannel(IntEnum):
+    """The DAQ features 16 analog input in single-ended mode."""
+    C_1 = 1
+    C_2 = 2
+    C_3 = 3
+    C_4 = 4
+    C_5 = 5
+    C_6 = 6
+    C_7 = 7
+    C_8 = 8
+    C_9 = 9
+    C_10 = 10
+    C_11 = 11
+    C_12 = 12
+    C_13 = 13
+    C_14 = 14
+    C_14 = 15
+    C_16 = 16
+
 class RampShape(IntEnum):
     """Possible ways to ramp the frequency"""
     DESCENT = 1  # downward slope
     ASCENT = 2  # upward slope
     DIP = 3  # combination of 1 and 2, in that order
+
+class InputRange(IntEnum):
+    """The DAQ can use different input attenuations when sampling."""
+    PM_1V = 1    # +/- 1 volt (= 2V max. amplitude)
+    PM_2V = 2    # +/- 2 volt (= 4V max. amplitude)
+    PM_5V = 5    # +/- 5 volt (= 10V max. amplitude)
+    PM_10V = 10  # +/- 10 volt (= 20V max. amplitude)
 
 
 class MccDaq:
@@ -40,7 +66,8 @@ class MccDaq:
             self._offset = volts
         else: raise ValueError("Ramp value out of bounds [-5, 5]")
 
-    def fetch_scan(self, amplitude: float, time: float, channels: List[int],
+    def fetch_scan(self, amplitude: float, time: float,
+                   channels: List[Tuple[int, InputRange]],
                    shape: RampShape = RampShape.DESCENT) -> np.ndarray:
         """Scan the output voltage once and read the inputs during that time.
 
@@ -54,13 +81,11 @@ class MccDaq:
         """
         # TODO:
         # - Try reading at higher sample rate than writing
+        # - Validate channels
         if not amplitude <= 10 or not amplitude > 0:
             raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
         if not time > 0:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
-        for channel in channels:
-            if not channel >= 1 or not channel <= 32:
-                raise ValueError("DAQ only features channels 1 to 32.")
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
 
@@ -75,7 +100,8 @@ class MccDaq:
             ct.c_double(amplitude),
             ct.c_double(time),
             ct.c_uint(n_samples),
-            np.array(channels, dtype='uint8').ctypes.data,
+            np.array([c[0] for c in channels], dtype='uint8').ctypes.data,  # channels
+            np.array([c[1] for c in channels], dtype='uint8').ctypes.data,  # gains
             ct.c_uint(len(channels)),
             ct.c_int(int(shape)),
             response.ctypes.data)

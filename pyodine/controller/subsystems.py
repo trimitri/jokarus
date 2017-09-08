@@ -45,10 +45,10 @@ Buffer = List[DataPoint]
 
 class DaqChannel(IntEnum):
     """The MCC USB1608G-2AO features 16 analog inputs."""
-    REF_5V = 4
-    ERR_SIGNAL = 7
-    RAMP_MONITOR = 11
-    PUMP_DIODE = 12
+    REF_5V = mccdaq.DaqChannel.C_4
+    ERR_SIGNAL = mccdaq.DaqChannel.C_7
+    RAMP_MONITOR = mccdaq.DaqChannel.C_11
+    PUMP_DIODE = mccdaq.DaqChannel.C_12
 
 class DdsChannel(IntEnum):
     """The four channels of the DDS device."""
@@ -135,7 +135,11 @@ class Subsystems:
             return self._daq.fetch_scan(
                 amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
                 SCAN_TIME,
-                [DaqChannel.RAMP_MONITOR, DaqChannel.ERR_SIGNAL, DaqChannel.PUMP_DIODE],
+                [
+                    (DaqChannel.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
+                    (DaqChannel.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
+                    (DaqChannel.PUMP_DIODE, mccdaq.InputRange.PM_5V)
+                ],
                 mccdaq.RampShape.DESCENT)
         except (AttributeError, ConnectionError) as err:
             raise ConnectionError(
