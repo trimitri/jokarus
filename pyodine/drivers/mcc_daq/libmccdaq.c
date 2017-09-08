@@ -25,7 +25,6 @@ Error FetchScan(
     const uint n_chan,
     const SignalType type,
     uint16_t *readings) {
-  if (n_samples > LIBMCCDAQ_BULK_TRANSFER_SIZE / 2) return kValueError;
   const double sample_rate = n_samples / duration;
 
   // Generate a signal and send it to the device.

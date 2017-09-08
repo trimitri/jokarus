@@ -32,7 +32,7 @@ int main() {
   const uint n_channels = 3;
   uint16_t * data = calloc(n_samples * n_channels, sizeof(uint16_t));
   puts("Fetching Scan...");
-  FetchScan(
+  int ret = FetchScan(
       0.,
       19.99,
       .2,
@@ -42,10 +42,14 @@ int main() {
       n_channels,
       kDescent,
       data);
-  puts("Fetched Scan...");
-  for (uint i = 0; i < n_samples; i++) {
-    if (i % 10 == 0) {
-      printf("%d\t%d\t%d\n", data[3*i], data[3*i + 1], data[3*i + 2]);
+  if (ret != 0) {
+    puts("ey!");
+  } else {
+    puts("Fetched Scan...");
+    for (uint i = 0; i < n_samples; i++) {
+      if (i % 100 == 0) {
+        printf("%d\t%d\t%d\n", data[3*i], data[3*i + 1], data[3*i + 2]);
+      }
     }
   }
   free(data);

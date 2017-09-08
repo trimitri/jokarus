@@ -5,7 +5,7 @@
 #include "usb-1608G.h"
 
 // Max. count of 2-byte integers, USB bulk transfer can tolerate 5120 bytes.
-#define LIBMCCDAQ_BULK_TRANSFER_SIZE 2560
+#define LIBMCCDAQ_BULK_TRANSFER_SIZE 5120
 
 
 // "Descent" is a linear ramp from max to min, "Ascent" from min to max and
