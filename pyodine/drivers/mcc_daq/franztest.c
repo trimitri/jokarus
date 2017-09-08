@@ -4,7 +4,9 @@
 
 int main() {
 
+  puts("Opening connection...");
   OpenConnection();
+  puts("Opened connection...");
   /*
   TriangleOnce(1., -10, 10);
   uint n_channels = sizeof(channels);
@@ -24,16 +26,29 @@ int main() {
   free(data);
   */
 
-  /* uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2; */
-  /* uint8_t channels[] = {7, 12, 4}; */
-  /* uint n_channels = 3; */
-  /* double * data = calloc(n_samples * n_channels, sizeof(double)); */
-  /* uint8_t */
-  /* FetchScan(0., 19.99, .05, 2000, channels, n_channels, kDescent, data); */
-  /* for (uint i = 0; i < n_samples; i++) { */
-  /*   if (i % 3 == 0) { */
-  /*     printf("%g\t%g\n", data[2*i], data[2*i + 1]); */
-  /*   } */
-  /* } */
-  /* free(data); */
+  uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2;
+  const uint8_t channels[] = {11, 7, 12};
+  const uint8_t gains[] = {10, 10, 10};
+  const uint n_channels = 3;
+  uint16_t * data = calloc(n_samples * n_channels, sizeof(uint16_t));
+  puts("Fetching Scan...");
+  FetchScan(
+      0.,
+      19.99,
+      .2,
+      n_samples,
+      channels,
+      gains,
+      n_channels,
+      kDescent,
+      data);
+  puts("Fetched Scan...");
+  for (uint i = 0; i < n_samples; i++) {
+    if (i % 10 == 0) {
+      printf("%d\t%d\t%d\n", data[3*i], data[3*i + 1], data[3*i + 2]);
+    }
+  }
+  free(data);
+
+  return 0;
 }
