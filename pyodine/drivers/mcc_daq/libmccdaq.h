@@ -28,6 +28,7 @@ Error FetchScan(
     const double duration,
     const uint n_samples,
     const uint8_t * channels,
+    const uint8_t * gains,
     const uint n_chan,
     const SignalType type,
     double *readings);
@@ -65,20 +66,20 @@ int Ping(void);
 // Sample one or more analog outputs for the given number of samples at the
 // given frequency.
 Error SampleChannels(
-    const uint8_t *channels,
-    const uint channel_count,
-    const uint sample_count,
+    const uint n_samples,
     const double frequency,
+    const uint8_t *channels,
     const uint8_t gains[],
+    const uint n_channels,
     double * results);
 
 // This overloads the standard definition of SampleChannels() with a variant using
 // the maximum possible input gain.
 Error SampleChannelsAt10V(
+    const uint n_samples,
+    const double freq,
     const uint8_t *channels,
-    const uint channel_count,
-    const uint sample_count,
-    const double frequency,
+    const uint n_channels,
     double * results);
 
 // Generate continuous triangle signal using full 20 volt range.

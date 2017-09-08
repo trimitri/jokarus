@@ -21,6 +21,7 @@ Error FetchScan(
     const double duration,
     const uint n_samples,
     const uint8_t * channels,
+    const uint8_t * gains,
     const uint n_chan,
     const SignalType type,
     double *readings) {
@@ -38,7 +39,7 @@ Error FetchScan(
     return ret;
   }
 
-  ret = SampleChannelsAt10V(channels, n_chan, n_samples, sample_rate, readings); 
+  ret = SampleChannels(n_samples, sample_rate, channels, gains, n_chan, readings); 
   // Output is running. Now start reading ASAP.
   return ret;
 }
@@ -204,8 +205,12 @@ int Ping() {
   return 1;
 }
 
-Error SampleChannels(const uint8_t *channels,const uint n_channels,const uint
-    n_samples, const double frequency, const uint8_t gains[],
+Error SampleChannels(
+    const uint n_samples,
+    const double frequency,
+    const uint8_t *channels,
+    const uint8_t gains[],
+    const uint n_channels,
     double * results) {
 
   usbAInScanStop_USB1608G(dev);
@@ -213,14 +218,25 @@ Error SampleChannels(const uint8_t *channels,const uint n_channels,const uint
 
   // Create a channel configuration for the analog input scan and save it to the
   // device.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wvla"
   ScanList list[n_channels];
-#pragma clang diagnostic pop
+  // As gain settings are defined as hex values in usb-1608G.h, we need this
+  // bulky translator here:
   for (uint i = 0; i < n_channels; i++) {
+    uint8_t gain = BP_10V;
+    switch (gains[i]) {
+      case 1:
+        gain = BP_1V;
+        break;
+      case 2:
+        gain = BP_2V;
+        break;
+      case 5:
+        gain = BP_5V;
+      // Default is 10V (see above)
+    }
     list[i].channel = channels[i];
     list[i].mode = SINGLE_ENDED;
-    list[i].range = gains[i];
+    list[i].range = gain;
   }
   list[n_channels-1].mode |= LAST_CHANNEL;
   usbAInConfig_USB1608G(dev, list);
@@ -247,16 +263,17 @@ Error SampleChannels(const uint8_t *channels,const uint n_channels,const uint
   return kSuccess;
 }
 
-Error SampleChannelsAt10V(const uint8_t *channels, const uint n_channels,
-    const uint n_samples, const double freq, double * results) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wvla"
+Error SampleChannelsAt10V(
+    const uint n_samples,
+    const double freq,
+    const uint8_t *channels,
+    const uint n_channels,
+    double * results) {
   uint8_t gains[n_channels];
-#pragma clang diagnostic pop
   for (uint i = 0; i < n_channels; i++) {
     gains[i] = BP_10V;
   }
-  return SampleChannels(channels, n_channels, n_samples, freq, gains, results);
+  return SampleChannels(n_samples, freq, channels, gains, n_channels, results);
 }
 
 void Triangle() {
