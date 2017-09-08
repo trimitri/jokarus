@@ -118,6 +118,10 @@ class LockBuddy:
         :raises RuntimeError: Lock was not disengaged before.
         :raises ValueError: Range is out of ]0, 1].
         """
+
+        # FIXME: catch callback exceptions. ConnectionError for example is
+        # commonly raised!
+
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.
         if self.lock_engaged:

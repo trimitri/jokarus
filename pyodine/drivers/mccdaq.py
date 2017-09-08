@@ -7,7 +7,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-MAX_BULK_TRANSFER = 2560
+MAX_AOUT_SAMPLES = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
 class DaqChannel(IntEnum):
@@ -90,9 +90,7 @@ class MccDaq:
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
 
-        n_samples = int(MAX_BULK_TRANSFER / len(channels))
-        if n_samples % 8 != 0:  # Make sure we're at a nice sample count.
-            n_samples = n_samples + 8 - (n_samples % 8)
+        n_samples = MAX_AOUT_SAMPLES
 
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
