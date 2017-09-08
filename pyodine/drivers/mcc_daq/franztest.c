@@ -28,7 +28,7 @@ int main() {
 
   uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2;
   const uint8_t channels[] = {11, 7, 12};
-  const uint8_t gains[] = {10, 10, 10};
+  const uint8_t gains[] = {10, 2, 5};
   const uint n_channels = 3;
   uint16_t * data = calloc(n_samples * n_channels, sizeof(uint16_t));
   puts("Fetching Scan...");

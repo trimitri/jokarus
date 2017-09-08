@@ -97,13 +97,19 @@ class MccDaq:
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
 
+        # CAUTION: Beware of the python optimizer/garbage collector! When
+        # inlining the two variables below, Python clears the memory before the
+        # C library starts to access it, leading to unexpected behaviour of the
+        # C code.
+        chan = np.array([c[0] for c in channels], dtype='uint8')
+        gain = np.array([c[1] for c in channels], dtype='uint8')
         ret = self._daq.FetchScan(
             ct.c_double(float(self._offset)),
             ct.c_double(amplitude),
             ct.c_double(time),
             ct.c_uint(n_samples),
-            np.array([c[0] for c in channels], dtype='uint8').ctypes.data,  # channels
-            np.array([c[1] for c in channels], dtype='uint8').ctypes.data,  # gains
+            chan.ctypes.data,  # channels; See note above!
+            gain.ctypes.data,  # gains; See note above!
             ct.c_uint(len(channels)),
             ct.c_int(int(shape)),
             response.ctypes.data)
