@@ -20,6 +20,9 @@ async def poll_resource(indicator: Callable[[], bool],
     seconds. This will repeat until `indicator` is true in which case it will
     either standby (if `continuous` is True) or stop.
 
+    As this will dispatch a worker task, it does not raise on faulty callbacks
+    but uses logging.exception() instead.
+
     :param indicator: A function returning something coercible to bool that
                 indicates if there is currently a connection. This gets called
                 quite often and should ideally be cheap.
@@ -54,17 +57,33 @@ async def poll_resource(indicator: Callable[[], bool],
             LOGGER.info("Trying to connect connect %s.", name)
             while not indicator():
                 LOGGER.debug("Resource %s is still offline.", name)
-                if probe_is_async:
-                    await prober()
-                else:
-                    prober()
+                try:
+                    if probe_is_async:
+                        await prober()
+                    else:
+                        prober()
+                except Exception:  # pylint: disable=broad-except
+                    # It doesn't make a lot of sense to raise here, as this is
+                    # a worker process.
+                    LOGGER.exception("'prober()' callback raised an exception:")
                 await asyncio.sleep(float(delay))
-            on_connect()  # Notify the caller.
+            try:
+                on_connect()  # Notify the caller.
+            except Exception:  # pylint: disable=broad-except
+                # It doesn't make a lot of sense to raise here, as this is
+                # a worker process.
+                LOGGER.exception("'on_connect()' callback raised an exception:")
             LOGGER.info("Resource %s is now available.", name)
         if not continuous:
             LOGGER.info("Stopped polling of resource %s.", name)
             break
         if not indicator():  # There was a connection, but it got lost.
-            on_disconnect()
+            try:
+                on_disconnect()
+            except Exception:  # pylint: disable=broad-except
+                # It doesn't make a lot of sense to raise here, as this is
+                # a worker process.
+                LOGGER.exception("'on_disconnect()' callback raised an exception:")
+
             LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))
