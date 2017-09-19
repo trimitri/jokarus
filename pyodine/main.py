@@ -8,10 +8,12 @@ local modules, absolute imports for global ones. This should be the pythonic
 way as discussed in PEP328.
 """
 import asyncio
+import base64
 import logging
 from typing import Dict, Any
 
 import aioconsole
+import numpy as np
 
 from .controller import (control_flow, interfaces, instruction_handler,
                          lock_buddy, subsystems)
@@ -92,6 +94,16 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
                                    getter=ramp_getter, setter=ramp_setter)
 
+    # Log all acquired signals.
+    def on_new_signal(data: np.ndarray) -> None:
+        """Logs the received array as base64 string."""
+        data_type = str(data.dtype)
+        shape = str(data.shape)
+        values = base64.b64encode(data).decode()  # base64-encoded str()
+        logger.log_quantity(
+            'spectroscopy_signal', data_type + '\t' + shape + '\t' + values)
+
+
     # Assemble the actual lock buddy using the tuners above.
     def nu_locked() -> bool:
         try:
@@ -106,7 +118,8 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         unlock=lambda: subs.switch_lock('nu', False),
         locked=nu_locked,
         scanner=subs.fetch_scan,
-        tuners=[miob_temp, mo_current, ramp_offset])
+        tuners=[miob_temp, mo_current, ramp_offset],
+        on_new_signal=on_new_signal)
     return locker
 
 
