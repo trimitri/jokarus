@@ -69,7 +69,8 @@ class LockBuddy:
                  unlock: Callable[[], None],
                  locked: Callable[[], bool],
                  scanner: Callable[[float], np.ndarray],
-                 tuners: List[Tuner]) -> None:
+                 tuners: List[Tuner],
+                 on_new_signal: Callable[[np.ndarray], None] = None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -83,10 +84,10 @@ class LockBuddy:
                     - m: number of readings per sample; must be >= 2 with the
                       first column containing the x values (tunable quantity!)
                       and all following columngs readings plotted against that
-        :param tuner_coarse: A Tuner object that provides control over the
+        :param tuners: A list of Tuner objects that provide control over the
                     tunable quantity.
-        :param tuner_medium: See tuner_coarse.
-        :param tuner_fine: See tuner_coarse.
+        :param on_new_signal: Is called with every new signal acquired. It gets
+                    passed the acquired data as np.ndarray.
         """
 
         for name, callback in (("lock", lock), ("unlock", unlock),
@@ -102,8 +103,9 @@ class LockBuddy:
         self._lock = lock
         self._unlock = unlock
         self._locked = locked
+        self._on_new_signal = on_new_signal
 
-        # Make sure the fastest tuner is listed first.
+        # Sort available tuners by speed.
         self._tuners = sorted(tuners, key=lambda t: t.delay)
 
     @property
@@ -116,22 +118,31 @@ class LockBuddy:
         :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
                     is used again if `None` is given.
         :raises RuntimeError: Lock was not disengaged before.
+        :raises RuntimeError: Callback threw an Exception.
         :raises ValueError: Range is out of ]0, 1].
         """
-
-        # FIXME: catch callback exceptions. ConnectionError for example is
-        # commonly raised!
 
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.
         if self.lock_engaged:
             raise RuntimeError("Disengage lock before acquiring signals.")
+        try:
+            self.recent_signal = self._scanner(rel_range)
+        except Exception as err:  # We don't know anything about the callback.
+            raise RuntimeError('"scanner" Callback raised an exception.') from err
+
+        # Notify user of new signal. Can be used for logging or monitoring.
+        if callable(self._on_new_signal):
+            try:
+                self._on_new_signal(self.recent_signal)
+            except Exception as err:  # We don't know anything about the callback.
+                raise RuntimeError('"on_lock_engaged" Callback raised an exception.') from err
+
         if not rel_range:
             rel_range = self.range
         else:
             self.range = rel_range
 
-        self.recent_signal = self._scanner(rel_range)
         return self.recent_signal
 
     def prelock(self, threshold: float, autolock: bool = True,
@@ -144,4 +155,4 @@ class LockBuddy:
 
         If the lock is currently engaged, it is going to be disengaged.
         """
-        pass
+        LOGGER.error("prelock() not implemented!")  # TODO
