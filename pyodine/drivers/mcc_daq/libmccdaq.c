@@ -15,6 +15,8 @@ static const uint16_t kMaxAmplitude = 65535;  // 2^16-1
 
 static libusb_device_handle *dev = NULL;
 
+// For documentation of methods see libmccdaq.h.
+
 Error FetchScan(
     const double offset,
     const double amplitude,

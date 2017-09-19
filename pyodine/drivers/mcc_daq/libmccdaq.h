@@ -4,7 +4,8 @@
 #include <libusb-1.0/libusb.h>
 #include "usb-1608G.h"
 
-// Max. count of 2-byte integers, USB bulk transfer can tolerate 5120 bytes.
+// Max. count of bytes USB bulk transfer can tolerate. This is a hard limit and
+// not only limited by USB wiring SNR.
 #define LIBMCCDAQ_BULK_TRANSFER_SIZE 5120
 
 
