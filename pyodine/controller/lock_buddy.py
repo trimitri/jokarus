@@ -126,6 +126,12 @@ class LockBuddy:
         # is currently disengaged.
         if self.lock_engaged:
             raise RuntimeError("Disengage lock before acquiring signals.")
+
+        if not rel_range:
+            rel_range = self.range
+        else:
+            self.range = rel_range
+
         try:
             self.recent_signal = self._scanner(rel_range)
         except Exception as err:  # We don't know anything about the callback.
@@ -137,11 +143,6 @@ class LockBuddy:
                 self._on_new_signal(self.recent_signal)
             except Exception as err:  # We don't know anything about the callback.
                 raise RuntimeError('"on_lock_engaged" Callback raised an exception.') from err
-
-        if not rel_range:
-            rel_range = self.range
-        else:
-            self.range = rel_range
 
         return self.recent_signal
 
