@@ -124,7 +124,7 @@ class Interfaces:
                 try:
                     self._locker.acquire_signal()
                 except RuntimeError:
-                    LOGGER.warning("Lock is engaged: didn't publish error signal")
+                    LOGGER.exception("Couldn't publish error signal:")
                 else:
                     await self.publish_error_signal()
                 await asyncio.sleep(signal_interval)
