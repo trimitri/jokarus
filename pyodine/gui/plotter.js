@@ -305,15 +305,21 @@ class Plotter {  // eslint-disable-line no-unused-vars
         dataPoints: data.map(point => ({ y: point[1] })),
       },
     ];
-    const chart = new CanvasJS.Chart(plotDiv, {
-      axisX: { title: "Frequency in a.u." },
-      axisY: { title: "MTS Signal" },
-      axisY2: { title: "Pump Signal", includeZero: false },
-      title: { text: "Error Signal" },
-      data: plotData,
-    });
-    chart.render();
-    $(plotDiv).data('chart', chart);
+    let chart = $(plotDiv).data('chart');
+    if (!chart) {  // Plot doesn't exist. Create it.
+      chart = new CanvasJS.Chart(plotDiv, {
+        axisX: { title: "Frequency in a.u." },
+        axisY: { title: "MTS Signal" },
+        axisY2: { title: "Pump Signal", includeZero: false },
+        title: { text: "Error Signal" },
+        data: plotData,
+      });
+      chart.render();
+      $(plotDiv).data('chart', chart);
+    } else {  // Plot exists. Update it.
+      chart.options.data = plotData;
+      chart.render();
+    }
   }
 }
 
