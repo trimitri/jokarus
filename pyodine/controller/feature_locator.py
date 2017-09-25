@@ -2,20 +2,28 @@
 
 This module is a wrapper for the contained "FeatureLocator" class.
 """
-import numpy as np
 import logging
+from typing import Dict, List, Tuple, Union  # pylint: disable=unused-import
+
+import numpy as np
 from scipy import signal
-from typing import Dict, List, Tuple, Union
-Dict  # Dummy usage to prevent "imported but unused" warning.
 
 LOGGER = logging.getLogger('pyodine.controller.feature_locator')
-SomeArray = Union[List[float], np.ndarray]  # Either python list or np array.
 
 
 class FeatureLocator:
+    """Find distorted samples' positions inside a reference signal.
 
-    def __init__(self, feature_threshold: float=0.001) -> None:
-        self._FEATURE_THRESH = feature_threshold
+    We assume that the supplied reference signal/spectrum etc. has a nontrivial
+    shape (a sufficient density of distinguishable features). Presented with a
+    sample resembling a part of the reference spectrum, this class may then
+    determine the position in the reference at which that sample once belonged.
+
+    It also provides a "confidence" rating, which may be used to determine if
+    the sample at hand does belong in the reference at all.
+    """
+    def __init__(self, feature_threshold: float = 0.001) -> None:
+        self.feature_threshold = feature_threshold
         self._ref = None  # type: np.ndarray
         self._ref_xvals = None  # type: np.ndarray
         self._sample = None  # type: np.ndarray
@@ -24,34 +32,17 @@ class FeatureLocator:
 
     @property
     def reference(self) -> np.ndarray:
-        if self._ref is not None:
-            return self._ref
-        else:
-            LOGGER.error("Set reference before accessing it.")
-            return np.array([])
+        return self._ref
 
     @reference.setter
-    def reference(self, ref: SomeArray) -> None:
-        self._ref = np.array(ref)
+    def reference(self, ref: np.ndarray) -> None:
+        self._ref = ref
 
         # Mark quantities that need to be recalculated when a new reference was
         # set.
         self._corr = None
         self._norms = {}
 
-    @property
-    def sample(self) -> np.ndarray:
-        return self._sample
-
-    @sample.setter
-    def sample(self, sample: SomeArray) -> None:
-        smpl = np.array(sample)
-        norm = np.linalg.norm(smpl)
-        self._sample = np.divide(smpl, norm)
-
-        # Mark quantities that need to be recalculated when a new reference was
-        # set.
-        self._corr = None
 
     def load_reference_from_txt(self, filename_txt: str) -> int:
         self._ref_xvals, self.reference = np.loadtxt(filename_txt, unpack=True)
@@ -61,7 +52,25 @@ class FeatureLocator:
         self.reference = np.fromfile(filename)
         return len(self.reference)
 
-    def locate_sample(self) -> Tuple[int, float]:
+    def locate_sample(self, sample: np.ndarray, width: float) -> List[Tuple[int, float]]:
+        """The classes core functionality. Locate a sample in a reference.
+
+        :param width: The span of the sample relative to the full reference
+                    width. Has to be ]0, 1[. As the sample rate may be
+                    different for reference and sample, this is not obvious
+                    from the array length.
+        :returns: A list of tuples (position, confidence) indicating the most
+                    probable locations in the reference from where the sample
+                    may have originated.
+                    `position` is a float in [0, 1[, indicating the position of
+                    the sample's left edge. This will always be <1, as the
+                    sample itself has a finite width.
+                    `confidence` is an *arbitrary* indicator in [0, 1] of how
+                    probable it is for the sample to have originated from
+                    `position`.
+                    For no matches, the list may be empty.
+        """
+        self._set_sample(sample)
         position = self.correlate().argmax()
 
         # Returns a 1-element tuple of array indices where local maximums are
@@ -90,13 +99,12 @@ class FeatureLocator:
             return self._corr
 
         if self._ref is not None and self._sample is not None:
-            self._corr = signal.correlate(self._ref, self._sample,
-                                          mode='valid')
+            self._corr = signal.correlate(self._ref, self._sample, mode='valid')
             self._corr = np.divide(self._corr, self._get_normalization())
             return self._corr
-        else:
-            LOGGER.error("Set reference and sample before correlating.")
-            return np.array([])
+
+        LOGGER.error("Set reference and sample before correlating.")
+        return np.array([])
 
     def _get_normalization(self) -> np.ndarray:
         if len(self._sample) in self._norms:
@@ -123,16 +131,29 @@ class FeatureLocator:
                             for s
                             in range(len(self._ref) - len(self._sample) + 1)])
         maxval = factors.max()
-        for f in np.nditer(factors, op_flags=['readwrite']):
+        for feat in np.nditer(factors, op_flags=['readwrite']):
 
             # Does this part of the reference spectrum contain actual features?
-            if f < maxval * self._FEATURE_THRESH:
+            if feat < maxval * self.feature_threshold:
                 # There is no feature here. Set a high normalization divisor to
                 # effectively block this section from matching anything. (1.0
                 # is the highest regular divisor, see above.)
                 # This part is also important to avoid division by zero
                 # problems.
-                f[...] = 1.11111111
+                feat[...] = 1.11111111
 
         # Cache the result.
         self._norms[len(self._sample)] = factors
+
+    def _interpolate_sample(self, length: float) -> np.ndarray:
+        # We assume, that for our signal type, cubic splines present a much
+        # more reasonable approximation than linear interpolation.
+        pass
+
+    def _set_sample(self, sample: np.ndarray) -> None:
+        norm = np.linalg.norm(sample)
+        self._sample = np.divide(sample, norm)
+
+        # Mark quantities that need to be recalculated when a new reference was
+        # set.
+        self._corr = None
