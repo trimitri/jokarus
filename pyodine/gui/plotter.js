@@ -79,6 +79,12 @@ class Plotter {  // eslint-disable-line no-unused-vars
   }
 
   static updatePiiPlot(plotDiv, readingsObj) {
+    // Check if the message we received actually contains any data. If there is
+    // a problem with subsystems, we might well have received an empty object.
+    if (Object.keys(readingsObj).length === 0) {
+      console.log("Couldn't update Lockbox plot, no data was received.");
+      return;
+    }
     const div = $(plotDiv);
     const displayTime = document.getElementById('display_time').value;
     const prefix = plotDiv.dataset.unitName;
