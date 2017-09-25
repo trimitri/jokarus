@@ -87,32 +87,50 @@
     });
   }
 
+  // Parse "readings"-type data package and dispatch associated handlers.
+  // @param {Object} data The message payload as  extracted from the received
+  //                      JSON message.
+  function parseReadings(data) {
+    Plotter.updateAllPlots(data);
+    $('div.osc_plot').each(function plotUpdater() {
+      Plotter.updateOscPlot(this, data);
+    });
+    document.querySelectorAll('div.pii.plot[data-unit-name]')
+      .forEach(plotDiv => Plotter.updatePiiPlot(plotDiv, data));
+    updateIndicators(data);
+  }
+
+  // Parse "signal"-type data package and dispatch associated handlers.
+  // @param {Object} data The message payload as  extracted from the received
+  //                      JSON message.
+  function parseSignal(data) {
+    const intData = Array.from(FbgUtil.base64toUint16(data.data));
+    const normalizedData = intData.map(entry => (entry - (2 ** 15)) / (2 ** 15));
+    const readingsPerSample = data.shape[1];
+
+    Plotter.updateSignalPlot(
+      document.getElementById('signalPlot'),
+      // Unpack serial data into x and y values.
+      FbgUtil.reshapeArray(normalizedData, readingsPerSample),
+    );
+  }
+
+  // Parse a received JSON data package and pass the contents on to dedicated
+  // handler functions.
+  // @param {Object} event contains the data to be parsed at event.data (a
+  //                       string)
+  // @returns null
   function messageHandler(event) {
     const message = JSON.parse(event.data);
     switch (message.type) {
       case 'readings':
-        Plotter.updateAllPlots(message.data);
-        $('div.osc_plot').each(function plotUpdater() {
-          Plotter.updateOscPlot(this, message.data);
-        });
-        document.querySelectorAll('div.pii.plot[data-unit-name]')
-          .forEach(plotDiv => Plotter.updatePiiPlot(plotDiv, message.data));
-        updateIndicators(message.data);
+        parseReadings(message.data);
         break;
       case 'setup':
         updateIndicators(message.data);
         break;
       case 'signal':
-        Plotter.updateSignalPlot(
-          document.getElementById('signalPlot'),
-          // Unpack serial data into x and y values.
-          FbgUtil.reshapeArray(
-            // Create JS array from TypedArray and convert to voltages.
-            Array.from(FbgUtil.base64toUint16(message.data.data))
-              .map(entry => (entry - 2**15) / 2**15),
-            message.data.shape[1],  // # of readings per sample
-          ),
-        );
+        parseSignal(message.data);
         break;
       case 'texus':
         updateTexusFlags(message.data);
