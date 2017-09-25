@@ -106,12 +106,14 @@
   function parseSignal(data) {
     const intData = Array.from(FbgUtil.base64toUint16(data.data));
     const normalizedData = intData.map(entry => (entry - (2 ** 15)) / (2 ** 15));
-    const readingsPerSample = data.shape[1];
+    const nChannels = data.shape[1];  // # of readings per sample.
+    const plotXY = document.getElementById('plotVsRamp').checked;
 
     Plotter.updateSignalPlot(
       document.getElementById('signalPlot'),
       // Unpack serial data into x and y values.
-      FbgUtil.reshapeArray(normalizedData, readingsPerSample),
+      FbgUtil.reshapeArray(normalizedData, nChannels),
+      plotXY,
     );
   }
 

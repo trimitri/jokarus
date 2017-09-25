@@ -284,17 +284,22 @@ class Plotter {  // eslint-disable-line no-unused-vars
   }
 
   static updateSignalPlot(plotDiv, data, plotXY = true) {
-    const sortedData = data.sort((pointA, pointB) => pointA[0] - pointB[0]);
+    const xTitle = plotXY ? "Frequency" : "Samples";
+    const yLeftTitle = plotXY ? "MTS Signal" : "MTS Signal and Ramp";
+    const sortedData = plotXY ? data.sort((pointA, pointB) => pointA[0] - pointB[0]) : data;
     const plotData = [
       plotXY ? {
         axisYType: 'primary',
         type: "line",
         dataPoints: sortedData.map(point => ({ x: point[0], y: point[1] })),
       } : {},
-      plotXY && (sortedData[0].length > 2) ? {
+      // Plot the pump beam photodiode's signal.
+      (sortedData[0].length > 2) ? {
         axisYType: 'secondary',
         type: "scatter",
-        dataPoints: sortedData.map(point => ({ x: point[0], y: point[2] })),
+        dataPoints: sortedData.map(point => (
+          plotXY ? { x: point[0], y: point[2] } : { y: point[2] }
+        )),
       } : {},
       plotXY ? {} : {
         type: "line",
@@ -318,6 +323,8 @@ class Plotter {  // eslint-disable-line no-unused-vars
       $(plotDiv).data('chart', chart);
     } else {  // Plot exists. Update it.
       chart.options.data = plotData;
+      chart.options.axisX.title = xTitle;
+      chart.options.axisY.title = yLeftTitle;
       chart.render();
     }
   }

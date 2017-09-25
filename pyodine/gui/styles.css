@@ -22,17 +22,19 @@ div.layout_block {
 	box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
 }
 div.layout_block.osc,
-div.layout_block.pii,
-div.layout_block.signal {
+div.layout_block.pii {
 	width: 70rem;
 	display: flex;
 }
 div.osc div.osc_plot,
-div.pii div.plot.pii,
-div.signal div.plot.signal {
+div.pii div.plot.pii {
 	width: 40rem;
 	height: 30rem;
 	flex-grow: 1;
+}
+div.signal div.plot.signal {
+	height: 30rem;
+	width: 60rem;
 }
 section#tab_logging div.plot {
 	width: 30rem;
