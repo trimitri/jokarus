@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 
+from . import feature_locator
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
@@ -100,6 +101,7 @@ class LockBuddy:
         self.range = 1.  # The range used for acquiring .recent_signal
 
         self._scanner = scanner
+        self._locator = feature_locator.FeatureLocator()
         self._lock = lock
         self._unlock = unlock
         self._locked = locked
@@ -157,3 +159,4 @@ class LockBuddy:
         If the lock is currently engaged, it is going to be disengaged.
         """
         LOGGER.error("prelock() not implemented!")  # TODO
+        self._locator.locate_sample(1, 2)
