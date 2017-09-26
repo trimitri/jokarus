@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List, Tuple, Union  # pylint: disable=unused-import
 
 import numpy as np
-from scipy import signal
+from scipy import signal, interpolate
 
 LOGGER = logging.getLogger('pyodine.controller.feature_locator')
 
@@ -24,11 +24,12 @@ class FeatureLocator:
     """
     def __init__(self, feature_threshold: float = 0.001) -> None:
         self.feature_threshold = feature_threshold
-        self._ref = None  # type: np.ndarray
-        self._ref_xvals = None  # type: np.ndarray
-        self._sample = None  # type: np.ndarray
+        # How much arbitrary units does the reference signal span?
+        self.ref_span = None  # type: float
         self._corr = None  # type: np.ndarray
         self._norms = {}  # type: Dict[int, np.ndarray]
+        self._ref = None  # type: np.ndarray
+        self._sample = None  # type: np.ndarray
 
     @property
     def reference(self) -> np.ndarray:
@@ -43,41 +44,54 @@ class FeatureLocator:
         self._corr = None
         self._norms = {}
 
+    def correlate(self) -> np.ndarray:
+        """The (tweaked) cross correlation between sample and reference.
 
-    def load_reference_from_txt(self, filename_txt: str) -> int:
-        self._ref_xvals, self.reference = np.loadtxt(filename_txt, unpack=True)
-        return len(self.reference)
+        This may be used for visual control of match quality.
 
-    def load_reference_from_binary(self, filename: str) -> int:
-        self.reference = np.fromfile(filename)
-        return len(self.reference)
+        :raises RuntimeError: Reference or sample weren't set before using this
+                    method.
+        """
+        if self._ref is None or self._sample is None:
+            raise RuntimeError("Set ref and sample before correlating.")
 
-    def locate_sample(self, sample: np.ndarray, width: float) -> List[Tuple[int, float]]:
-        """The classes core functionality. Locate a sample in a reference.
+        if self._corr is None:
+            self._corr = signal.correlate(self._ref, self._sample, mode='valid')
+            self._corr = np.divide(self._corr, self._get_normalization())
+        return self._corr
 
-        :param width: The span of the sample relative to the full reference
-                    width. Has to be ]0, 1[. As the sample rate may be
-                    different for reference and sample, this is not obvious
-                    from the array length.
+    def locate_sample(self, sample: np.ndarray, span: float) -> List[Tuple[float, float]]:
+        """The core functionality. Locate a sample in a reference.
+
+        :param span: The span of the sample in arbitrary units. Those need to
+                    be the same units that were used when defining the
+                    reference. It must be smaller than the reference span.
+
+        :raises ValueError: `sample` is of wrong shape.
+        :raises ValueError: `span` is not in ]0, <ref. span>[.
+
         :returns: A list of tuples (position, confidence) indicating the most
                     probable locations in the reference from where the sample
-                    may have originated.
-                    `position` is a float in [0, 1[, indicating the position of
-                    the sample's left edge. This will always be <1, as the
-                    sample itself has a finite width.
+                    may have originated. `position` is a float in [0, rs[,
+                    indicating the position of the sample's left edge. "rs" is
+                    the reference span. `position` will always be smaller than
+                    "rs", as the sample itself has a finite width.
                     `confidence` is an *arbitrary* indicator in [0, 1] of how
-                    probable it is for the sample to have originated from
-                    `position`.
-                    For no matches, the list may be empty.
+                    probable it is for the sample to actually have originated
+                    from `position`.  For no matches, the list may be empty.
         """
-        self._set_sample(sample)
+        if sample.shape[0] != 2:
+            raise ValueError("Sample has to have (2, n) shape for n sampled points.")
+        if not span > 0 or not span < self.ref_span:
+            raise ValueError("Sample span needs to be in ]0, <ref. span>[.")
+
+        self._set_sample(sample, span)
         position = self.correlate().argmax()
 
         # Returns a 1-element tuple of array indices where local maximums are
         # located. We need to set the mode to 'wrap' in order to also catch
         # relative max's at the very start and end of the corr. signal.
-        relative_maxima_positions = signal.argrelmax(self.correlate(),
-                                                     mode='wrap')[0]
+        relative_maxima_positions = signal.argrelmax(self.correlate(), mode='wrap')[0]
         maxima = [self.correlate()[i] for i in relative_maxima_positions]
         maxima = np.sort(maxima)
         if len(maxima) > 1:
@@ -88,31 +102,10 @@ class FeatureLocator:
             confidence = 1  # Only one maximum was found.
         else:
             confidence = 0  # No maximum was found.
-        return (position, confidence)
 
-    def correlate(self) -> np.ndarray:
-        """The (tweaked) cross correlation between sample and reference.
-
-        This may be used for visual control of match quality.
-        """
-        if self._corr is not None:
-            return self._corr
-
-        if self._ref is not None and self._sample is not None:
-            self._corr = signal.correlate(self._ref, self._sample, mode='valid')
-            self._corr = np.divide(self._corr, self._get_normalization())
-            return self._corr
-
-        LOGGER.error("Set reference and sample before correlating.")
-        return np.array([])
-
-    def _get_normalization(self) -> np.ndarray:
-        if len(self._sample) in self._norms:
-            return self._norms[len(self._sample)]
-
-        # Normalization wasn't calculated yet for current sample length.
-        self._calc_normalization()
-        return self._norms[len(self.sample)]
+        # TODO Do what's proclaimed in the docs above: Return multiple
+        # candidates.
+        return [(position, confidence)]
 
     def _calc_normalization(self) -> None:
         # Calculate the reference signal normalization factors for the current
@@ -145,15 +138,38 @@ class FeatureLocator:
         # Cache the result.
         self._norms[len(self._sample)] = factors
 
-    def _interpolate_sample(self, length: float) -> np.ndarray:
-        # We assume, that for our signal type, cubic splines present a much
-        # more reasonable approximation than linear interpolation.
-        pass
+    def _get_normalization(self) -> np.ndarray:
+        if len(self._sample) in self._norms:
+            return self._norms[len(self._sample)]
 
-    def _set_sample(self, sample: np.ndarray) -> None:
+        # Normalization wasn't calculated yet for current sample length.
+        self._calc_normalization()
+        return self._norms[len(self._sample)]
+
+    def _set_sample(self, sampled_points: np.ndarray, span: float) -> None:
+        # Resample the data to match the references rate of sample points per 1
+        # arbitrary unit.
+
+        # We assume, that for our signal type, Akima splines present a much
+        # more reasonable approximation than linear interpolation.  The
+        # `length` parameter effectively determines the number of sample
+        # points, as it is given with respect to the reference data length.
+
+        # Normalize sample into the [0, 1] (inclusive) interval.
+        xvals = sampled_points[0]
+        xvals -= min(xvals)
+        xvals /= max(xvals)
+
+        # Create an interpolation function defined in the [0, 1] interval and
+        # resample the data. We only need the new equidistant y values from now
+        # on.
+        inter = interpolate.Akima1DInterpolator(xvals, sampled_points[1])
+        n_samples = (span / self.ref_span) * len(self.reference)
+        sample = inter(np.linspace(0, 1, n_samples))
+
+        # Normalize values for reproducible cross correllation results.
         norm = np.linalg.norm(sample)
         self._sample = np.divide(sample, norm)
 
-        # Mark quantities that need to be recalculated when a new reference was
-        # set.
+        # Correllation needs to be recalculated when a new sample was set.
         self._corr = None
