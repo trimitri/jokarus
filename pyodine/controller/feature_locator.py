@@ -90,11 +90,16 @@ class FeatureLocator:
         position = self.correlate().argmax() / len(self._ref) * self.ref_span
 
         # Returns a 1-element tuple of array indices where local maximums are
-        # located. We need to set the mode to 'wrap' in order to also catch
-        # relative max's at the very start and end of the corr. signal.
-        relative_maxima_positions = signal.argrelmax(self.correlate(), mode='wrap')[0]
-        maxima = [self.correlate()[i] for i in relative_maxima_positions]
-        maxima = np.sort(maxima)
+        # located. Relative max's at the very start and end of the corr. signal
+        # are not counted, as they wouldn't give an accurate position.
+        maxima_ind = signal.argrelmax(self.correlate(), mode='wrap')[0]
+        maxima = [[p, self.correlate()[p]] for p in maxima_ind]
+        maxima = maxima[np.argsort(maxima[:, 1])]  # Sort by height of maximum.
+
+        # The probable occurrences were found now. We still need to scale the
+        # x-axis to arbitrary (reference) units and provide a meaningful
+        # confidence indicator that will replace the bare maximum height.
+
         if len(maxima) > 1:
 
             # Compare highest maximum to second highest.
@@ -107,6 +112,59 @@ class FeatureLocator:
         # TODO Do what's proclaimed in the docs above: Return multiple
         # candidates.
         return [(position, confidence)]
+
+    def _assign_confidence(self, maxima: List[int, float]) -> List[int, float]:
+        """Estimate the reliability of match candidates.
+
+        The cross correlation analysis done in this class will usually yield
+        more than one candidate for positions in the reference at which a given
+        signal might have originated. As *at most* one of the finds is the
+        correct match, we need to provide the user with an estimation of match
+        quality, which is what this function tries to give.
+        """
+
+        # TODO All of the confidence estimators below lack the important
+        # feature of reliably rejecting signals that don't fit at all, e.g.
+        # using the absolute value of the correlation function as an indicator.
+        # This feature is requested in issue #135.
+
+        weighted = maxima[::-1]  # Put best match first (flip list).
+        if len(weighted) == 1:
+            # If there's only one local maximum found, we'll judge the
+            # situation by comparing the maximum value to the arithmetic mean
+            # of the overall correlation signal. When using a complex
+            # reference signal, this situation should not usually occur. It is
+            # mainly here to avoid false positives in such cases.
+            #
+            # This basic check can be understood as some kind of "peakiness"
+            # metric. An extremely sharp peak will yield a confidence close to
+            # one, whereas a broad "hill" signal will lead to lower confidence
+            # values.
+            max_val = weighted[0][1]
+            min_val = min(self.correlate())
+            mean = np.mean(self.correlate())
+            weighted[0][1] = (mean - min_val) / (max_val - min_val)
+        elif len(weighted) > 1:
+            # The maximum confidence that can be reached in the usual
+            # multi-hit situation (many possible finds) should be a combination
+            # of two aspects:
+            #
+            # 1. How confident are we that this feature does belong somewhere
+            #    into the reference at all?
+            # 2. How much better is the most probable find when compared to
+            #    other possible locations?
+            #
+            # The latter is easy to implement by comparing the highest peak to
+            # the second-highest one:
+            max_conf = 1 - weighted[0][1] / weighted[1][1]
+
+            # As the other matches are obviously worse, we'll assign their
+            # confidence relative to the highest one:
+
+            # FIXME continue.
+
+        # If `maxima` is empty, just return it.
+        return weighted
 
     def _calc_normalization(self) -> None:
         # Calculate the reference signal normalization factors for the current
