@@ -25,6 +25,7 @@ class FeatureLocator:
     def __init__(self, feature_threshold: float = 0.001) -> None:
         self.feature_threshold = feature_threshold
         # How much arbitrary units does the reference signal span?
+        self._ref = None  # type: np.ndarray
         self.ref_span = None  # type: float
         self._corr = None  # type: np.ndarray
         self._norms = {}  # type: Dict[int, np.ndarray]
@@ -86,7 +87,7 @@ class FeatureLocator:
             raise ValueError("Sample span needs to be in ]0, <ref. span>[.")
 
         self._set_sample(sample, span)
-        position = self.correlate().argmax()
+        position = self.correlate().argmax() / len(self._ref) * self.ref_span
 
         # Returns a 1-element tuple of array indices where local maximums are
         # located. We need to set the mode to 'wrap' in order to also catch
