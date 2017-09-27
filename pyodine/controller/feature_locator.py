@@ -187,19 +187,39 @@ class FeatureLocator:
         in order to avoid ill-fitting, high-amplitude matches overpowering
         well-fitting low-amplitude ones.
         """
+        n_sample, n_ref = len(self._sample), len(self._ref)
+
         # "Correlate" a sample-sized slice of the reference to itself,
         # effectively calculating the norm of this section. Repeat this for
         # every possible sample placement.
+        #
+        # Trivially calculating those norms is ineffective: obviously the same
+        # elements get accounted for over and over again, leading to an O(m*n)
+        # runtime of the following snippet, where m is the reference size and n
+        # the sample size. This was issue #138:
+        #
+        # factors = np.array([np.linalg.norm(self._ref[s:s + n_sample])
+        #                     for s
+        #                     in range(n_ref - n_sample + 1)])
+        #
+        # When using the obvious add-subtract method, however, one can achieve
+        # an O(m) runtime. This does large runs of summations which might
+        # introduce numerical errors. To alleviate this, Kahan summation is
+        # used here. It turns out, that the numerical errors this avoids are
+        # usually in the range of relative 1e-10, which kind-of eliminates the
+        # need for Kahan summation...
 
-        # TODO: Calculating those norms is ineffective: obviously the same
-        # elements get accounted for over and over again. While it is quite
-        # obvious that this could be done in a add-one-subtract-one fashion
-        # more efficiently, I'm not sure about numerical stability.
-        # This is issue #138.
+        squares = np.empty(n_ref - n_sample + 1)
+        squares[0] = np.linalg.norm(self._ref[0: n_sample]) ** 2
+        lost_precision = 0  # for Kahan summation
+        for i in range(1, n_ref - n_sample + 1):
+            change = (self._ref[n_sample + i - 1] ** 2  # add next element
+                      - self._ref[i - 1] ** 2  # substract first element from sum
+                      - lost_precision)  # throw in carry-over from last time
+            squares[i] = squares[i - 1] + change
+            lost_precision = (squares[i] - squares[i - 1]) - change
+        factors = np.sqrt(squares)
 
-        factors = np.array([np.linalg.norm(self._ref[s:s + len(self._sample)])
-                            for s
-                            in range(len(self._ref) - len(self._sample) + 1)])
         maxval = factors.max()
         for feat in np.nditer(factors, op_flags=['readwrite']):
 
@@ -213,7 +233,7 @@ class FeatureLocator:
                 feat[...] = 1.11111111
 
         # Cache the result.
-        self._norms[len(self._sample)] = factors
+        self._norms[n_sample] = factors
 
     def _get_normalization(self) -> np.ndarray:
         if len(self._sample) in self._norms:
