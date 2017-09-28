@@ -1,5 +1,5 @@
 """This module houses the LockBuddy class for analog lockbox management."""
-from typing import Callable, List
+from typing import Any, Callable, List
 import logging
 
 import numpy as np
@@ -7,6 +7,9 @@ import numpy as np
 from . import feature_locator
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
+
+# How many times to jump before considering the pre-lock procedure failed?
+MAX_JUMPS = 10
 
 # To make the code more readable, we differentiate between numbers that
 # represent the lock system's tunable quantity (e.g. frequency) and all other
@@ -96,16 +99,17 @@ class LockBuddy:
             if not callable(callback):
                 raise TypeError('Callback "%s" is not callable.', name)
 
-        self.prelock_running = False  # The prelock algorithm is running.
+        self.cancel_prelock = False
         self.recent_signal = np.empty(0)  # The most recent signal acquired.
         self.range = 1.  # The range used for acquiring .recent_signal
 
-        self._scanner = scanner
         self._locator = feature_locator.FeatureLocator()
         self._lock = lock
-        self._unlock = unlock
         self._locked = locked
         self._on_new_signal = on_new_signal
+        self._prelock_running = False  # The prelock algorithm is running.
+        self._scanner = scanner
+        self._unlock = unlock
 
         # Sort available tuners by speed.
         self._tuners = sorted(tuners, key=lambda t: t.delay)
@@ -113,6 +117,10 @@ class LockBuddy:
     @property
     def lock_engaged(self) -> bool:
         return self._locked()
+
+    @property
+    def prelock_running(self) -> bool:
+        return self._prelock_running
 
     def acquire_signal(self, rel_range: float = None) -> np.ndarray:
         """Run one scan and store the result. Lock must be disengaged.
@@ -148,15 +156,50 @@ class LockBuddy:
 
         return self.recent_signal
 
-    def prelock(self, threshold: float, autolock: bool = True,
-                proximity_callback: Callable[[], None] = lambda: None) -> None:
+    def start_prelock(self, threshold: Unit,
+                      proximity_callback: Callable[[], Any] = lambda: None,
+                      max_tries: int = MAX_JUMPS) -> None:
         """Start the prelock algorithm and get as close as possible to target.
 
-        As soon as we can reasonable assume to be closer than `threshold` to
-        the target value, `proximity_callback` is fired. If `autolock` is set
-        to true, the closed-loop lock is engaged as well.
 
-        If the lock is currently engaged, it is going to be disengaged.
+        As soon as we can reasonable assume to be closer than `threshold` to
+        the target value, `proximity_callback` is fired.
+
+        If the lock is currently engaged, it is going to be released!
+
+        :param threshold: How close (in arb. units) to the target position is
+                    considered close enough?
+        :param proximity_callback: Must not require any arguments. Is called as
+                    soon as the target has been reached, but after the
+                    (optional) closed-loop lock has been engaged. Both events
+                    might as well not happen if the system misbehaves.
+        :param max_tries: Upper bound on iterations to use when trying to
+                    undercut ``threshold``. When set to 0, this will let the
+                    search run forever (even after possible success) and thus
+                    lead to **blocking behaviour**, so don't do this in the
+                    main thread.
+        :raises RuntimeError: Desired ``threshold`` could not be undercut in
+                    ``max_tries`` iterations.
         """
-        LOGGER.error("prelock() not implemented!")  # TODO
-        self._locator.locate_sample(1, 2)
+        self._prelock_running = True
+        self.cancel_prelock = False
+
+        def iterate() -> bool:
+            # FIXME: Implement things.
+            self._locator.locate_sample(1, 2)
+            return False
+
+        n_tries = 0
+        while not self.cancel_prelock:
+            n_tries += 1
+            if max_tries > 0 and n_tries > max_tries:
+                raise RuntimeError("Couldn't reach requested proximity in %s tries",
+                                   max_tries)
+            if iterate():
+                LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
+                try:
+                    proximity_callback()
+                except Exception:  # Who knows what hell it might raise. # pylint: disable=broad-except
+                    LOGGER.exception("Problem executing callback.")
+                if max_tries > 0:
+                    break
