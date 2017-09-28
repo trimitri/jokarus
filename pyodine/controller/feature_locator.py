@@ -38,7 +38,6 @@ class FeatureLocator:
         self._ref = None  # type: np.ndarray
         self.ref_span = None  # type: float
         self._corr = None  # type: np.ndarray
-        self._norms = {}  # type: Dict[int, np.ndarray]
         self._ref = None  # type: np.ndarray
         self._sample = None  # type: np.ndarray
 
@@ -53,12 +52,12 @@ class FeatureLocator:
         # Mark quantities that need to be recalculated when a new reference was
         # set.
         self._corr = None
-        self._norms = {}
 
     def correlate(self) -> np.ndarray:
         """The (tweaked) cross correlation between sample and reference.
 
-        This may be used for visual control of match quality.
+        This may be used for visual control of match quality. The result is
+        cached, so repeated calls are fast.
 
         :raises RuntimeError: Reference or sample weren't set before using this
                     method.
@@ -68,7 +67,7 @@ class FeatureLocator:
 
         if self._corr is None:
             self._corr = signal.correlate(self._ref, self._sample, mode='valid')
-            self._corr = np.divide(self._corr, self._get_normalization())
+            self._corr = np.divide(self._corr, self._calc_normalization())
         return self._corr
 
     def locate_sample(self, sample: np.ndarray, span: float) -> List[List[float]]:
@@ -180,12 +179,16 @@ class FeatureLocator:
                 weighted[idx][2] = max_conf * weighted[idx][1] / weighted[0][1]
         return weighted
 
-    def _calc_normalization(self) -> None:
+    def _calc_normalization(self) -> np.ndarray:
         """Calculate reference signal normalization factors.
 
         This needs to be done again for every new sample size. It is necessary
         in order to avoid ill-fitting, high-amplitude matches overpowering
         well-fitting low-amplitude ones.
+
+        :returns: A shape 1D numpy array of length (len(ref) - len(sample) + 1)
+                    representing the normalization factor for the reference for
+                    every possible sample position.
         """
         n_sample, n_ref = len(self._sample), len(self._ref)
 
@@ -218,11 +221,10 @@ class FeatureLocator:
                       - lost_precision)  # throw in carry-over from last time
             squares[i] = squares[i - 1] + change
             lost_precision = (squares[i] - squares[i - 1]) - change
-        factors = np.sqrt(squares)
+        norms = np.sqrt(squares)
 
-        maxval = factors.max()
-        for feat in np.nditer(factors, op_flags=['readwrite']):
-
+        maxval = norms.max()
+        for feat in np.nditer(norms, op_flags=['readwrite']):
             # Does this part of the reference spectrum contain actual features?
             if feat < maxval * self.feature_threshold:
                 # There is no feature here. Set a high normalization divisor to
@@ -231,17 +233,7 @@ class FeatureLocator:
                 # This part is also important to avoid division by zero
                 # problems.
                 feat[...] = 1.11111111
-
-        # Cache the result.
-        self._norms[n_sample] = factors
-
-    def _get_normalization(self) -> np.ndarray:
-        if len(self._sample) in self._norms:
-            return self._norms[len(self._sample)]
-
-        # Normalization wasn't calculated yet for current sample length.
-        self._calc_normalization()
-        return self._norms[len(self._sample)]
+        return norms
 
     def _set_sample(self, sampled_points: np.ndarray, span: float) -> None:
         """Resample sample data to reference rate and store it.
