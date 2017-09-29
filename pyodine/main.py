@@ -50,7 +50,8 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
 
     # FIXME: provide estimates of tuning characteristic (#122)
     miob_temp = lock_buddy.Tuner(scale=50, granularity=.01, delay=60,
-                                 getter=get_miob_temp, setter=set_miob_temp)
+                                 getter=get_miob_temp, setter=set_miob_temp,
+                                 name="MiOB temp")
 
     ##
     # Tuning by Diode Current
@@ -75,8 +76,8 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         subs.laser.set_mo_current(arb_units * 100 + 60)
 
     mo_current = lock_buddy.Tuner(scale=7600, granularity=1.25e-3, delay=1,
-                                  getter=mo_getter,
-                                  setter=mo_setter)
+                                  getter=mo_getter, setter=mo_setter,
+                                  name="MO current")
 
     ##
     # Tuning by Modulation Ramp Offset
@@ -92,7 +93,8 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         subs.set_ramp_offset(value * 10 + 5)
 
     ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
-                                   getter=ramp_getter, setter=ramp_setter)
+                                   getter=ramp_getter, setter=ramp_setter,
+                                   name="ramp offset")
 
     # Log all acquired signals.
     def on_new_signal(data: np.ndarray) -> None:

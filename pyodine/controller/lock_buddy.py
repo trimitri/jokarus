@@ -1,4 +1,5 @@
 """This module houses the LockBuddy class for analog lockbox management."""
+import asyncio
 from typing import Any, Callable, List
 import logging
 
@@ -11,10 +12,16 @@ LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 # How many times to jump before considering the pre-lock procedure failed?
 MAX_JUMPS = 10
 
-# To make the code more readable, we differentiate between numbers that
-# represent the lock system's tunable quantity (e.g. frequency) and all other
-# numbers that occur in the code.
-Unit = float  # One "LockBuddy unit" (e.g. MHz of frequency)
+"""To maintain a high tuning precision, the tuners are balanced from time to
+time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
+It's an array [low, high] with 0 < low < high < 1.
+"""
+BALANCE_AT = [.2, .8]
+
+"""To make the code more readable, we differentiate between numbers that
+represent the lock system's tunable quantity (e.g. frequency) and all other
+numbers that occur in the code."""
+QtyUnit = float
 
 class Tuner:
     """A means of tuning a control system's tunable quantity.
@@ -24,9 +31,9 @@ class Tuner:
     respective ranges of motion to [0, 1] in order to keep the usage of a
     multi-variable control system straightforward and easy to read.
     """
-    def __init__(self, scale: Unit, granularity: float, delay: float,
-                 getter: Callable[[], float],
-                 setter: Callable[[float], None]) -> None:
+    def __init__(self, scale: QtyUnit, granularity: float, delay: float,
+                 getter: Callable[[], float], setter: Callable[[float], None],
+                 name: str = "") -> None:
         """A tuner must scale it's full range of motion [0, 1] interval.
 
         :param scale: (Approximate) number of "LockBuddy units" that fit into
@@ -51,19 +58,40 @@ class Tuner:
         if not callable(getter) or not callable(setter):
             raise TypeError("Provide callable getter and setter.")
 
-        self.scale = float(scale)
-        self.granularity = float(granularity)
         self.delay = float(delay)
+        self.granularity = float(granularity)
+        self.name = name
+        self.scale = float(scale)
         self._setter = setter
         self._getter = getter
 
-    @property
-    def value(self) -> float:
-        return self._getter()
+    def get(self) -> float:
+        """Get the current actual value.
 
-    @value.setter
-    def value(self, value: float) -> None:
-        self._setter(value)
+        :returns: The actual current tuner value. Doesn't necessarily match set
+                    value.
+        :raises RuntimeError: The callback provided as getter raised something.
+        """
+        try:
+            return self._getter()
+        except Exception as err:
+            raise RuntimeError("Error executing getter callback.") from err
+
+    def set(self, value: float) -> None:
+        """Order the value to be set to ``value``.
+
+        :param value: The value to be set. Needs to be in [0, 1] interval.
+
+        :raises RuntimeError: The callback provided as setter raised something.
+        :raises ValueError: ``value`` is not in [0, 1] interval.
+        """
+        if not value >= 0 or not value <= 1:
+            raise ValueError("Tuners only accept values in the [0, 1] range. %s was passed.",
+                             value)
+        try:
+            self._setter(value)
+        except Exception as err:
+            raise RuntimeError("Error executing setter callback.") from err
 
 
 class LockBuddy:
@@ -74,7 +102,7 @@ class LockBuddy:
                  locked: Callable[[], bool],
                  scanner: Callable[[float], np.ndarray],
                  tuners: List[Tuner],
-                 on_new_signal: Callable[[np.ndarray], None] = None) -> None:
+                 on_new_signal: Callable[[np.ndarray], None]=None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -92,12 +120,17 @@ class LockBuddy:
                     tunable quantity.
         :param on_new_signal: Is called with every new signal acquired. It gets
                     passed the acquired data as np.ndarray.
+
+        :raises TypeError: At least one callback is not callable.
+        :raises ValueError: List of tuners is empty.
         """
 
         for name, callback in (("lock", lock), ("unlock", unlock),
                                ("scanner", scanner), ("locked", locked)):
             if not callable(callback):
                 raise TypeError('Callback "%s" is not callable.', name)
+        if not tuners:
+            raise ValueError("No tuners passed.")
 
         self.cancel_prelock = False
         self.recent_signal = np.empty(0)  # The most recent signal acquired.
@@ -111,16 +144,25 @@ class LockBuddy:
         self._scanner = scanner
         self._unlock = unlock
 
-        # Sort available tuners by speed.
-        self._tuners = sorted(tuners, key=lambda t: t.delay)
+        # Sort available tuners finest first.
+        self._tuners = sorted(tuners, key=lambda t: t.granularity)
 
     @property
     def lock_engaged(self) -> bool:
         return self._locked()
 
     @property
+    def min_step(self) -> QtyUnit:
+        """The smallest step size (in quantity units) this class can use to do
+        prelock and tuning. There is no use in trying to achieve results more
+        precise than this for a given set of tuners.
+        """
+        return min([t.granularity * t.scale for t in self._tuners])
+
+    @property
     def prelock_running(self) -> bool:
         return self._prelock_running
+
 
     def acquire_signal(self, rel_range: float = None) -> np.ndarray:
         """Run one scan and store the result. Lock must be disengaged.
@@ -156,7 +198,7 @@ class LockBuddy:
 
         return self.recent_signal
 
-    def start_prelock(self, threshold: Unit,
+    def start_prelock(self, threshold: QtyUnit,
                       proximity_callback: Callable[[], Any] = lambda: None,
                       max_tries: int = MAX_JUMPS) -> None:
         """Start the prelock algorithm and get as close as possible to target.
@@ -167,7 +209,7 @@ class LockBuddy:
 
         If the lock is currently engaged, it is going to be released!
 
-        :param threshold: How close (in arb. units) to the target position is
+        :param threshold: How close (in qty. units) to the target position is
                     considered close enough?
         :param proximity_callback: Must not require any arguments. Is called as
                     soon as the target has been reached, but after the
@@ -203,3 +245,85 @@ class LockBuddy:
                     LOGGER.exception("Problem executing callback.")
                 if max_tries > 0:
                     break
+
+    async def tune(self, delta: QtyUnit, speed_constraint: float = 0) -> None:
+        """Tune the system by ``delta`` quantity units and wait.
+
+        This will choose the most appropriate tuner by itself, invoke it and
+        then wait for as long as it usually takes the chosen tuner to reflect
+        the change in the actual physical system.
+
+        :param delta: The amount of quantity units to jump. Any float number
+                    is legal input, although the system might reject bold
+                    requests with a ValueError.
+        :param speed_constraint: Don't use tuners that have delays larger than
+                    this many seconds. Set to 0 to disable contraint (default).
+        :raises ValueError: None of the available tuners can tune that far.
+                    Note that availability of tuners is limited by
+                    ``speed_constraint``.
+        :raises ValueError: ``speed_constraint`` disqualifies all tuners.
+        """
+        # We won't tune if delta is smaller than any of the available
+        # granularities.
+        if not delta >= self.min_step:
+            LOGGER.warning("Can't tune this fine. Ignoring.")
+            return
+        tuners = [t for t in self._tuners
+                  if speed_constraint > 0 and t.delay < speed_constraint]
+        if not tuners:
+            raise ValueError("Speed constraint of {} disqualifies all tuners"
+                             .format(speed_constraint))
+
+        # Try using a single tuner first. The tuners are sorted by ascending
+        # granularity, so more coarse tuners are only used if the finer tuners
+        # can't provide the needed range of motion.
+        for index, tuner in enumerate(tuners):
+            # Skip this tuner if it doesn't have enough range left to jump by
+            # ``delta``.
+            target = tuner.get() + (delta / tuner.scale)
+            if target < 0 or target > 1:
+                LOGGER.debug("Skipping %s for insufficient range of motion.",
+                             tuner.name)
+                continue
+
+            # We found a tuner that can do what we want. It might be, however,
+            # that we arrived at a more coarse tuner than necessary just
+            # because the finer tuners were maxed out. So instead of firing
+            # this tuner straightaway, we will first check if that was the
+            # case, and---if so---do a balancing operation.
+
+            # Did we have to skip any of the finer tuners?
+            if index > 0:
+                compensation = .0
+                for skipped_tuner in tuners[:index]:
+                    state = skipped_tuner.get()
+                    # Is the tuner imbalanced?
+                    if state < BALANCE_AT[0] or state > BALANCE_AT[1]:
+                        # How much compensation would be required
+                        # downstream when resetting this tuner?
+                        detuning = (state - 0.5) * skipped_tuner.scale
+                        carry = detuning / tuner.scale
+
+                        # Is there still room in the downstream tuner
+                        # (``tuner``) to accommodate this compensation?
+                        desired = target + compensation + carry
+                        if desired >= 0 and desired <= 1:
+                            compensation += carry
+                            skipped_tuner.set(0.5)
+                            await asyncio.sleep(skipped_tuner.delay)
+                            LOGGER.debug("Balanced %s.", skipped_tuner.name)
+                        else:
+                            LOGGER.debug("Couldn't balance %s due to insufficient headroom in %s.",
+                                         skipped_tuner.name, tuner.name)
+                    else:
+                        LOGGER.debug("Imbalance wasn't the reason to skip %s.",
+                                     skipped_tuner.name)
+            tuner.set(target + compensation)
+            await asyncio.sleep(tuner.delay)
+            if compensation > 0:
+                LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
+            LOGGER.debug("Tuned %s by %s units.", tuner.name, delta)
+            return
+        LOGGER.debug("Could't fulfill tuning request by means of a single tuner.")
+        # Can we reach the desired jump by combining tuners?
+        # FIXME Continue.
