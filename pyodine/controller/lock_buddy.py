@@ -101,6 +101,7 @@ class LockBuddy:
                  unlock: Callable[[], None],
                  locked: Callable[[], bool],
                  scanner: Callable[[float], np.ndarray],
+                 scanner_range: QtyUnit,
                  tuners: List[Tuner],
                  on_new_signal: Callable[[np.ndarray], None]=None) -> None:
         """
@@ -116,6 +117,8 @@ class LockBuddy:
                     - m: number of readings per sample; must be >= 2 with the
                       first column containing the x values (tunable quantity!)
                       and all following columngs readings plotted against that
+        :param scanner_range: How much quantity units does a call to
+                    ``scanner(1.)`` span?
         :param tuners: A list of Tuner objects that provide control over the
                     tunable quantity.
         :param on_new_signal: Is called with every new signal acquired. It gets
@@ -134,7 +137,7 @@ class LockBuddy:
 
         self.cancel_prelock = False
         self.recent_signal = np.empty(0)  # The most recent signal acquired.
-        self.range = 1.  # The range used for acquiring .recent_signal
+        self.range = 1.  # The range that was used for acquiring .recent_signal.
 
         self._locator = feature_locator.FeatureLocator()
         self._lock = lock
@@ -142,6 +145,7 @@ class LockBuddy:
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
         self._scanner = scanner
+        self._scanner_range = scanner_range
         self._unlock = unlock
 
         # Sort available tuners finest first.
@@ -223,14 +227,20 @@ class LockBuddy:
         :raises RuntimeError: Desired ``threshold`` could not be undercut in
                     ``max_tries`` iterations.
         """
-        self._prelock_running = True
-        self.cancel_prelock = False
-
         def iterate() -> bool:
-            # FIXME: Implement things.
-            self._locator.locate_sample(1, 2)
+            """Do one iteration of the pre-lock loop.
+
+            :returns: Did we arrive at a distance closer than ``threshold``?
+            """
+            self.acquire_signal(current_range)
+            self._locator.locate_sample(self.recent_signal,
+                                        current_range * self._scanner_range)
             return False
 
+        static_range = 200.  # Use 200 MHz of range for now. # TODO be smart.
+        current_range = static_range / self._scanner_range
+        self._prelock_running = True
+        self.cancel_prelock = False
         n_tries = 0
         while not self.cancel_prelock:
             n_tries += 1
@@ -324,6 +334,7 @@ class LockBuddy:
                 LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
             LOGGER.debug("Tuned %s by %s units.", tuner.name, delta)
             return
-        LOGGER.debug("Could't fulfill tuning request by means of a single tuner.")
+        raise ValueError("Could't fulfill tuning request by means of a single tuner.")
+
         # Can we reach the desired jump by combining tuners?
         # FIXME Continue.
