@@ -1,5 +1,6 @@
 """This module houses the LockBuddy class for analog lockbox management."""
 import asyncio
+import enum
 from typing import Any, Callable, List
 import logging
 
@@ -18,10 +19,34 @@ It's an array [low, high] with 0 < low < high < 1.
 """
 BALANCE_AT = [.2, .8]
 
+"""Don't use tuners slower than that many seconds during prelock phase."""
+PRELOCK_SPEED_CONSTRAINT = 1.
+
 """To make the code more readable, we differentiate between numbers that
 represent the lock system's tunable quantity (e.g. frequency) and all other
 numbers that occur in the code."""
 QtyUnit = float
+
+class Line(enum.Enum):
+    """A map of where in the spectrum to find the target transitions."""
+    # The first line's position depends on how much padding is added to the
+    # reference left of the first line. All positions are in MHz.
+    a_1 = 500.  # FIXME put real value here (ask Klaus)
+    a_2 = a_1 + 259.698
+    a_3 = a_1 + 285.511
+    a_4 = a_1 + 286.220
+    a_5 = a_1 + 311.366
+    a_6 = a_1 + 401.478
+    a_7 = a_1 + 416.994
+    a_8 = a_1 + 439.626
+    a_9 = a_1 + 455.343
+    a_10 = a_1 + 571.542
+    a_11 = a_1 + 698.055
+    a_12 = a_1 + 702.754
+    a_13 = a_1 + 726.030
+    a_14 = a_1 + 732.207
+    a_15 = a_1 + 857.954
+
 
 class Tuner:
     """A means of tuning a control system's tunable quantity.
@@ -96,6 +121,23 @@ class Tuner:
 
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
+
+    class _SnowblindError(RuntimeError):
+        """In search for a feature, we found nothing but an empty void.
+
+        This is a common problem with MTS spectra, as they are very "clean" and
+        have long sections where they're simply == 0.
+        """
+        pass
+
+    class _RivalryError(RuntimeError):
+        """We wanted one match but found many and no particular one sticks out.
+
+        If there are many features in the spectrum that all look the same, then
+        using only a very small sample and trying to find its position can lead
+        to multiple nearly identical hits. This just happened.
+        """
+        pass
 
     def __init__(self, lock: Callable[[], None],
                  unlock: Callable[[], None],
@@ -202,7 +244,7 @@ class LockBuddy:
 
         return self.recent_signal
 
-    def start_prelock(self, threshold: QtyUnit,
+    def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                       proximity_callback: Callable[[], Any] = lambda: None,
                       max_tries: int = MAX_JUMPS) -> None:
         """Start the prelock algorithm and get as close as possible to target.
@@ -215,6 +257,8 @@ class LockBuddy:
 
         :param threshold: How close (in qty. units) to the target position is
                     considered close enough?
+        :param target_position: How far (in qty. units) is the desired feature
+                    from the left edge of the reference spectrum?
         :param proximity_callback: Must not require any arguments. Is called as
                     soon as the target has been reached, but after the
                     (optional) closed-loop lock has been engaged. Both events
@@ -226,15 +270,40 @@ class LockBuddy:
                     main thread.
         :raises RuntimeError: Desired ``threshold`` could not be undercut in
                     ``max_tries`` iterations.
+        :raises RuntimeError: None of the tuners where able to compensate
+                    for the measured detuning. Maybe check overall system
+                    setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
         """
         def iterate() -> bool:
             """Do one iteration of the pre-lock loop.
 
+            This will do one jump if we're still too far from our target
+            transition. If we're close already, this returns True and does not
+            jump.
+
             :returns: Did we arrive at a distance closer than ``threshold``?
+
+            :raises RuntimeError: None of the tuners where able to compensate
+                        for the measured detuning. Maybe check overall system
+                        setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
+            :raises LockBuddy._SnowblindError: There was no usable feature in
+                        the scanned range. Consider raising the scan range.
+            :raises LockBuddy._RivalryError: Couldn't decide for a match, as
+                        options are too similar. Consider raising the scan
+                        range.
             """
             self.acquire_signal(current_range)
-            self._locator.locate_sample(self.recent_signal,
-                                        current_range * self._scanner_range)
+            match_candidates = self._locator.locate_sample(
+                self.recent_signal, current_range * self._scanner_range)
+            # FIXME don't just use the first match blindly
+            detuning = target_position - match_candidates[0][0]  # Sign already flipped for jumping.
+            if abs(detuning) < threshold:
+                return True
+            LOGGER.debug("Jumping by %s units.", detuning)
+            try:
+                self.tune(detuning, PRELOCK_SPEED_CONSTRAINT)
+            except ValueError as err:
+                raise RuntimeError("Requested more than tuners could deliver.") from err
             return False
 
         static_range = 200.  # Use 200 MHz of range for now. # TODO be smart.
@@ -247,7 +316,7 @@ class LockBuddy:
             if max_tries > 0 and n_tries > max_tries:
                 raise RuntimeError("Couldn't reach requested proximity in %s tries",
                                    max_tries)
-            if iterate():
+            if iterate():  # raises!
                 LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
                 try:
                     proximity_callback()
@@ -337,4 +406,5 @@ class LockBuddy:
         raise ValueError("Could't fulfill tuning request by means of a single tuner.")
 
         # Can we reach the desired jump by combining tuners?
-        # FIXME Continue.
+        # TODO Try to use combined tuners. This would only be important if all
+        # available tuners have a similar range of motion.

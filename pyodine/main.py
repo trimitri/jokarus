@@ -120,6 +120,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         unlock=lambda: subs.switch_lock('nu', False),
         locked=nu_locked,
         scanner=subs.fetch_scan,
+        scanner_range=700.,  # FIXME measure correct scaling coefficient.
         tuners=[miob_temp, mo_current, ramp_offset],
         on_new_signal=on_new_signal)
     return locker
