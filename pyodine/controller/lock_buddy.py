@@ -47,6 +47,27 @@ class Line(enum.Enum):
     a_14 = a_1 + 732.207
     a_15 = a_1 + 857.954
 
+class _SnowblindError(RuntimeError):
+    """In search for a feature, we found nothing but an empty void.
+
+    This is a common problem with MTS spectra, as they are very "clean" and
+    have long sections where they're simply == 0.
+
+    This Error is marked private, as it's not going to rise out of the class.
+    """
+    pass
+
+class _RivalryError(RuntimeError):
+    """We wanted one match but found many and no particular one sticks out.
+
+    If there are many features in the spectrum that all look the same, then
+    using only a very small sample and trying to find its position can lead to
+    multiple nearly identical hits. This just happened.
+
+    This Error is marked private, as it's not going to rise out of the class.
+    """
+    pass
+
 
 class Tuner:
     """A means of tuning a control system's tunable quantity.
@@ -121,23 +142,6 @@ class Tuner:
 
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
-
-    class _SnowblindError(RuntimeError):
-        """In search for a feature, we found nothing but an empty void.
-
-        This is a common problem with MTS spectra, as they are very "clean" and
-        have long sections where they're simply == 0.
-        """
-        pass
-
-    class _RivalryError(RuntimeError):
-        """We wanted one match but found many and no particular one sticks out.
-
-        If there are many features in the spectrum that all look the same, then
-        using only a very small sample and trying to find its position can lead
-        to multiple nearly identical hits. This just happened.
-        """
-        pass
 
     def __init__(self, lock: Callable[[], None],
                  unlock: Callable[[], None],
@@ -286,9 +290,9 @@ class LockBuddy:
             :raises RuntimeError: None of the tuners where able to compensate
                         for the measured detuning. Maybe check overall system
                         setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
-            :raises LockBuddy._SnowblindError: There was no usable feature in
+            :raises _SnowblindError: There was no usable feature in
                         the scanned range. Consider raising the scan range.
-            :raises LockBuddy._RivalryError: Couldn't decide for a match, as
+            :raises _RivalryError: Couldn't decide for a match, as
                         options are too similar. Consider raising the scan
                         range.
             """
@@ -408,3 +412,32 @@ class LockBuddy:
         # Can we reach the desired jump by combining tuners?
         # TODO Try to use combined tuners. This would only be important if all
         # available tuners have a similar range of motion.
+    def _pick_match(candidates: List[List[float]], near: QtyUnit = None) -> QtyUnit:
+        """Evaluate a list of match candidates and pick the correct one.
+
+        This won't always work. If no match or too many too similar matches are
+        found, this will raise.
+
+        :param candidates: The list of matches as received from
+                    `FeatureLocator`'s ``locate_sample()``.
+        :param near: A bias indicating where we think we are. If this is
+                    specified, out of the *acceptable* matches, the one closest
+                    to ``near`` is returned.
+        :returns: The position of the hopefully correct match (in quantity
+                    units).
+
+        :raises _SnowblindError: The provided candidates didn't
+                    include any decent match or the list was empty.
+        :raises _RivalryError: The matches were to similar to
+                    determine the correct one.
+        """
+        if near:
+            candidates = sorted(candidates, key=lambda can
+        if not candidates:
+            raise _SnowblindError("No candidates to choose from.")
+        if len(candidates) == 1:
+            # There's only one match. Suspicious.
+            if candidates[0][1] > SINGLE_MATCH_THRESH:
+                return candidates[0][0]
+            else:
+
