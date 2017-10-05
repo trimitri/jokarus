@@ -13,6 +13,16 @@ LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 # How many times to jump before considering the pre-lock procedure failed?
 MAX_JUMPS = 10
 
+"""How well does a sample have to fit the reference for us to even consider the
+match valid?
+"""
+MATCH_QUALITY_THRESH = 0.7
+"""How confident do we have to be to use and trust a match candidate? """
+CONFIDENCE_THRESH = 0.6
+
+# 300 MHz will always put at least two features in range. TODO: Use more brain.
+PRELOCK_SCAN_RANGE = 300.0
+
 """To maintain a high tuning precision, the tuners are balanced from time to
 time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
 It's an array [low, high] with 0 < low < high < 1.
@@ -31,7 +41,7 @@ class Line(enum.Enum):
     """A map of where in the spectrum to find the target transitions."""
     # The first line's position depends on how much padding is added to the
     # reference left of the first line. All positions are in MHz.
-    a_1 = 500.  # FIXME put real value here (ask Klaus)
+    a_1 = 200.  # FIXME put real value here (ask Klaus)
     a_2 = a_1 + 259.698
     a_3 = a_1 + 285.511
     a_4 = a_1 + 286.220
@@ -299,8 +309,8 @@ class LockBuddy:
             self.acquire_signal(current_range)
             match_candidates = self._locator.locate_sample(
                 self.recent_signal, current_range * self._scanner_range)
-            # FIXME don't just use the first match blindly
-            detuning = target_position - match_candidates[0][0]  # Sign already flipped for jumping.
+            best_match = self._pick_match(match_candidates)  # raises!
+            detuning = target_position - best_match  # Sign already flipped for jumping.
             if abs(detuning) < threshold:
                 return True
             LOGGER.debug("Jumping by %s units.", detuning)
@@ -310,8 +320,7 @@ class LockBuddy:
                 raise RuntimeError("Requested more than tuners could deliver.") from err
             return False
 
-        static_range = 200.  # Use 200 MHz of range for now. # TODO be smart.
-        current_range = static_range / self._scanner_range
+        current_range = PRELOCK_SCAN_RANGE / self._scanner_range
         self._prelock_running = True
         self.cancel_prelock = False
         n_tries = 0
@@ -412,6 +421,8 @@ class LockBuddy:
         # Can we reach the desired jump by combining tuners?
         # TODO Try to use combined tuners. This would only be important if all
         # available tuners have a similar range of motion.
+
+    @staticmethod
     def _pick_match(candidates: List[List[float]], near: QtyUnit = None) -> QtyUnit:
         """Evaluate a list of match candidates and pick the correct one.
 
@@ -426,18 +437,25 @@ class LockBuddy:
         :returns: The position of the hopefully correct match (in quantity
                     units).
 
-        :raises _SnowblindError: The provided candidates didn't
-                    include any decent match or the list was empty.
-        :raises _RivalryError: The matches were to similar to
-                    determine the correct one.
+        :raises _SnowblindError: The provided candidates didn't include any
+                    decent match or the list was empty.
+        :raises _RivalryError: The matches were to similar to determine the
+                    correct one.
         """
+        candy = [c for c in candidates if c[1] > MATCH_QUALITY_THRESH]
+        if not candy:
+            raise _SnowblindError("No candidates have sufficient match quality.")
         if near:
-            candidates = sorted(candidates, key=lambda can
-        if not candidates:
-            raise _SnowblindError("No candidates to choose from.")
-        if len(candidates) == 1:
-            # There's only one match. Suspicious.
-            if candidates[0][1] > SINGLE_MATCH_THRESH:
-                return candidates[0][0]
-            else:
+            # Prefer matches close the anticipated position.
+            candy.sort(key=lambda c: abs(c[1] - near))
+        for candidate in candy:
+            if candidate[2] > CONFIDENCE_THRESH:
+                return candidate[0]
 
+        # We couldn't determine the correct match. Why?
+        if len(candidates) == 1:
+            raise _SnowblindError(
+                "There was only one match proposed and this match was of "
+                "poor quality and is probably not a real hit.")
+        raise _RivalryError("There were suitable matches, but they're too "
+                            "similar.")
