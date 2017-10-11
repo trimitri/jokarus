@@ -110,7 +110,7 @@ class Interfaces:
         :param setup_interval: Setup data is sent at roughly this interval (in
                     seconds). Set to zero to disable publishing setup data.
         :param signal_interval: The error signal is fetched and sent at this
-                    rate.
+                    rate. Set to zero do not send at all.
         :param status_update_interval: Some subsystems do comprise params that
                     seldomly change. Those are consequently not periodically
                     communicated by those systems but only if they change.
@@ -118,16 +118,21 @@ class Interfaces:
                     interval specified here.  Set to zero to never request
                     those params.
         """
-        asyncio.ensure_future(asyncio_tools.repeat_task(
-            self.publish_error_signal, signal_interval))
-        asyncio.ensure_future(asyncio_tools.repeat_task(
-            self.publish_flags, flags_interval))
-        asyncio.ensure_future(asyncio_tools.repeat_task(
-            self.publish_readings, readings_interval))
-        asyncio.ensure_future(asyncio_tools.repeat_task(
-            self.publish_setup_parameters, setup_interval))
-        asyncio.ensure_future(asyncio_tools.repeat_task(
-            self._subs.refresh_status, status_update_interval))
+        if signal_interval > 0:
+            asyncio.ensure_future(asyncio_tools.repeat_task(
+                self.publish_error_signal, signal_interval))
+        if flags_interval > 0:
+            asyncio.ensure_future(asyncio_tools.repeat_task(
+                self.publish_flags, flags_interval))
+        if readings_interval > 0:
+            asyncio.ensure_future(asyncio_tools.repeat_task(
+                self.publish_readings, readings_interval))
+        if setup_interval > 0:
+            asyncio.ensure_future(asyncio_tools.repeat_task(
+                self.publish_setup_parameters, setup_interval))
+        if status_update_interval > 0:
+            asyncio.ensure_future(asyncio_tools.repeat_task(
+                self._subs.refresh_status, status_update_interval))
 
     async def publish_error_signal(self) -> None:
         """Publish the most recently acquired error signal.
