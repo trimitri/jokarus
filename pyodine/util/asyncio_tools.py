@@ -97,10 +97,10 @@ async def repeat_task(
 
     :param coro: The coroutine object (not coroutine function!) to await
     """
-    def do_stuff():
+    async def do_stuff():
         """Run one loop iteration."""
         start = loop.time()
-        await coro  # Do things the caller wants to be done.
+        await coro()  # Do things the caller wants to be done.
         remaining_wait_time = (loop.time() - start) - period
         if remaining_wait_time > 0:
             await asyncio.sleep(remaining_wait_time)
@@ -111,7 +111,7 @@ async def repeat_task(
         for _ in range(reps):
             if not do_continue():
                 break
-            do_stuff()
+            await do_stuff()
     else:  # Run forever.
         while do_continue():
-            do_stuff()
+            await do_stuff()
