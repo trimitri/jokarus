@@ -1,13 +1,13 @@
 Unit A
 ======
-Card        Function             Notes
---------------------------------------
-OSC1: 0004  MO LD                CAN works, low power
-OSC2: 0005  TEC VHBG, no LD      CAN works, DIY cooling construction, low power
-OSC3: 0006  not used             CAN works, high power
-OSC4: 0007  SHG B, no LD         CAN works, sense wires, low power
-PII1: 4     not used             CAN works 
-PII2: 3     not used             CAN broken: doesn't send anything
+Card        Function                 Notes
+------------------------------------------
+OSC1: 0004  MO, TEC Kovar, NTC MiOB  CAN works, low power
+OSC2: 0005  TEC VHBG, no LD          CAN works, DIY cooling construction, low power
+OSC3: 0006  not used                 CAN works, high power
+OSC4: 0007  SHG B, no LD             CAN works, sense wires, low power
+PII1: 4     not used                 CAN works 
+PII2: 3     not used                 CAN broken: doesn't send anything
 
 Unit B
 ======
