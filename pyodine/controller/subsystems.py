@@ -17,7 +17,7 @@ import numpy as np
 
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq
-from ..util import io_tools
+from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -87,7 +87,7 @@ class Subsystems:
         self._menlo = None  # type: menlo_stack.MenloStack
         self.laser = None  # type: ecdl_mopa.EcdlMopa
         asyncio.ensure_future(
-            io_tools.poll_resource(
+            asyncio_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
                 self._init_laser, name="Menlo"))
 
@@ -96,12 +96,12 @@ class Subsystems:
         # stuck sometimes during testing.
         self._dds = None  # type: dds9_control.Dds9Control
         asyncio.ensure_future(
-            io_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
+            asyncio_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
                                    continuous=True, name="DDS"))
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
-        asyncio.ensure_future(io_tools.poll_resource(
+        asyncio.ensure_future(asyncio_tools.poll_resource(
             self.daq_alive, 3.7, self.reset_daq, name="DAQ"))
 
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]

@@ -5,7 +5,7 @@ import inspect
 import logging
 from typing import Awaitable, Callable, Union
 
-LOGGER = logging.getLogger('pyodine.util.io_tools')
+LOGGER = logging.getLogger('asyncio_tools')
 
 async def poll_resource(indicator: Callable[[], bool],
                         delay: Union[float, int],
