@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import logging
+import time
 from typing import Awaitable, Callable, Union
 
 LOGGER = logging.getLogger('asyncio_tools')
@@ -99,9 +100,9 @@ async def repeat_task(
     """
     async def do_stuff():
         """Run one loop iteration."""
-        start = loop.time()
+        start = time.time()
         await coro()  # Do things the caller wants to be done.
-        remaining_wait_time = (loop.time() - start) - period
+        remaining_wait_time = period - (time.time() - start)
         if remaining_wait_time > 0:
             await asyncio.sleep(remaining_wait_time)
         elif min_wait_time > 0:

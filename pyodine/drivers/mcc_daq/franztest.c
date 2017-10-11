@@ -53,6 +53,8 @@ int main() {
     }
   }
   free(data);
-
+  char str[12];
+  sprintf(str, "%d", Ping());
+  puts(str);
   return 0;
 }
