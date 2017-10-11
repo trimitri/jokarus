@@ -87,3 +87,31 @@ async def poll_resource(indicator: Callable[[], bool],
 
             LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))
+
+async def repeat_task(
+        coro: Callable[[], Awaitable[None]], period: float,
+        do_continue: Callable[[], bool] = lambda: True,
+        reps: int = 0, min_wait_time: float = 0.1,
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()) -> None:
+    """Repeat a task at given time intervals forever or ``reps`` times.
+
+    :param coro: The coroutine object (not coroutine function!) to await
+    """
+    def do_stuff():
+        """Run one loop iteration."""
+        start = loop.time()
+        await coro  # Do things the caller wants to be done.
+        remaining_wait_time = (loop.time() - start) - period
+        if remaining_wait_time > 0:
+            await asyncio.sleep(remaining_wait_time)
+        elif min_wait_time > 0:
+            await asyncio.sleep(min_wait_time)
+
+    if reps > 0:  # Do `reps` repetitions at max.
+        for _ in range(reps):
+            if not do_continue():
+                break
+            do_stuff()
+    else:  # Run forever.
+        while do_continue():
+            do_stuff()

@@ -16,12 +16,12 @@ from ..transport.serial_server import SerialServer
 from ..transport import texus_relay
 from ..transport import packer
 from ..controller import lock_buddy, subsystems
+from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 # LOGGER.setLevel(logging.DEBUG)
 WS_PORT = 56320
 MAX_SIGNAL_SAMPLES = 500
-
 
 class Interfaces:
     """This is how to talk to Pyodine.
@@ -118,42 +118,16 @@ class Interfaces:
                     interval specified here.  Set to zero to never request
                     those params.
         """
-
-        async def serve_error_signal():
-            while True:
-                try:
-                    self._locker.acquire_signal()
-                except RuntimeError:
-                    LOGGER.exception("Couldn't publish error signal:")
-                else:
-                    await self.publish_error_signal()
-                await asyncio.sleep(signal_interval)
-
-        async def serve_flags():
-            while True:
-                await self.publish_flags()
-                await asyncio.sleep(flags_interval)
-
-        async def serve_readings():
-            while True:
-                await self.publish_readings()
-                await asyncio.sleep(readings_interval)
-
-        async def serve_setup_params():
-            while True:
-                await self.publish_setup_parameters()
-                await asyncio.sleep(setup_interval)
-
-        async def regularly_inquire_status():
-            while True:
-                await self._subs.refresh_status()
-                await asyncio.sleep(status_update_interval)
-
-        asyncio.ensure_future(serve_error_signal())
-        asyncio.ensure_future(serve_flags())
-        asyncio.ensure_future(serve_readings())
-        asyncio.ensure_future(serve_setup_params())
-        asyncio.ensure_future(regularly_inquire_status())
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self.publish_error_signal, signal_interval))
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self.publish_flags, flags_interval))
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self.publish_readings, readings_interval))
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self.publish_setup_parameters, setup_interval))
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self._subs.refresh_status, status_update_interval))
 
     async def publish_error_signal(self) -> None:
         """Publish the most recently acquired error signal.
@@ -162,8 +136,12 @@ class Interfaces:
         intended for display and backup logging, we might apply some
         compression.
         """
+        try:
+            self._locker.acquire_signal()
+        except RuntimeError:
+            LOGGER.exception("Couldn't publish error signal:")
+            return
         raw_data = self._locker.recent_signal
-        LOGGER.debug(raw_data)
 
         # Check if a scan was already performed. Contrary to pyton lists, numpy
         # arrays don't always support bool().

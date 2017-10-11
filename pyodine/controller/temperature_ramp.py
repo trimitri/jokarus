@@ -10,6 +10,8 @@ import math
 import time
 from typing import Callable
 
+from ..util import asyncio_tools
+
 # The interval at which the transitional setpoint gets updated (in seconds). It
 # is advisable to use some weird number here to make sure that asyncio tasks
 # are somewhat spread in time.
@@ -130,14 +132,11 @@ class TemperatureRamp:
             return
         self.logger.debug("Starting to ramp temperature.")
 
-        # Create a "runner" coroutine and then schedule it for running.
-        async def run_ramp() -> None:
-            self._init_ramp()
-            while self._keep_running:
-                self._update_transitional_setpoint()
-                await asyncio.sleep(UPDATE_INTERVAL)
         self._keep_running = True
-        asyncio.ensure_future(run_ramp())
+        self._init_ramp()
+        asyncio.ensure_future(asyncio_tools.repeat_task(
+            self._update_transitional_setpoint, UPDATE_INTERVAL,
+            lambda: self._keep_running))
 
     def pause_ramp(self) -> None:
         """Stop setting new temp. setpoints, stay at current value."""
