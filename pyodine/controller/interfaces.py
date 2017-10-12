@@ -5,9 +5,10 @@ control requests they might transmit.
 """
 import asyncio
 import base64
+import functools
 import logging
 import time
-from typing import Callable
+from typing import Awaitable, Callable, List
 
 import numpy as np
 
@@ -210,10 +211,13 @@ class Interfaces:
         self._rcv_callback = callback
 
     async def _publish_message(self, message: str) -> None:
+        tasks = []  # type: List[Awaitable]
         if self._use_rs232:
-            self._rs232.publish(message)
+            tasks.append(asyncio.get_event_loop().run_in_executor(
+                None, functools.partial(self._rs232.publish, message)))
         if self._use_ws:
-            await self._ws.publish(message)
+            tasks.append(self._ws.publish(message))
+        await asyncio.wait(tasks)
 
     def _parse_reply(self, message: str) -> None:
         if callable(self._rcv_callback):
