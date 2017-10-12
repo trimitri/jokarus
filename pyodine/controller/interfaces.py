@@ -8,7 +8,7 @@ import base64
 import functools
 import logging
 import time
-from typing import Awaitable, Callable, List
+from typing import Awaitable, Callable, List  # pylint: disable=unused-import
 
 import numpy as np
 
@@ -72,7 +72,8 @@ class Interfaces:
                              "Switching off serial server.")
                 self._use_rs232 = False
             else:
-                self._rs232.start_serving()
+                asyncio.ensure_future(asyncio.get_event_loop().run_in_executor(
+                    None, self._rs232.serve))
 
         # TEXUS flags relay
         LOGGER.info("Starting TEXUS relay...")
