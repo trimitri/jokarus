@@ -90,7 +90,8 @@ async def poll_resource(indicator: Callable[[], bool],
         await asyncio.sleep(float(delay))
 
 async def repeat_task(
-        coro: Callable[[], Awaitable[None]], period: float,
+        coro: Union[Callable[[], Awaitable[None]], Callable[[], None]],
+        period: float,
         do_continue: Callable[[], bool] = lambda: True,
         reps: int = 0, min_wait_time: float = 0.1) -> None:
     """Repeat a task at given time intervals forever or ``reps`` times.
@@ -100,7 +101,11 @@ async def repeat_task(
     async def do_stuff():
         """Run one loop iteration."""
         start = time.time()
-        await coro()  # Do things the caller wants to be done.
+        # Do things the caller wants to be done.
+        if asyncio.iscoroutinefunction(coro):
+            await coro()
+        else:
+            coro()
         remaining_wait_time = period - (time.time() - start)
         if remaining_wait_time > 0:
             await asyncio.sleep(remaining_wait_time)
