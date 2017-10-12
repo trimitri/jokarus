@@ -136,7 +136,7 @@ async def main():
     face = interfaces.Interfaces(subs, locker, start_ws_server=True, start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(
-        readings_interval=.5, flags_interval=2, setup_interval=12,
+        readings_interval=2, flags_interval=2, setup_interval=12,
         signal_interval=0, status_update_interval=17)
 
     handler = instruction_handler.InstructionHandler(subs, face)
