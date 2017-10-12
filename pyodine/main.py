@@ -15,9 +15,10 @@ from typing import Dict, Any
 import aioconsole
 import numpy as np
 
+from . import logger
 from .controller import (control_flow, interfaces, instruction_handler,
                          lock_buddy, subsystems)
-from . import logger
+from .util import asyncio_tools
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -148,8 +149,13 @@ async def main():
     # backdoor, practically providing a powerful CLI to Pyodine.
     open_backdoor({'subs': subs, 'face': face, 'locker': locker})
 
-    while True:
-        await asyncio.sleep(25)
+    await asyncio_tools.watch_loop(
+        lambda: LOGGER.warning("Event loop overload!"),
+        lambda: LOGGER.debug("Event loop is healthy."))
+
+    while True:  # Shouldn't reach this.
+        LOGGER.error("Dropped to emergency loop keep-alive.")
+        await asyncio.sleep(10)
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.

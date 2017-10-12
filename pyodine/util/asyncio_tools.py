@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Awaitable, Callable, Union
+from typing import Any, Awaitable, Callable, Union
 
 LOGGER = logging.getLogger('asyncio_tools')
 
@@ -92,8 +92,7 @@ async def poll_resource(indicator: Callable[[], bool],
 async def repeat_task(
         coro: Callable[[], Awaitable[None]], period: float,
         do_continue: Callable[[], bool] = lambda: True,
-        reps: int = 0, min_wait_time: float = 0.1,
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()) -> None:
+        reps: int = 0, min_wait_time: float = 0.1) -> None:
     """Repeat a task at given time intervals forever or ``reps`` times.
 
     :param coro: The coroutine object (not coroutine function!) to await
@@ -116,3 +115,32 @@ async def repeat_task(
     else:  # Run forever.
         while do_continue():
             await do_stuff()
+
+async def watch_loop(on_delay: Callable[[], Any],
+                     on_ok: Callable[[], Any] = lambda: None,
+                     stop: Callable[[], bool] = lambda: False,
+                     interval: float = 5,
+                     max_load_factor: float = 1.2) -> None:
+    """Monitor the performance/fill state of an asyncio loop.
+
+    :param on_delay: Callback called when loop suffers more delay than
+                ``max_load_factor``.
+    :param on_ok: Called if it doesn't.
+    :param stop: Watchdog is cancelled as soon as this callback returns True.
+    :param interval: Use that many seconds as checking interval.
+    :param max_load_factor: Each time ``asyncio.sleep(foo)`` takes longer than
+                foo * ``max_load_factor``, ``on_delay()`` is fired.
+    """
+    def call_callback(callback: Callable[[], Any]):
+        try:
+            return callback()
+        except Exception:  # It might raise hell. # pylint: disable=broad-except
+            LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
+
+    while not call_callback(stop):
+        before = time.time()
+        await asyncio.sleep(interval)
+        if time.time() - before > interval * max_load_factor:
+            call_callback(on_delay)
+        else:
+            call_callback(on_ok)
