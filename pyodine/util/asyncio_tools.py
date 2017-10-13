@@ -4,9 +4,10 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Any, Awaitable, Callable, Union
+from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disable=unused-import
 
 LOGGER = logging.getLogger('asyncio_tools')
+
 
 async def poll_resource(indicator: Callable[[], bool],
                         delay: Union[float, int],
@@ -89,6 +90,7 @@ async def poll_resource(indicator: Callable[[], bool],
             LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))
 
+
 async def repeat_task(
         coro: Union[Callable[[], Awaitable[None]], Callable[[], None]],
         period: float,
@@ -121,6 +123,7 @@ async def repeat_task(
         while do_continue():
             await do_stuff()
 
+
 async def watch_loop(on_delay: Callable[[], Any],
                      on_ok: Callable[[], Any] = lambda: None,
                      stop: Callable[[], bool] = lambda: False,
@@ -149,3 +152,42 @@ async def watch_loop(on_delay: Callable[[], Any],
             call_callback(on_delay)
         else:
             call_callback(on_ok)
+
+
+class DeDupQueue:
+    """A FIFO queue that only allows each element species once.
+
+    When a specimen is appended of whose species there currently is an element
+    in the queue, the existing element is replaced without changing the queue
+    order.
+    """
+    def __init__(self) -> None:
+        self.queue = []  # type: List[Tuple[Any, Any]]
+        """Contains tuples like (specimen, species).
+
+        The last item is returned first.
+        """
+
+    def enqueue(self, specimen, species) -> None:
+        """Enqueue an element or update an existing specimen.
+
+        :param specimen: The actual item to store. Can be of any type.
+        :param species: The identifying info to use when comparing to other
+                    items. Needs to == to existing element's species. Can be of
+                    any type.
+        """
+        for index, item in enumerate(self.queue):
+            if item[1] == species:
+                self.queue[index] = (specimen, species)
+                return
+        self.queue.append((specimen, species))
+
+
+    def pop(self) -> Any:
+        """Retrieve the most urgent element and remove it from the queue.
+
+        ``if not bool(self.queue)``, this will throw.
+
+        :raises IndexError: Queue is empty. Checkable by ``bool(self.queue)``.
+        """
+        return self.queue.pop()[0]  # Raises if queue is empty.
