@@ -8,7 +8,7 @@ import base64
 import functools
 import logging
 import time
-from typing import Awaitable, Callable, List  # pylint: disable=unused-import
+from typing import Any, Awaitable, Callable, List  # pylint: disable=unused-import
 
 import numpy as np
 
@@ -170,13 +170,13 @@ class Interfaces:
         encoded_string = base64.b64encode(raw_data.tobytes()).decode()
         payload = {'data': encoded_string, 'shape': raw_data.shape}
 
-        await self._publish_message(packer.create_message(payload, 'signal'))
+        await self._publish_message(packer.create_message(payload, 'signal'), 'signal')
         LOGGER.debug("Published error signal.")
 
     async def publish_flags(self) -> None:
         if isinstance(self._texus, texus_relay.TexusRelay):
             data = self._texus.get_full_set()
-            await self._publish_message(packer.create_message(data, 'texus'))
+            await self._publish_message(packer.create_message(data, 'texus'), 'texus')
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
@@ -185,14 +185,14 @@ class Interfaces:
         # don't claim to have published newer readings than we actually did.
         prev = self._readings_published_at
         data = self._subs.get_full_set_of_readings(since=prev)
-        await self._publish_message(packer.create_message(data, 'readings'))
+        await self._publish_message(packer.create_message(data, 'readings'), 'readings')
         self._readings_published_at = time.time()
 
     async def publish_setup_parameters(self) -> None:
         """Publish all setup parameters over all open connections once."""
         LOGGER.debug("Scheduling setup parameter publication.")
         data = self._subs.get_setup_parameters()
-        await self._publish_message(packer.create_message(data, 'setup'))
+        await self._publish_message(packer.create_message(data, 'setup'), 'setup')
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         if isinstance(self._texus, texus_relay.TexusRelay):
@@ -211,7 +211,16 @@ class Interfaces:
 
         self._rcv_callback = callback
 
-    async def _publish_message(self, message: str) -> None:
+    async def _publish_message(self, message: str, species: Any) -> None:
+        # The vastly different throughput of RS232 vs. Ethernet connections
+        # calls for a nontrivial approach in publication scheduling.
+        # With Ethernet/Websocket being the fastest available channel, we will
+        # use it as base clock: all received messages are published via this
+        # channel. If there's a delay in this channel, the overall publishing
+        # schedule will be delayed as well.
+        # RS232 will usually not be able to publish all the messages, thus we
+        # need a means to prioritize, which is where DeDupQueue comes into
+        # play.
         tasks = []  # type: List[Awaitable]
         if self._use_rs232:
             tasks.append(asyncio.get_event_loop().run_in_executor(
