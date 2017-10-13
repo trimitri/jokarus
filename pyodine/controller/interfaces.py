@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, List  # pylint: disable=unused-impo
 import numpy as np
 
 from ..transport.websocket_server import WebsocketServer
-from ..transport.serial_server import SerialServer
+from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
 from ..transport import packer
 from ..controller import lock_buddy, subsystems
@@ -42,7 +42,7 @@ class Interfaces:
         self._use_ws = start_ws_server
         self._use_rs232 = start_serial_server
         self._ws = None  # type: WebsocketServer
-        self._rs232 = None  # type: SerialServer
+        self._rs232 = None  # type: QueueingSerialServer
         self._texus = None  # type: texus_relay.TexusRelay
         self._subs = subsystem_controller
         self._locker = locker
@@ -64,7 +64,7 @@ class Interfaces:
         # Serial server
         if self._use_rs232:
             try:
-                self._rs232 = SerialServer(
+                self._rs232 = QueueingSerialServer(
                     device='/dev/ttyUSB1',
                     received_msg_callback=self._parse_reply)
             except ConnectionError:
@@ -72,8 +72,7 @@ class Interfaces:
                              "Switching off serial server.")
                 self._use_rs232 = False
             else:
-                asyncio.ensure_future(asyncio.get_event_loop().run_in_executor(
-                    None, self._rs232.serve))
+                asyncio.ensure_future(self._rs232.async_serve())
 
         # TEXUS flags relay
         LOGGER.info("Starting TEXUS relay...")
@@ -219,15 +218,12 @@ class Interfaces:
         # channel. If there's a delay in this channel, the overall publishing
         # schedule will be delayed as well.
         # RS232 will usually not be able to publish all the messages, thus we
-        # need a means to prioritize, which is where DeDupQueue comes into
-        # play.
-        tasks = []  # type: List[Awaitable]
+        # need a means to prioritize, which is where QueueingSerialServer comes
+        # into play.
         if self._use_rs232:
-            tasks.append(asyncio.get_event_loop().run_in_executor(
-                None, functools.partial(self._rs232.publish, message)))
+            self._rs232.queue_for_publication(message, species)
         if self._use_ws:
-            tasks.append(self._ws.publish(message))
-        await asyncio.wait(tasks)
+            await self._ws.publish(message)
 
     def _parse_reply(self, message: str) -> None:
         if callable(self._rcv_callback):

@@ -8,6 +8,11 @@ from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disab
 
 LOGGER = logging.getLogger('asyncio_tools')
 
+def call_callback(callback: Callable[[], Any]):
+    try:
+        return callback()
+    except Exception:  # It might raise hell. # pylint: disable=broad-except
+        LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
 async def poll_resource(indicator: Callable[[], bool],
                         delay: Union[float, int],
@@ -139,12 +144,6 @@ async def watch_loop(on_delay: Callable[[], Any],
     :param max_load_factor: Each time ``asyncio.sleep(foo)`` takes longer than
                 foo * ``max_load_factor``, ``on_delay()`` is fired.
     """
-    def call_callback(callback: Callable[[], Any]):
-        try:
-            return callback()
-        except Exception:  # It might raise hell. # pylint: disable=broad-except
-            LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
-
     while not call_callback(stop):
         before = time.time()
         await asyncio.sleep(interval)
@@ -161,12 +160,13 @@ class DeDupQueue:
     in the queue, the existing element is replaced without changing the queue
     order.
     """
-    def __init__(self) -> None:
+    def __init__(self, on_enqueue: Callable[[], None] = lambda: None) -> None:
         self.queue = []  # type: List[Tuple[Any, Any]]
         """Contains tuples like (specimen, species).
 
         The last item is returned first.
         """
+        self._on_enqueue = on_enqueue
 
     def enqueue(self, specimen, species) -> None:
         """Enqueue an element or update an existing specimen.
@@ -176,12 +176,14 @@ class DeDupQueue:
                     items. Needs to == to existing element's species. Can be of
                     any type.
         """
+        existed = False
         for index, item in enumerate(self.queue):
             if item[1] == species:
                 self.queue[index] = (specimen, species)
-                return
-        self.queue.append((specimen, species))
-
+                existed = True
+        if not existed:
+            self.queue.append((specimen, species))
+        call_callback(self._on_enqueue)
 
     def pop(self) -> Any:
         """Retrieve the most urgent element and remove it from the queue.
