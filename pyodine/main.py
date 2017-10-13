@@ -162,6 +162,7 @@ async def main():
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
+    logger.init()
     LOGGER = logging.getLogger('pyodine.main')
 
     LOOP = asyncio.get_event_loop()
