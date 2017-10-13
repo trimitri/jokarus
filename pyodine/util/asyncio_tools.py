@@ -154,19 +154,18 @@ async def watch_loop(on_delay: Callable[[], Any],
 
 
 class DeDupQueue:
-    """A FIFO queue that only allows each element species once.
+    """A deduplicating FIFO queue.
 
     When a specimen is appended of whose species there currently is an element
-    in the queue, the existing element is replaced without changing the queue
-    order.
+    in the queue, the existing element is replaced by the new element without
+    changing the queue order.
     """
-    def __init__(self, on_enqueue: Callable[[], None] = lambda: None) -> None:
+    def __init__(self) -> None:
         self.queue = []  # type: List[Tuple[Any, Any]]
-        """Contains tuples like (specimen, species).
+        """List of tuples like (specimen, species).
 
         The last item is returned first.
         """
-        self._on_enqueue = on_enqueue
 
     def enqueue(self, specimen, species) -> None:
         """Enqueue an element or update an existing specimen.
@@ -183,7 +182,6 @@ class DeDupQueue:
                 existed = True
         if not existed:
             self.queue.append((specimen, species))
-        call_callback(self._on_enqueue)
 
     def pop(self) -> Any:
         """Retrieve the most urgent element and remove it from the queue.
