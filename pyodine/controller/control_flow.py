@@ -48,20 +48,6 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
     return ReturnState.SUCCESS
 
 
-def hot_start(subs: Subsystems) -> ReturnState:
-    """Reset all fast subsystems.
-
-    General cold-start procedures, such as temperature control, are assumed to
-    have been completed before.
-    """
-    # FIXME this breaks the DDS connection. (Issue #58)
-    # fate = initialize_rf_chain(subs)
-    # if fate != ReturnState.SUCCESS:
-    #     return fate
-
-    return ReturnState.SUCCESS
-
-
 # TODO Consider moving this to subsystems module.
 async def laser_power_up(subs: Subsystems) -> ReturnState:
     """Switch on or reset the laser.

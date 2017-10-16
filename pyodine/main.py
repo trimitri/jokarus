@@ -144,9 +144,6 @@ async def main():
     handler = instruction_handler.InstructionHandler(subs, face)
     face.register_on_receive_callback(handler.handle_instruction)
 
-    control_flow.hot_start(subs)
-
-
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
     open_backdoor({'subs': subs, 'face': face, 'locker': locker})
