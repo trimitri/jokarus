@@ -28,6 +28,7 @@ class QueueingSerialServer(serial_server.SerialServer):
 
         This runs the actual server in a threaded executor."""
         self._loop.run_in_executor(None, self.serve)
+        serial_server.LOGGER.debug("Started queueing serial server.")
 
     def queue_for_publication(self, data: str, species: Any) -> None:
         """Notify the server of the intent to publish ``data`` asap.
@@ -46,6 +47,8 @@ class QueueingSerialServer(serial_server.SerialServer):
         self._queue.enqueue(data, species)
         if not self.uplink_blocked:
             asyncio.ensure_future(self._process_queue())
+        serial_server.LOGGER.debug("Scheduled a %s specimen for publication.",
+                                   species)
 
     async def _process_queue(self) -> None:
         n_items = len(self._queue.queue)
