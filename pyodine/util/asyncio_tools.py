@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disab
 
 LOGGER = logging.getLogger('asyncio_tools')
 
+
 def call_callback(callback: Callable, *args, **kwargs):
     """Try to call a callback and catch everything that might be raised.
 
@@ -22,6 +23,7 @@ def call_callback(callback: Callable, *args, **kwargs):
         return callback(*args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
+
 
 async def poll_resource(indicator: Callable[[], bool],
                         delay: Union[float, int],
@@ -165,7 +167,7 @@ async def watch_loop(on_delay: Callable[[], Any],
 class DeDupQueue:
     """A deduplicating FIFO queue.
 
-    When a specimen is appended of whose species there currently is an element
+    When a specimen is enqueued of whose species there currently is an element
     in the queue, the existing element is replaced by the new element without
     changing the queue order.
     """
@@ -189,11 +191,9 @@ class DeDupQueue:
             if item[1] == species:
                 self.queue[index] = (specimen, species)
                 existed = True
-                LOGGER.debug("Replacing existing %s specimen.")
                 break
         if not existed:
-            self.queue.append((specimen, species))
-            LOGGER.debug("Adding new %s specimen.", species)
+            self.queue.insert(0, (specimen, species))
 
     def pop(self) -> Any:
         """Retrieve the most urgent element and remove it from the queue.

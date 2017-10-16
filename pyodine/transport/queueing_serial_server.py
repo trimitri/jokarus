@@ -47,18 +47,29 @@ class QueueingSerialServer(serial_server.SerialServer):
         self._queue.enqueue(data, species)
         if not self.uplink_blocked:
             asyncio.ensure_future(self._process_queue())
+        else:
+            serial_server.LOGGER.debug("Uplink blocked.")
         serial_server.LOGGER.debug("Scheduled a %s specimen for publication.",
                                    species)
 
     async def _process_queue(self) -> None:
-        n_items = len(self._queue.queue)
-        if not n_items:
+        """Start to publish the accumulated queue of messages.
+
+        This may well run forever and keep the RS232 link blocked the whole
+        time as long as the requests for publication come in faster than what
+        the link can handle.
+        """
+        if not self._queue.queue:
             return
+        n_published = 0
         try:
+            serial_server.LOGGER.debug("Publishing queue...")
             self.uplink_blocked = True
             while True:
                 await self._loop.run_in_executor(None, functools.partial(
                     super().publish, self._queue.pop()))
+                n_published += 1
         except IndexError:
             self.uplink_blocked = False
-            serial_server.LOGGER.debug("Published a queue of %s elements.", n_items)
+            serial_server.LOGGER.debug("Published %s elements in a row.",
+                                       n_published)
