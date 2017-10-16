@@ -189,8 +189,11 @@ class DeDupQueue:
             if item[1] == species:
                 self.queue[index] = (specimen, species)
                 existed = True
+                LOGGER.debug("Replacing existing %s specimen.")
+                break
         if not existed:
             self.queue.append((specimen, species))
+            LOGGER.debug("Adding new %s specimen.", species)
 
     def pop(self) -> Any:
         """Retrieve the most urgent element and remove it from the queue.
