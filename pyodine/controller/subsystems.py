@@ -97,7 +97,7 @@ class Subsystems:
         self._dds = None  # type: dds9_control.Dds9Control
         asyncio.ensure_future(
             asyncio_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
-                                   continuous=True, name="DDS"))
+                                        continuous=True, name="DDS"))
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
@@ -292,6 +292,20 @@ class Subsystems:
             return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
         except (AttributeError, ValueError) as err:
             raise ConnectionError("Couldn't fetch temp. setpt. from Menlo.") from err
+
+    def get_temp_ramp_target(self, unit: TecUnit) -> float:
+        """Returns the target temperature of the unit's ramp."""
+        return self._temp_ramps[unit].target_temperature
+
+    def is_tec_enabled(self, unit: TecUnit) -> bool:
+        """Is ``unit``'s TEC controller currently running?"""
+        try:
+            return self._unwrap_buffer(self._menlo.is_tec_enabled(unit)) == 1
+        except ValueError:
+            # If there's no data (yet) on whether this tec is enabled, assume
+            # that it would be as to avoid harmful temperature jumps.
+            LOGGER.error("Couldn't figure out if TEC is enabled. Assuming it is.")
+            return True
 
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?

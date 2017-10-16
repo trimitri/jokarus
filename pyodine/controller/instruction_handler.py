@@ -6,6 +6,7 @@ As this class's `handle_instruction()` deals with externally fed commands, it
 must catch all possible errors itself and log and ignore the invalid
 instruction.
 """
+import enum
 import json
 import logging
 
@@ -13,8 +14,9 @@ import logging
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
 from typing import Callable, Dict  # noqa: F401 # pylint: disable=unused-import
-from .subsystems import Subsystems
 from .interfaces import Interfaces
+from ..transport import texus_relay
+from .subsystems import Subsystems
 
 # Define custom types.
 LegalCall = Callable[..., None]  # pylint: disable=invalid-name
@@ -22,6 +24,9 @@ LegalCall = Callable[..., None]  # pylint: disable=invalid-name
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
 
+class TimerWire(enum.IntEnum):
+    HOT = texus_relay.TimerState._fields.index('tex1')
+    LOCK = texus_relay.TimerState._fields.index('tex2')
 
 # pylint: disable=too-few-public-methods
 # The main method is the single functionality of this class.
@@ -32,6 +37,7 @@ class InstructionHandler:
                  interface_controller: Interfaces) -> None:
         self._subs = subsystem_controller
         self._face = interface_controller
+        self._timer_state = None  # type: texus_relay.TimerState
 
         self._methods = {
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
@@ -115,3 +121,6 @@ class InstructionHandler:
         except Exception:  # pylint: disable=broad-except
             LOGGER.exception("We caught an unexpected exception. This most "
                              "likely indicates an *actual* problem.")
+
+    def handle_timer_command(self, state: texus_relay.TimerState) -> None:
+        pass  # FIXME
