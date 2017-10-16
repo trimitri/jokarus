@@ -2,24 +2,33 @@
 
 Provides callbacks for start and stop of specific flight phases, etc.
 """
+import asyncio
+from collections import namedtuple
 import logging
-from typing import Dict
+from typing import Callable, Dict
 import serial
+
+from ..util import asyncio_tools
 
 LOGGER = logging.getLogger('pyodine.transport.texus_relay')
 LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
+POLLING_INTERVAL = .63  # Poll for changing TEXUS flags every ~ seconds.
+TimerState = namedtuple('TimerState', ['liftoff', 'microg', 'tex1', 'tex2',
+                                       'tex3', 'tex4', 'tex5', 'tex6'])
 
 
 class TexusRelay:
     """Manage the data lines representing TEXUS and experiment state."""
 
-    def __init__(self, port_1: str, port_2: str) -> None:
+    def __init__(self, port_1: str, port_2: str,
+                 on_state_change: Callable[[TimerState], None] = lambda s: None) -> None:
         try:
             self._port1 = serial.Serial(str(port_1))
             self._port2 = serial.Serial(str(port_2))
         except (FileNotFoundError, serial.SerialException):
             raise ConnectionError("Couldn't open serial ports assigned to "
                                   "TEXUS relay.")
+        self._on_change = on_state_change
 
     def get_full_set(self) -> Dict[str, bool]:
         """Return a Dict of all signal lines."""
@@ -104,3 +113,21 @@ class TexusRelay:
     def jok4(self, value: bool) -> None:
         LOGGER.info("Setting jok4 to %s", value)
         self._port2.rts = value
+
+    @property
+    def timer_state(self) -> TimerState:
+        return TimerState(self.liftoff, self.microg, self.tex1, self.tex2,
+                          self.tex3, self.tex4, self.tex5, self.tex6)
+
+    async def poll_for_change(self):
+        """Start polling the incoming timer wires for change indefinitely.
+
+        This will (async) block.
+        """
+        old_state = self.timer_state
+        while True:
+            await asyncio.sleep(POLLING_INTERVAL)
+            new_state = self.timer_state
+            if new_state != old_state:
+                asyncio_tools.call_callback(self._on_change, new_state)
+                old_state = new_state

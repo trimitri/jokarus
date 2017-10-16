@@ -8,9 +8,18 @@ from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disab
 
 LOGGER = logging.getLogger('asyncio_tools')
 
-def call_callback(callback: Callable[[], Any]):
+def call_callback(callback: Callable, *args, **kwargs):
+    """Try to call a callback and catch everything that might be raised.
+
+    This passes on additional arguments to the callee, just like
+    functools.partial.
+
+    :param callback: The function to call. May expect arbitrary combination of
+                arguments, as long as they are passed to me. It's return value
+                is returned if the call succeeds.
+    """
     try:
-        return callback()
+        return callback(*args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
