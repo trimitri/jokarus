@@ -16,7 +16,7 @@ import logging
 from typing import Callable, Dict  # noqa: F401 # pylint: disable=unused-import
 from .interfaces import Interfaces
 from ..transport import texus_relay
-from .subsystems import Subsystems
+from .subsystems import Subsystems, TecUnit
 
 # Define custom types.
 LegalCall = Callable[..., None]  # pylint: disable=invalid-name
@@ -52,29 +52,24 @@ class InstructionHandler:
             'set_mixer_amplitude': lambda a: self._subs.set_mixer_amplitude(
                 float(a)),
 
-            'set_mo_current_set': lambda c: self._subs.set_current('mo',
-                                                                   float(c)),
-            'set_vhbg_temp_set': lambda t: self._subs.set_temp('vhbg',
-                                                               float(t)),
+            'set_mo_current_set': lambda c: self._subs.set_current('mo', float(c)),
+            'set_vhbg_temp_set': lambda t: self._subs.set_temp(TecUnit.VHBG, float(t)),
             'set_vhbg_temp_raw_set': lambda t: self._subs.set_temp(
-                'vhbg', float(t), bypass_ramp=True),
+                TecUnit.VHBG, float(t), bypass_ramp=True),
 
             'set_pa_current_set': lambda c: self._subs.set_current('pa',
                                                                    float(c)),
-            'set_miob_temp_set': lambda t: self._subs.set_temp('miob',
-                                                               float(t)),
+            'set_miob_temp_set': lambda t: self._subs.set_temp(TecUnit.MIOB, float(t)),
             'set_miob_temp_raw_set': lambda t: self._subs.set_temp(
-                'miob', float(t), bypass_ramp=True),
+                TecUnit.MIOB, float(t), bypass_ramp=True),
 
-            'set_shga_temp_set': lambda t: self._subs.set_temp(
-                'shga', float(t)),
+            'set_shga_temp_set': lambda t: self._subs.set_temp(TecUnit.SHGA, float(t)),
             'set_shga_temp_raw_set': lambda t: self._subs.set_temp(
-                'shga', float(t), bypass_ramp=True),
+                TecUnit.SHGA, float(t), bypass_ramp=True),
 
-            'set_shgb_temp_set': lambda t: self._subs.set_temp('shgb',
-                                                               float(t)),
+            'set_shgb_temp_set': lambda t: self._subs.set_temp(TecUnit.SHGB, float(t)),
             'set_shgb_temp_raw_set': lambda t: self._subs.set_temp(
-                'shgb', float(t), bypass_ramp=True),
+                TecUnit.SHGB, float(t), bypass_ramp=True),
 
             'set_nu_prop': lambda f: self._subs.set_error_scale('nu', f),
             'set_nu_offset': lambda p: self._subs.set_error_offset('nu', p),
@@ -123,4 +118,4 @@ class InstructionHandler:
                              "likely indicates an *actual* problem.")
 
     def handle_timer_command(self, state: texus_relay.TimerState) -> None:
-        pass  # FIXME
+        pass  # TODO continue

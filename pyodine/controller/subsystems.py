@@ -521,8 +521,7 @@ class Subsystems:
         else:
             LOGGER.debug("Set mixer phase to %s°", degrees)
 
-    def set_temp(self, unit_name, celsius: float,
-                 bypass_ramp: bool = False) -> None:
+    def set_temp(self, unit: TecUnit, celsius: float, bypass_ramp: bool = False) -> None:
         """Set the target temp. for the temperature ramp."""
         try:
             temp = float(celsius)
@@ -530,15 +529,19 @@ class Subsystems:
             LOGGER.error("Couldn't convert temp setting %s to float.", celsius)
             return
 
-        if self._is_tec_unit(unit_name):
+        try:
+            unit = TecUnit(unit)
+        except (ValueError, TypeError):
+            LOGGER.exception("Invalid unit: %s.", unit)
+        else:
             if bypass_ramp:
                 LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
-                             unit_name, temp)
-                self._menlo.set_temp(TEC_CONTROLLERS[unit_name], temp)
+                             unit, temp)
+                self._menlo.set_temp(unit, temp)
             else:
                 LOGGER.debug("Setting ramp target temp. of unit %s to %s°C",
-                             unit_name, temp)
-                ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
+                             unit, temp)
+                ramp = self._temp_ramps[unit]
                 ramp.target_temperature = temp
 
     def switch_rf_clock_source(self, which: str) -> None:
@@ -624,14 +627,17 @@ class Subsystems:
             if isinstance(switch_on, bool):
                 self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
 
-    def switch_temp_ramp(self, unit_name: str, enable: bool) -> None:
+    def switch_temp_ramp(self, unit: TecUnit, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""
-        if self._is_tec_unit(unit_name):
-            ramp = self._temp_ramps[TEC_CONTROLLERS[unit_name]]
+        try:
+            unit = TecUnit(unit)
+        except (ValueError, TypeError):
+            LOGGER.exception("TEC unit %s doesn't exist.", unit)
+        else:
             if enable:
-                ramp.start_ramp()
+                self._temp_ramps[unit].start_ramp()
             else:
-                ramp.pause_ramp()
+                self._temp_ramps[unit].pause_ramp()
 
 
     # Private Methods

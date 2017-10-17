@@ -47,7 +47,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
 
     def set_miob_temp(value: float):
         temp = 10 * value + 20
-        subs.set_temp('miob', temp)
+        subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
     # FIXME: provide estimates of tuning characteristic (#122)
     miob_temp = lock_buddy.Tuner(scale=50, granularity=.01, delay=60,

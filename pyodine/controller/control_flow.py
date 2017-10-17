@@ -8,9 +8,9 @@ exceptions. A return status of type .ReturnState is provided to detect errors.
 import asyncio
 import enum
 import logging
-from . import subsystems
+from .subsystems import Subsystems, SubsystemError, TecUnit
 
-LOGGER = logging.getLogger('pyodine.controller.subsystems')
+LOGGER = logging.getLogger('control_flow')
 
 NTC_CALCULATION_ERR = 0.1
 """How far will the NTC temperature readout be apart from the value that was
@@ -25,7 +25,37 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
-def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
+def cool_down(subs: Subsystems) -> None:
+    pass  # TODO
+
+
+async def heat_up(subs: Subsystems) -> None:
+    """Ramp temperatures of all controlled components to their target value.
+
+    If the temperature control is currently active for all those components,
+    nothing happens, even if the current temperatures differs from the target
+    temperatures that would have been set. This is to avoid overriding manual
+    settings.
+    """
+    if is_heating(subs):
+        LOGGER.debug("""Won't "heat up", as TEC is already running.""")
+        return
+    ambient_temp = 25.  # FIXME use actual NTC reading
+    target_temps = {TecUnit.MIOB: 24.850, TecUnit.VHBG: 24.856,
+                    TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.09}
+    for unit in TecUnit:
+        if not subs.is_tec_enabled(unit):
+            subs.set_temp(unit, ambient_temp, True)  # actual setpoint
+            subs.set_temp(unit, ambient_temp, False)  # ramp target temp
+            # Wait for the temp. setpoint to arrive at actual TEC controller.
+            await asyncio.sleep(.5)
+            subs.switch_temp_ramp(unit, True)
+            subs.set_temp(unit, target_temps[unit])
+        else:
+            LOGGER.warning("Skipping %s TEC, as it was already active.")
+
+
+def initialize_rf_chain(subs: Subsystems) -> ReturnState:
     """Setup the RF sources for heterodyne detection.
 
     This provides EOM, AOM and mixer with the correct driving signals.
@@ -55,9 +85,11 @@ def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
     return ReturnState.SUCCESS
 
 
-def is_hot(subs: subsystems.Subsystems) -> bool:
-    """If this returns True, heat_up() will have no effect."""
-    for unit in subsystems.TecUnit:
+def is_heating(subs: Subsystems) -> bool:
+    """If this returns True, heat_up() will have no effect.
+
+    The system is currently heating up or already at a stable temperature"""
+    for unit in TecUnit:
         if not subs.is_tec_enabled(unit):
             return False
 
@@ -70,19 +102,17 @@ def is_hot(subs: subsystems.Subsystems) -> bool:
     return True
 
 
-def heat_up(subs: subsystems.Subsystems) -> None:
-    """Ramp temperatures of all controlled components to their target value.
+def is_hot(subs: Subsystems) -> bool:
+    """All subsystems are stabilized to any temperature.
 
-    If the temperature control is currently active for all those components,
-    nothing happens, even if the current temperatures differs from the target
-    temperatures that would have been set. This is to avoid overriding manual
-    settings.
+    If there has been no manual adjustment, this will be the temperatures set
+    by heat_up().
     """
-    pass  # FIXME
+    pass  # TODO continue.
 
 
 # TODO Consider moving this to subsystems module.
-async def laser_power_up(subs: subsystems.Subsystems) -> ReturnState:
+async def laser_power_up(subs: Subsystems) -> ReturnState:
     """Switch on or reset the laser.
 
     After running this, the laser power may be adjusted through the PA current,
@@ -96,7 +126,7 @@ async def laser_power_up(subs: subsystems.Subsystems) -> ReturnState:
         asyncio.sleep(1)
 
         subs.power_up_mo()
-    except subsystems.SubsystemError:
+    except SubsystemError:
         LOGGER.exception("There was a critical error in one of the subsystems.")
         return ReturnState.FAIL
     return ReturnState.SUCCESS
