@@ -567,7 +567,7 @@ class MenloStack:
         self._buffers.update(adc_buffers)
         self._buffers.update(muc_buffers)
 
-    async def _send_command(self, node: int, service: int,
+    def _send_command(self, node: int, service: int,
                       value: Union[MenloUnit, str]) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
         asyncio.ensure_future(self._connection.send(message))
