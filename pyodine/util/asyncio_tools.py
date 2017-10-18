@@ -186,13 +186,11 @@ class DeDupQueue:
                     items. Needs to == to existing element's species. Can be of
                     any type.
         """
-        existed = False
         for index, item in enumerate(self.queue):
             if item[1] == species:
                 self.queue[index] = (specimen, species)
-                existed = True
                 break
-        if not existed:
+        else:
             self.queue.insert(0, (specimen, species))
 
     def pop(self) -> Any:

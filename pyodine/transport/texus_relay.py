@@ -3,9 +3,9 @@
 Provides callbacks for start and stop of specific flight phases, etc.
 """
 import asyncio
-from collections import namedtuple
+import enum
 import logging
-from typing import Callable, Dict
+from typing import Callable, Dict, List
 import serial
 
 from ..util import asyncio_tools
@@ -13,22 +13,28 @@ from ..util import asyncio_tools
 LOGGER = logging.getLogger('pyodine.transport.texus_relay')
 LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
 POLLING_INTERVAL = .63  # Poll for changing TEXUS flags every ~ seconds.
-TimerState = namedtuple('TimerState', ['liftoff', 'microg', 'tex1', 'tex2',
-                                       'tex3', 'tex4', 'tex5', 'tex6'])
+class TimerWire(enum.IntEnum):
+    """Indexing convention for texus timer signal wires."""
+    LIFT_OFF = 0
+    TEX_1 = 1
+    TEX_2 = 2
+    TEX_3 = 3
+    TEX_4 = 4
+    TEX_5 = 5
+    TEX_6 = 6
+    MICRO_G = 7
 
 
 class TexusRelay:
     """Manage the data lines representing TEXUS and experiment state."""
 
-    def __init__(self, port_1: str, port_2: str,
-                 on_state_change: Callable[[TimerState], None] = lambda s: None) -> None:
+    def __init__(self, port_1: str, port_2: str) -> None:
         try:
             self._port1 = serial.Serial(str(port_1))
             self._port2 = serial.Serial(str(port_2))
         except (FileNotFoundError, serial.SerialException):
             raise ConnectionError("Couldn't open serial ports assigned to "
                                   "TEXUS relay.")
-        self._on_change = on_state_change
 
     def get_full_set(self) -> Dict[str, bool]:
         """Return a Dict of all signal lines."""
@@ -115,11 +121,17 @@ class TexusRelay:
         self._port2.rts = value
 
     @property
-    def timer_state(self) -> TimerState:
-        return TimerState(self.liftoff, self.microg, self.tex1, self.tex2,
-                          self.tex3, self.tex4, self.tex5, self.tex6)
+    def timer_state(self) -> List[bool]:
+        """The current state of all TEXUS timer wires.
 
-    async def poll_for_change(self):
+        :returns: A list indexable by ``.TimerWire``.
+        """
+        return [self.liftoff, self.tex1, self.tex2, self.tex3,
+                self.tex4, self.tex5, self.tex6, self.microg]
+
+    async def poll_for_change(
+            self,
+            on_state_change: Callable[[TimerWire, List[bool]], None] = lambda *_: None) -> None:
         """Start polling the incoming timer wires for change indefinitely.
 
         This will (async) block.
@@ -128,6 +140,7 @@ class TexusRelay:
         while True:
             await asyncio.sleep(POLLING_INTERVAL)
             new_state = self.timer_state
-            if new_state != old_state:
-                asyncio_tools.call_callback(self._on_change, new_state)
-                old_state = new_state
+            for wire in TimerWire:
+                if new_state[wire] != old_state[wire]:
+                    asyncio_tools.call_callback(on_state_change, wire, new_state)
+            old_state = new_state

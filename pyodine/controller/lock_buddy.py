@@ -41,7 +41,7 @@ class Line(enum.Enum):
     """A map of where in the spectrum to find the target transitions."""
     # The first line's position depends on how much padding is added to the
     # reference left of the first line. All positions are in MHz.
-    a_1 = 200.  # FIXME put real value here (ask Klaus)
+    a_1 = 200.  # FIXME put real value here (see script)
     a_2 = a_1 + 259.698
     a_3 = a_1 + 285.511
     a_4 = a_1 + 286.220
@@ -57,7 +57,11 @@ class Line(enum.Enum):
     a_14 = a_1 + 732.207
     a_15 = a_1 + 857.954
 
-class _SnowblindError(RuntimeError):
+class LockError(RuntimeError):
+    """Something went wrong in trying to achieve a lock."""
+    pass
+
+class _SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
 
     This is a common problem with MTS spectra, as they are very "clean" and
@@ -67,7 +71,7 @@ class _SnowblindError(RuntimeError):
     """
     pass
 
-class _RivalryError(RuntimeError):
+class _RivalryError(LockError):
     """We wanted one match but found many and no particular one sticks out.
 
     If there are many features in the spectrum that all look the same, then

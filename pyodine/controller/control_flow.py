@@ -8,6 +8,7 @@ exceptions. A return status of type .ReturnState is provided to detect errors.
 import asyncio
 import enum
 import logging
+from . import lock_buddy
 from .subsystems import Subsystems, SubsystemError, TecUnit
 
 LOGGER = logging.getLogger('control_flow')
@@ -25,8 +26,9 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
-def cool_down(subs: Subsystems) -> None:
-    pass  # TODO
+def cool_down(_: Subsystems) -> None:
+    """Get the system to a state where it can be physically switched off."""
+    pass  # TODO Implement cool-down procedure.
 
 
 async def heat_up(subs: Subsystems) -> None:
@@ -102,16 +104,15 @@ def is_heating(subs: Subsystems) -> bool:
     return True
 
 
-def is_hot(subs: Subsystems) -> bool:
+def is_hot(_: Subsystems) -> bool:
     """All subsystems are stabilized to any temperature.
 
     If there has been no manual adjustment, this will be the temperatures set
     by heat_up().
     """
-    pass  # TODO continue.
+    pass  # TODO Implement is_hot().
 
 
-# TODO Consider moving this to subsystems module.
 async def laser_power_up(subs: Subsystems) -> ReturnState:
     """Switch on or reset the laser.
 
@@ -120,13 +121,27 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
     """
     try:
         subs.power_up_pa()
-
         # Before trying to switch on the MO, we need to wait for the PA current
         # to settle and be read.
-        asyncio.sleep(1)
-
+        await asyncio.sleep(1)
         subs.power_up_mo()
     except SubsystemError:
         LOGGER.exception("There was a critical error in one of the subsystems.")
         return ReturnState.FAIL
     return ReturnState.SUCCESS
+
+
+async def laser_power_down(_: Subsystems) -> None:
+    pass  # TODO Implement laser power down procedure.
+
+
+async def prelock_and_lock(_: lock_buddy.LockBuddy) -> None:
+    """Run the pre-lock algorithm and engage the frequency lock.
+
+    :raises lock_buddy.LockError: A lock couldn't be established.
+    """
+    pass  # TODO Invoke prelock algorithm.
+
+async def unlock(_: lock_buddy.LockBuddy) -> None:
+    """Release the laser from frequency lock."""
+    pass  # TODO Implement unlock procedure.

@@ -5,7 +5,6 @@ control requests they might transmit.
 """
 import asyncio
 import base64
-import functools
 import logging
 import time
 from typing import Any, Awaitable, Callable, List  # pylint: disable=unused-import
@@ -194,9 +193,9 @@ class Interfaces:
         await self._publish_message(packer.create_message(data, 'setup'), 'setup')
 
     def set_flag(self, entity_id: str, value: bool) -> None:
+        """Set an outgoing "Jokarus" flag."""
         if isinstance(self._texus, texus_relay.TexusRelay):
-            if entity_id in texus_relay.LEGAL_SETTERS \
-                    and isinstance(value, bool):
+            if entity_id in texus_relay.LEGAL_SETTERS and isinstance(value, bool):
                 setattr(self._texus, entity_id, value)
 
     def register_on_receive_callback(

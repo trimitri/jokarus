@@ -13,31 +13,35 @@ import logging
 # We use Dict in type annotations, but not in the code. Thus we need to tell
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
-from typing import Callable, Dict  # noqa: F401 # pylint: disable=unused-import
-from .interfaces import Interfaces
+from typing import Callable, Dict, List  # pylint: disable=unused-import
+from . import interfaces, subsystems, control_flow, lock_buddy
 from ..transport import texus_relay
-from .subsystems import Subsystems, TecUnit
 
+TecUnit = subsystems.TecUnit
 # Define custom types.
 LegalCall = Callable[..., None]  # pylint: disable=invalid-name
 
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
 
-class TimerWire(enum.IntEnum):
-    HOT = texus_relay.TimerState._fields.index('tex1')
-    LOCK = texus_relay.TimerState._fields.index('tex2')
+class TimerEffect(enum.IntEnum):
+    """The link between actual system responses and TEXUS timer wires."""
+    HOT = texus_relay.TimerWire.TEX_1
+    LASER = texus_relay.TimerWire.TEX_2
+    LOCK = texus_relay.TimerWire.TEX_3
 
 # pylint: disable=too-few-public-methods
 # The main method is the single functionality of this class.
 class InstructionHandler:
     """This class receives external commands and forwards them."""
 
-    def __init__(self, subsystem_controller: Subsystems,
-                 interface_controller: Interfaces) -> None:
+    def __init__(self, subsystem_controller: subsystems.Subsystems,
+                 interface_controller: interfaces.Interfaces,
+                 locker: lock_buddy.LockBuddy) -> None:
         self._subs = subsystem_controller
         self._face = interface_controller
-        self._timer_state = None  # type: texus_relay.TimerState
+        self._locker = locker
+        self._flow = control_flow
 
         self._methods = {
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
@@ -117,5 +121,21 @@ class InstructionHandler:
             LOGGER.exception("We caught an unexpected exception. This most "
                              "likely indicates an *actual* problem.")
 
-    def handle_timer_command(self, state: texus_relay.TimerState) -> None:
-        pass  # TODO continue
+    def handle_timer_command(self, wire: texus_relay.TimerWire, timer_state: List[bool]) -> None:
+        if wire == TimerEffect.HOT:
+            if timer_state[wire]:
+                control_flow.heat_up(self._subs)
+            else:
+                control_flow.cool_down(self._subs)
+        elif wire == TimerEffect.LASER:
+            if timer_state[wire]:
+                control_flow.laser_power_up(self._subs)
+            else:
+                control_flow.laser_power_down(self._subs)
+        elif wire == TimerEffect.LOCK:
+            if timer_state[wire]:
+                control_flow.prelock_and_lock(self._locker)
+            else:
+                control_flow.unlock(self._locker)
+        else:
+            LOGGER.warning("Change in unused timer wire %s detected. Ignoring.")
