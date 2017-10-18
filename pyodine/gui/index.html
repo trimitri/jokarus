@@ -562,13 +562,13 @@
 					<section id="tab_temps">
 						<div class="layout_block osc">
 							<div class="osc_plot"
-								data-title="Pump Beam SHG"
+								data-title="Probe Beam SHG"
 								data-tec-current="shga_tec_current"
 								data-temp="shga_temp"
 								data-temp-set="shga_temp_set"
 								data-temp-raw-set="shga_temp_raw_set"></div>
 							<div class="controls">
-								<h2>Pump Beam SHG</h2>
+								<h2>Probe Beam SHG</h2>
 								<p>
 									<label>
 										Unlock controls
@@ -617,9 +617,9 @@
 									<div>
 										Ramp:
 										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[3, true]' />
+											data-method="switch_temp_ramp" data-arguments='[4, true]' />
 										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[3, false]' />
+											data-method="switch_temp_ramp" data-arguments='[4, false]' />
 										<p>
 											Temperature (raw, use caution!):
 											<input type="number" class="source" data-qty="shga_temp_raw_set"
@@ -632,13 +632,13 @@
 						</div>
 						<div class="layout_block osc">
 							<div class="osc_plot"
-								data-title="Probe Beam SHG"
+								data-title="Pump Beam SHG"
 								data-tec-current="shgb_tec_current"
 								data-temp="shgb_temp"
 								data-temp-set="shgb_temp_set"
 								data-temp-raw-set="shgb_temp_raw_set"></div>
 							<div class="controls">
-								<h2>Probe Beam SHG</h2>
+								<h2>Pump Beam SHG</h2>
 								<p>
 									<label>
 										Unlock controls
@@ -687,9 +687,9 @@
 									<div>
 										Ramp:
 										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[4, true]' />
+											data-method="switch_temp_ramp" data-arguments='[3, true]' />
 										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[4, false]' />
+											data-method="switch_temp_ramp" data-arguments='[3, false]' />
 										<p>
 											Temperature (raw, use caution!):
 											<input type="number" class="source" data-qty="shgb_temp_raw_set"

@@ -26,7 +26,7 @@ LOGGER.setLevel(logging.DEBUG)
 LD_DRIVERS = {'mo': 1, 'pa': 3}
 
 # TODO: Drop this and use `TecUnit` below instead.
-TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shga': 3, 'shgb': 4}
+TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shgb': 3, 'shga': 4}
 
 LOCKBOXES = {'nu': 2}
 DDS_PORT = '/dev/ttyUSB2'
@@ -65,8 +65,8 @@ class TecUnit(IntEnum):
     """The Menlo stack's TEC controllers."""
     MIOB = 1
     VHBG = 2
-    SHGA = 3
-    SHGB = 4
+    SHGB = 3
+    SHGA = 4
 
 class SubsystemError(RuntimeError):
     """One of the subsystems experienced a critical problem. Reset is advised.
