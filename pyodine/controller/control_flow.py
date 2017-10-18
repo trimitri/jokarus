@@ -42,7 +42,7 @@ async def heat_up(subs: Subsystems) -> None:
         return
     ambient_temp = 25.  # FIXME use actual NTC reading
     target_temps = {TecUnit.MIOB: 24.850, TecUnit.VHBG: 24.856,
-                    TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.09}
+                    TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.85}
     for unit in TecUnit:
         if not subs.is_tec_enabled(unit):
             subs.set_temp(unit, ambient_temp, True)  # actual setpoint
