@@ -16,8 +16,7 @@ import aioconsole
 import numpy as np
 
 from . import logger
-from .controller import (control_flow, interfaces, instruction_handler,
-                         lock_buddy, subsystems)
+from .controller import (interfaces, instruction_handler, lock_buddy, subsystems)
 from .util import asyncio_tools
 
 
@@ -30,6 +29,7 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
                                               streams=streams)
     asyncio.ensure_future(
         aioconsole.start_interactive_server(factory=console_factory))
+
 
 def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
@@ -133,16 +133,16 @@ async def main():
 
     subs = subsystems.Subsystems()
     locker = init_locker(subs)
-    face = interfaces.Interfaces(subs, locker, start_ws_server=True, start_serial_server=True)
+    face = interfaces.Interfaces(subs, locker, start_ws_server=True,
+                                 start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly(readings_interval=0.5,
-                                    flags_interval=1,
-                                    setup_interval=5,
-                                    signal_interval=0,
+    face.start_publishing_regularly(readings_interval=0.5, flags_interval=1,
+                                    setup_interval=5, signal_interval=0,
                                     status_update_interval=5)
 
-    handler = instruction_handler.InstructionHandler(subs, face)
+    handler = instruction_handler.InstructionHandler(subs, face, locker)
     face.register_on_receive_callback(handler.handle_instruction)
+    face.register_timer_handler(handler.handle_timer_command)
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
@@ -155,6 +155,7 @@ async def main():
     while True:  # Shouldn't reach this.
         LOGGER.error("Dropped to emergency loop keep-alive.")
         await asyncio.sleep(10)
+
 
 # Only execute if run as main program (not on import). This also holds when the
 # recommended way of running this program (see above) is used.

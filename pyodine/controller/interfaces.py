@@ -46,6 +46,8 @@ class Interfaces:
         self._subs = subsystem_controller
         self._locker = locker
         self._rcv_callback = on_receive
+        self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], None]  # pylint: disable=line-too-long
+        """If set, this handles timer change events."""
 
         # Keep track of when we sent the prev. publication to the clients.
         self._readings_published_at = None  # type: float
@@ -81,6 +83,7 @@ class Interfaces:
         except ConnectionError:
             LOGGER.error("Error establishing TEXUS relay. Disabling.")
         else:
+            asyncio.ensure_future(self._texus.poll_for_change(self._timer_callback))
             LOGGER.info("Started TEXUS relay.")
 
     def start_publishing_regularly(self, readings_interval: float,
@@ -208,6 +211,12 @@ class Interfaces:
         # Callable is indeed subscriptable, pylint fails to detect that.
 
         self._rcv_callback = callback
+
+    def register_timer_handler(
+            self,
+            handler: Callable[[texus_relay.TimerWire, List[bool]], None]) -> None:
+        """Register a callback to handle changes in TEXUS time state."""
+        self._timer_callback = handler
 
     async def _publish_message(self, message: str, species: Any) -> None:
         # The vastly different throughput of RS232 vs. Ethernet connections
