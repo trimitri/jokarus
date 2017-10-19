@@ -28,7 +28,7 @@ class ReturnState(enum.IntEnum):
 
 def cool_down(_: Subsystems) -> None:
     """Get the system to a state where it can be physically switched off."""
-    pass  # TODO Implement cool-down procedure.
+    LOGGER.info("cool_down() called.")  # TODO Implement cool-down procedure.
 
 
 async def heat_up(subs: Subsystems) -> None:
@@ -39,6 +39,8 @@ async def heat_up(subs: Subsystems) -> None:
     temperatures that would have been set. This is to avoid overriding manual
     settings.
     """
+    LOGGER.info("heat_up() called.")
+    return  # FIXME only for testing
     if is_heating(subs):
         LOGGER.debug("""Won't "heat up", as TEC is already running.""")
         return
@@ -119,6 +121,8 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
     After running this, the laser power may be adjusted through the PA current,
     the frequency through MO current.
     """
+    LOGGER.info("laser_power_up() called.")
+    return  # FIXME only for testing
     try:
         subs.power_up_pa()
         # Before trying to switch on the MO, we need to wait for the PA current
@@ -132,7 +136,7 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
 
 
 async def laser_power_down(_: Subsystems) -> None:
-    pass  # TODO Implement laser power down procedure.
+    LOGGER.info("laser_power_down() called.")  # TODO Implement laser power down procedure.
 
 
 async def prelock_and_lock(_: lock_buddy.LockBuddy) -> None:
@@ -140,8 +144,8 @@ async def prelock_and_lock(_: lock_buddy.LockBuddy) -> None:
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
-    pass  # TODO Invoke prelock algorithm.
+    LOGGER.info("prelock_and_lock() called.")  # TODO Invoke prelock algorithm.
 
 async def unlock(_: lock_buddy.LockBuddy) -> None:
     """Release the laser from frequency lock."""
-    pass  # TODO Implement unlock procedure.
+    LOGGER.info("unlock() called.")  # TODO Implement unlock procedure.
