@@ -217,7 +217,7 @@ class Subsystems:
         """The zero position of the ramp used to acquire the error signal"""
         return self._daq.ramp_offset
 
-    def set_ramp_offset(self, volts) -> None:
+    def set_ramp_offset(self, volts: float) -> None:
         """The zero position of the ramp used to acquire the error signal
 
         :param volts: Offset in volts, must be in [-5, 5]
@@ -680,7 +680,7 @@ class Subsystems:
         # TODO: Look again at all those NaN's and if's. Maybe use exceptions
         # instead?
         for name, unit in TEC_CONTROLLERS.items():
-            def getter(bound_unit=unit) -> float:
+            def getter(bound_unit: int = unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
 
                 # We need to bind the loop variable "unit" to a local variable
@@ -692,7 +692,7 @@ class Subsystems:
                 LOGGER.error("Couldn't determine temperature.")
                 return float('nan')
 
-            def setpt_getter(bound_unit=unit) -> float:
+            def setpt_getter(bound_unit: int = unit) -> float:
                 """Gets the current TEC setpoint."""
                 temp_setpts = self._menlo.get_temp_setpoint(bound_unit)
                 if temp_setpts:
@@ -701,7 +701,7 @@ class Subsystems:
                 LOGGER.error("Couldn't determine temp. setpoint.")
                 return float('nan')
 
-            def setter(temp: float, bound_unit=unit) -> None:
+            def setter(temp: float, bound_unit: int = unit) -> None:
                 # Same here (see above).
                 self._menlo.set_temp(bound_unit, temp)
 

@@ -46,7 +46,7 @@ class InputRange(IntEnum):
 class MccDaq:
     """A stateful wrapper around the MCC DAQ device."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
         state = self._daq.OpenConnection()
         if state == 1:  # 'kConnectionError in error types enum in C'

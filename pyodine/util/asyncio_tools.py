@@ -9,7 +9,7 @@ from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disab
 LOGGER = logging.getLogger('asyncio_tools')
 
 
-def safe_call(callback: Callable, *args, **kwargs):
+def safe_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
     """Try to call a callback and catch everything that might be raised.
 
     This passes on additional arguments to the callee, just like
@@ -30,7 +30,7 @@ def safe_call(callback: Callable, *args, **kwargs):
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
 
-async def safe_async_call(callback: Callable, *args, **kwargs) -> Any:
+async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
     """Try to call a callback and catch everything that might be raised.
 
     This returns a coroutine object no matter if ``callback`` is a coroutine
@@ -140,7 +140,7 @@ async def repeat_task(
 
     :param coro: The coroutine object (not coroutine function!) to await
     """
-    async def do_stuff():
+    async def run_once() -> None:
         """Run one loop iteration."""
         start = time.time()
         # Do things the caller wants to be done.
@@ -158,10 +158,10 @@ async def repeat_task(
         for _ in range(reps):
             if not do_continue():
                 break
-            await do_stuff()
+            await run_once()
     else:  # Run forever.
         while do_continue():
-            await do_stuff()
+            await run_once()
 
 
 async def watch_loop(on_delay: Callable[[], Any],
@@ -202,7 +202,7 @@ class DeDupQueue:
         The last item is returned first.
         """
 
-    def enqueue(self, specimen, species) -> None:
+    def enqueue(self, specimen: Any, species: Any) -> None:
         """Enqueue an element or update an existing specimen.
 
         :param specimen: The actual item to store. Can be of any type.

@@ -170,7 +170,7 @@ class Dds9Control:
                          'has to be an actual int.')
             return
 
-        def set_channel(channel, encoded_value):
+        def set_channel(channel: int, encoded_value: str) -> None:
             command_string = 'F' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
 
@@ -212,7 +212,7 @@ class Dds9Control:
 
         :raises ConnectionError: The connection just broke or is broken.
         """
-        def set_channel(channel, encoded_value):
+        def set_channel(channel: int, encoded_value: int) -> None:
             command_string = 'V' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
 
@@ -254,7 +254,7 @@ class Dds9Control:
                          'has to be an actual int.')
             return
 
-        def set_channel(channel, encoded_value):
+        def set_channel(channel: int, encoded_value: int) -> None:
             command_string = 'P' + str(channel) + ' ' + str(encoded_value)
             self._send_command(command_string)
 

@@ -24,7 +24,7 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     """Provide a python interpreter capable of probing the system state."""
 
     # Provide a custom factory to allow for `locals` injection.
-    def console_factory(streams=None):
+    def console_factory(streams: Any = None) -> aioconsole.AsynchronousConsole:
         return aioconsole.AsynchronousConsole(locals=injected_locals,
                                               streams=streams)
     asyncio.ensure_future(
@@ -45,7 +45,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
             return float('nan')
         return (temp - 20) / 10
 
-    def set_miob_temp(value: float):
+    def set_miob_temp(value: float) -> None:
         temp = 10 * value + 20
         subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
@@ -127,7 +127,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     return locker
 
 
-async def main():
+async def main() -> None:
     """Start the pyodine server."""
     LOGGER.info("Running Pyodine...")
 

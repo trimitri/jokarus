@@ -57,13 +57,15 @@ class WebsocketServer:
             LOGGER.debug("Won't publish as there are no subscribers "
                          "connected.")
 
-    async def _create_loopback(self, socket):
+    async def _create_loopback(
+            self, socket: websockets.protocol.WebSocketCommonProtocol) -> None:
         while True:
             LOGGER.debug("Waiting for incoming connection.")
             received_msg = await socket.recv()
             await socket.send(received_msg)
 
-    async def _register_subscriber(self, socket):
+    async def _register_subscriber(
+            self, socket: websockets.protocol.WebSocketCommonProtocol) -> None:
         """Register a subscriber.
 
         This also launches a task that maintains the connection to them.

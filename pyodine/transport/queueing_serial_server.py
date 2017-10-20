@@ -23,7 +23,7 @@ class QueueingSerialServer(serial_server.SerialServer):
         self._queue = asyncio_tools.DeDupQueue()
         """The de-duplicating queue used to store send requests."""
 
-    async def async_serve(self):
+    async def async_serve(self) -> None:
         """Like ``.serve()``, but non blocking. Instead await'ing forever.
 
         This runs the actual server in a threaded executor."""

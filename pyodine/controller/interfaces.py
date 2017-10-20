@@ -7,7 +7,7 @@ import asyncio
 import base64
 import logging
 import time
-from typing import Any, Awaitable, Callable, List  # pylint: disable=unused-import
+from typing import Any, Awaitable, Callable, List, Union  # pylint: disable=unused-import
 
 import numpy as np
 
@@ -46,7 +46,7 @@ class Interfaces:
         self._subs = subsystem_controller
         self._locker = locker
         self._rcv_callback = on_receive
-        self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], None]  # pylint: disable=line-too-long
+        self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], Union[Awaitable[None], None]]  # pylint: disable=line-too-long
         """If set, this handles timer change events."""
 
         # Keep track of when we sent the prev. publication to the clients.
@@ -214,7 +214,8 @@ class Interfaces:
 
     def register_timer_handler(
             self,
-            handler: Callable[[texus_relay.TimerWire, List[bool]], None]) -> None:
+            handler: Callable[[texus_relay.TimerWire, List[bool]],
+                              Union[None, Awaitable[None]]]) -> None:
         """Register a callback to handle changes in TEXUS time state."""
         self._timer_callback = handler
 
