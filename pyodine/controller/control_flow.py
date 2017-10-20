@@ -139,12 +139,18 @@ async def laser_power_down(_: Subsystems) -> None:
     LOGGER.info("laser_power_down() called.")  # TODO Implement laser power down procedure.
 
 
-async def prelock_and_lock(_: lock_buddy.LockBuddy) -> None:
+async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
     """Run the pre-lock algorithm and engage the frequency lock.
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
     LOGGER.info("prelock_and_lock() called.")  # TODO Invoke prelock algorithm.
+    return
+    await locker.start_prelock(
+        threshold=0.5, target_position=lock_buddy.Line.a_1,
+        proximity_callback=lambda: LOGGER.info("Yeah!"))
+
+
 
 async def unlock(_: lock_buddy.LockBuddy) -> None:
     """Release the laser from frequency lock."""
