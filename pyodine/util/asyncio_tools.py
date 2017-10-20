@@ -9,7 +9,7 @@ from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disab
 LOGGER = logging.getLogger('asyncio_tools')
 
 
-def call_callback(callback: Callable, *args, **kwargs):
+def safe_call(callback: Callable, *args, **kwargs):
     """Try to call a callback and catch everything that might be raised.
 
     This passes on additional arguments to the callee, just like
@@ -19,7 +19,31 @@ def call_callback(callback: Callable, *args, **kwargs):
                 arguments, as long as they are passed to me. It's return value
                 is returned if the call succeeds.
     """
+    if inspect.iscoroutinefunction(callback):
+        LOGGER.error("Callback %s is a coroutine function.  This is very "
+                     "likely to be a mistake.", callback.__name__)
+        LOGGER.debug("Consider using safe_async_call() for async calls.")
+        return
     try:
+        return callback(*args, **kwargs)
+    except Exception:  # It might raise hell. # pylint: disable=broad-except
+        LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
+
+
+async def safe_async_call(callback: Callable, *args, **kwargs) -> Any:
+    """Try to call a callback and catch everything that might be raised.
+
+    This returns a coroutine object no matter if ``callback`` is a coroutine
+    function or not. It passes on additional arguments to the callee, just
+    like functools.partial does.
+
+    :param callback: The function to call. May expect arbitrary combination of
+                arguments. It's return value is returned if the call succeeds.
+                Can be a regular or a coroutine function.
+    """
+    try:
+        if inspect.iscoroutinefunction(callback):
+            return await callback(*args, **kwargs)
         return callback(*args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
@@ -155,13 +179,13 @@ async def watch_loop(on_delay: Callable[[], Any],
     :param max_load_factor: Each time ``asyncio.sleep(foo)`` takes longer than
                 foo * ``max_load_factor``, ``on_delay()`` is fired.
     """
-    while not call_callback(stop):
+    while not safe_call(stop):
         before = time.time()
         await asyncio.sleep(interval)
         if time.time() - before > interval * max_load_factor:
-            call_callback(on_delay)
+            safe_call(on_delay)
         else:
-            call_callback(on_ok)
+            safe_call(on_ok)
 
 
 class DeDupQueue:

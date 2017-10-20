@@ -5,7 +5,7 @@ Provides callbacks for start and stop of specific flight phases, etc.
 import asyncio
 import enum
 import logging
-from typing import Callable, Dict, List
+from typing import Awaitable, Callable, Dict, List, Union
 import serial
 
 from ..util import asyncio_tools
@@ -131,7 +131,8 @@ class TexusRelay:
 
     async def poll_for_change(
             self,
-            on_state_change: Callable[[TimerWire, List[bool]], None] = lambda *_: None) -> None:
+            on_state_change: Callable[[TimerWire, List[bool]],
+                                      Union[None, Awaitable[None]]] = lambda *_: None) -> None:  # pylint: disable=bad-whitespace
         """Start polling the incoming timer wires for change indefinitely.
 
         This will (async) block.
@@ -142,5 +143,6 @@ class TexusRelay:
             new_state = self.timer_state
             for wire in TimerWire:
                 if new_state[wire] != old_state[wire]:
-                    asyncio_tools.call_callback(on_state_change, wire, new_state)
+                    await asyncio_tools.safe_async_call(on_state_change, wire,
+                                                        new_state)
             old_state = new_state

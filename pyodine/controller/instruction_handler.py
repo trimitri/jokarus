@@ -121,7 +121,18 @@ class InstructionHandler:
             LOGGER.exception("We caught an unexpected exception. This most "
                              "likely indicates an *actual* problem.")
 
-    def handle_timer_command(self, wire: texus_relay.TimerWire, timer_state: List[bool]) -> None:
+    async def handle_timer_command(self, wire: texus_relay.TimerWire,
+                                   timer_state: List[bool]) -> None:
+        """React to a change in TEXUS timer state.
+
+        :raises RuntimerError: One of the associated actions failed.
+        """
+        # We don't catch the possible RuntimerError's below, as this function
+        # is only used as a callback. Due to the way callbacks are handled in
+        # pyodine, their Exceptions are always caught and logged.
+        # For Errors raised into here, there also is no smarter action than
+        # just logging them, as this function reports directly to top-level.
+
         if wire == TimerEffect.HOT:
             if timer_state[wire]:
                 control_flow.heat_up(self._subs)
@@ -129,13 +140,13 @@ class InstructionHandler:
                 control_flow.cool_down(self._subs)
         elif wire == TimerEffect.LASER:
             if timer_state[wire]:
-                control_flow.laser_power_up(self._subs)
+                await control_flow.laser_power_up(self._subs)
             else:
-                control_flow.laser_power_down(self._subs)
+                await control_flow.laser_power_down(self._subs)
         elif wire == TimerEffect.LOCK:
             if timer_state[wire]:
-                control_flow.prelock_and_lock(self._locker)
+                await control_flow.prelock_and_lock(self._locker)
             else:
-                control_flow.unlock(self._locker)
+                await control_flow.unlock(self._locker)
         else:
             LOGGER.warning("Change in unused timer wire %s detected. Ignoring.")

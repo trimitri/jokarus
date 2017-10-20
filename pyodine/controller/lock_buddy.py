@@ -1,12 +1,13 @@
 """This module houses the LockBuddy class for analog lockbox management."""
 import asyncio
 import enum
-from typing import Any, Callable, List
 import logging
+from typing import Any, Awaitable, Callable, List, Union
 
 import numpy as np
 
 from . import feature_locator
+from ..util import asyncio_tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
@@ -92,7 +93,8 @@ class Tuner:
     multi-variable control system straightforward and easy to read.
     """
     def __init__(self, scale: QtyUnit, granularity: float, delay: float,
-                 getter: Callable[[], float], setter: Callable[[float], None],
+                 getter: Callable[[], Union[float, Awaitable[float]]],
+                 setter: Callable[[float], Union[None, Awaitable[None]]],
                  name: str = "") -> None:
         """A tuner must scale it's full range of motion [0, 1] interval.
 
@@ -105,9 +107,9 @@ class Tuner:
         :param delay: Delay in seconds between control input and actual effect
                     on the controlled quantity.
         :param getter: Callback used to get current knob position. Must use the
-                    the linearized [0, 1] range.
+                    the linearized [0, 1] range. May be a coroutine function.
         :param setter: Callback used to command control input. Must accept the
-                    linearized [0, 1] range.
+                    linearized [0, 1] range. May be a coroutine function.
         """
         if not scale > 0:
             raise ValueError("Provide scale >0")
@@ -125,20 +127,17 @@ class Tuner:
         self._setter = setter
         self._getter = getter
 
-    def get(self) -> float:
+    async def get(self) -> float:
         """Get the current actual value.
 
-        :returns: The actual current tuner value. Doesn't necessarily match set
-                    value.
+        :returns: The actual current tuner value. This doesn't necessarily
+                    match the set value.
         :raises RuntimeError: The callback provided as getter raised something.
         """
-        try:
-            return self._getter()
-        except Exception as err:
-            raise RuntimeError("Error executing getter callback.") from err
+        return await asyncio_tools.safe_async_call(self._getter)
 
-    def set(self, value: float) -> None:
-        """Order the value to be set to ``value``.
+    async def set(self, value: float) -> None:
+        """Set the value to ``value``. Includes wait time.
 
         :param value: The value to be set. Needs to be in [0, 1] interval.
 
@@ -148,10 +147,8 @@ class Tuner:
         if not value >= 0 or not value <= 1:
             raise ValueError("Tuners only accept values in the [0, 1] range. %s was passed.",
                              value)
-        try:
-            self._setter(value)
-        except Exception as err:
-            raise RuntimeError("Error executing setter callback.") from err
+        await asyncio_tools.safe_async_call(self._setter, value)
+        await asyncio.sleep(self.delay)
 
 
 class LockBuddy:
@@ -204,7 +201,7 @@ class LockBuddy:
         self._locked = locked
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
-        self._scanner = scanner
+        self._scanner = scanner  # type: Callable[[float], np.ndarray]
         self._scanner_range = scanner_range
         self._unlock = unlock
 
@@ -227,8 +224,7 @@ class LockBuddy:
     def prelock_running(self) -> bool:
         return self._prelock_running
 
-
-    def acquire_signal(self, rel_range: float = None) -> np.ndarray:
+    async def acquire_signal(self, rel_range: float = None) -> np.ndarray:
         """Run one scan and store the result. Lock must be disengaged.
 
         :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
@@ -262,9 +258,9 @@ class LockBuddy:
 
         return self.recent_signal
 
-    def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
-                      proximity_callback: Callable[[], Any] = lambda: None,
-                      max_tries: int = MAX_JUMPS) -> None:
+    async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
+                            proximity_callback: Callable[[], Any] = lambda: None,
+                            max_tries: int = MAX_JUMPS) -> None:
         """Start the prelock algorithm and get as close as possible to target.
 
 
@@ -292,7 +288,7 @@ class LockBuddy:
                     for the measured detuning. Maybe check overall system
                     setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
         """
-        def iterate() -> bool:
+        async def iterate() -> bool:
             """Do one iteration of the pre-lock loop.
 
             This will do one jump if we're still too far from our target
@@ -310,7 +306,7 @@ class LockBuddy:
                         options are too similar. Consider raising the scan
                         range.
             """
-            self.acquire_signal(current_range)
+            await self.acquire_signal(current_range)
             match_candidates = self._locator.locate_sample(
                 self.recent_signal, current_range * self._scanner_range)
             best_match = self._pick_match(match_candidates)  # raises!
@@ -319,7 +315,7 @@ class LockBuddy:
                 return True
             LOGGER.debug("Jumping by %s units.", detuning)
             try:
-                self.tune(detuning, PRELOCK_SPEED_CONSTRAINT)
+                await self.tune(detuning, PRELOCK_SPEED_CONSTRAINT)
             except ValueError as err:
                 raise RuntimeError("Requested more than tuners could deliver.") from err
             return False
@@ -333,12 +329,9 @@ class LockBuddy:
             if max_tries > 0 and n_tries > max_tries:
                 raise RuntimeError("Couldn't reach requested proximity in %s tries",
                                    max_tries)
-            if iterate():  # raises!
+            if await iterate():  # raises!
                 LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
-                try:
-                    proximity_callback()
-                except Exception:  # Who knows what hell it might raise. # pylint: disable=broad-except
-                    LOGGER.exception("Problem executing callback.")
+                asyncio_tools.safe_call(proximity_callback)
                 if max_tries > 0:
                     break
 
@@ -376,7 +369,7 @@ class LockBuddy:
         for index, tuner in enumerate(tuners):
             # Skip this tuner if it doesn't have enough range left to jump by
             # ``delta``.
-            target = tuner.get() + (delta / tuner.scale)
+            target = await tuner.get() + (delta / tuner.scale)
             if target < 0 or target > 1:
                 LOGGER.debug("Skipping %s for insufficient range of motion.",
                              tuner.name)
@@ -392,7 +385,7 @@ class LockBuddy:
             if index > 0:
                 compensation = .0
                 for skipped_tuner in tuners[:index]:
-                    state = skipped_tuner.get()
+                    state = await skipped_tuner.get()
                     # Is the tuner imbalanced?
                     if state < BALANCE_AT[0] or state > BALANCE_AT[1]:
                         # How much compensation would be required
@@ -405,8 +398,7 @@ class LockBuddy:
                         desired = target + compensation + carry
                         if desired >= 0 and desired <= 1:
                             compensation += carry
-                            skipped_tuner.set(0.5)
-                            await asyncio.sleep(skipped_tuner.delay)
+                            await skipped_tuner.set(0.5)
                             LOGGER.debug("Balanced %s.", skipped_tuner.name)
                         else:
                             LOGGER.debug("Couldn't balance %s due to insufficient headroom in %s.",
@@ -414,8 +406,7 @@ class LockBuddy:
                     else:
                         LOGGER.debug("Imbalance wasn't the reason to skip %s.",
                                      skipped_tuner.name)
-            tuner.set(target + compensation)
-            await asyncio.sleep(tuner.delay)
+            await tuner.set(target + compensation)
             if compensation > 0:
                 LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
             LOGGER.debug("Tuned %s by %s units.", tuner.name, delta)

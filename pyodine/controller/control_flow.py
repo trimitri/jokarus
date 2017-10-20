@@ -115,11 +115,13 @@ def is_hot(_: Subsystems) -> bool:
     pass  # TODO Implement is_hot().
 
 
-async def laser_power_up(subs: Subsystems) -> ReturnState:
+async def laser_power_up(subs: Subsystems) -> None:
     """Switch on or reset the laser.
 
     After running this, the laser power may be adjusted through the PA current,
     the frequency through MO current.
+
+    :raises RuntimeError: Failed to power up laser.
     """
     LOGGER.info("laser_power_up() called.")
     return  # FIXME only for testing
@@ -129,13 +131,15 @@ async def laser_power_up(subs: Subsystems) -> ReturnState:
         # to settle and be read.
         await asyncio.sleep(1)
         subs.power_up_mo()
-    except SubsystemError:
-        LOGGER.exception("There was a critical error in one of the subsystems.")
-        return ReturnState.FAIL
-    return ReturnState.SUCCESS
+    except SubsystemError as err:
+        raise RuntimeError("Failed to power up laser.") from err
 
 
 async def laser_power_down(_: Subsystems) -> None:
+    """Shut down and switch off laser.
+
+    :raises RuntimerError: Failed to switch off laser.
+    """
     LOGGER.info("laser_power_down() called.")  # TODO Implement laser power down procedure.
 
 
