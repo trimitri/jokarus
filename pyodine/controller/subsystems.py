@@ -121,7 +121,7 @@ class Subsystems:
             return True
         return False
 
-    def fetch_scan(self, amplitude: float = 1) -> np.ndarray:
+    async def fetch_scan(self, amplitude: float = 1) -> np.ndarray:
         """Scan the frequency once and return the readings acquired.
 
         This is the main method used by the `lock_buddy` module to perform
@@ -131,16 +131,15 @@ class Subsystems:
                     ranging [0, 1]. 1 corresponds to 10V peak-peak.
         :raises ConnectionError: DAQ is unavailable.
         """
+        blocking_fetch = lambda: self._daq.fetch_scan(
+            amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
+            SCAN_TIME,
+            [(mccdaq.DaqChannel(DaqChannel.RAMP_MONITOR), mccdaq.InputRange.PM_10V),
+             (mccdaq.DaqChannel(DaqChannel.ERR_SIGNAL), mccdaq.InputRange.PM_2V),
+             (mccdaq.DaqChannel(DaqChannel.PUMP_DIODE), mccdaq.InputRange.PM_5V)],
+            mccdaq.RampShape.DESCENT)
         try:
-            return self._daq.fetch_scan(
-                amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
-                SCAN_TIME,
-                [
-                    (mccdaq.DaqChannel(DaqChannel.RAMP_MONITOR), mccdaq.InputRange.PM_10V),
-                    (mccdaq.DaqChannel(DaqChannel.ERR_SIGNAL), mccdaq.InputRange.PM_2V),
-                    (mccdaq.DaqChannel(DaqChannel.PUMP_DIODE), mccdaq.InputRange.PM_5V)
-                ],
-                mccdaq.RampShape.DESCENT)
+            await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
         except (AttributeError, ConnectionError) as err:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err

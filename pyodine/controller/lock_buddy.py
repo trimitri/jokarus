@@ -157,7 +157,7 @@ class LockBuddy:
     def __init__(self, lock: Callable[[], None],
                  unlock: Callable[[], None],
                  locked: Callable[[], bool],
-                 scanner: Callable[[float], np.ndarray],
+                 scanner: Callable[[float], Awaitable[np.ndarray]],
                  scanner_range: QtyUnit,
                  tuners: List[Tuner],
                  on_new_signal: Callable[[np.ndarray], None]=None) -> None:
@@ -175,7 +175,8 @@ class LockBuddy:
                       first column containing the x values (tunable quantity!)
                       and all following columngs readings plotted against that
         :param scanner_range: How much quantity units does a call to
-                    ``scanner(1.)`` span?
+                    ``scanner(1.)`` span? Has to be a coroutine, as it will
+                    always take considerable time to fetch a signal.
         :param tuners: A list of Tuner objects that provide control over the
                     tunable quantity.
         :param on_new_signal: Is called with every new signal acquired. It gets
@@ -201,7 +202,7 @@ class LockBuddy:
         self._locked = locked
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
-        self._scanner = scanner  # type: Callable[[float], np.ndarray]
+        self._scanner = scanner  # type: Callable[[float], Awaitable[np.ndarray]]
         self._scanner_range = scanner_range
         self._unlock = unlock
 
@@ -245,7 +246,7 @@ class LockBuddy:
             self.range = rel_range
 
         try:
-            self.recent_signal = self._scanner(rel_range)
+            self.recent_signal = await self._scanner(rel_range)
         except Exception as err:  # We don't know anything about the callback.
             raise RuntimeError('"scanner" Callback raised an exception.') from err
 
