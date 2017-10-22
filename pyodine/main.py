@@ -39,6 +39,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     ##
 
     def get_miob_temp() -> float:
+        """Temperature of the micro-optical bench."""
         try:
             temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
         except ConnectionError:
@@ -97,6 +98,12 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
                                    getter=ramp_getter, setter=ramp_setter,
                                    name="ramp offset")
 
+    # The lockbox itself has to be wrapped like a Tuner as well, as it does
+    # effectively tune the laser. All values associated with setting stuff can
+    # be ignored though ("1"'s and lambda below).
+    lockbox = lock_buddy.Tuner(20 * 74, 1, 1, subs.get_lockbox_level,
+                               lambda _: None, "Lockbox")
+
     # Log all acquired signals.
     def on_new_signal(data: np.ndarray) -> None:
         """Logs the received array as base64 string."""
@@ -117,9 +124,10 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
             return False
 
     locker = lock_buddy.LockBuddy(
-        lock=lambda: subs.switch_lock('nu', True),
-        unlock=lambda: subs.switch_lock('nu', False),
+        lock=lambda: subs.switch_lock(True),
+        unlock=lambda: subs.switch_lock(False),
         locked=nu_locked,
+        lockbox=lockbox,
         scanner=subs.fetch_scan,
         scanner_range=700.,  # FIXME measure correct scaling coefficient.
         tuners=[miob_temp, mo_current, ramp_offset],

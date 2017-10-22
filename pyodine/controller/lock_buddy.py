@@ -2,24 +2,37 @@
 import asyncio
 import enum
 import logging
-from typing import Any, Awaitable, Callable, List, Union
+from typing import Any, Awaitable, Callable, List, Optional, Union
 
 import numpy as np
 
 from . import feature_locator
-from ..util import asyncio_tools
+from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
-# How many times to jump before considering the pre-lock procedure failed?
-MAX_JUMPS = 10
+ALLOWABLE_LOCK_IMBALANCE = .2
+"""OK deviation of lockbox level from center position. In [0, .5].
 
+See ``balance()`` below for details.
+"""
+MONITOR_INTERVAL = 22.
+"""Check for lock imbalance every ~ seconds."""
+MAX_JUMPS = 10
+"""Jump ~ times before considering the pre-lock procedure failed."""
+MATCH_QUALITY_THRESH = 0.7
 """How well does a sample have to fit the reference for us to even consider the
 match valid?
 """
-MATCH_QUALITY_THRESH = 0.7
-"""How confident do we have to be to use and trust a match candidate? """
 CONFIDENCE_THRESH = 0.6
+"""How confident do we have to be to use and trust a match candidate? """
+LOSS_CHECK_INTERVAL = 0.3
+"""Check if the lock was lost every ~ seconds."""
+LOSS_THRESH = 0.005
+"""A lockbox this close to the edge of range of motion is considered lost.
+
+Given as a relative value [0, .5[, (.01 = 1%).
+"""
 
 # 300 MHz will always put at least two features in range. TODO: Use more brain.
 PRELOCK_SCAN_RANGE = 300.0
@@ -89,8 +102,7 @@ class Tuner:
 
     As there are often multiple such means means, we provide a unified
     interface for such "knobs" here. All tuners linearize and scale their
-    respective ranges of motion to [0, 1] in order to keep the usage of a
-    multi-variable control system straightforward and easy to read.
+    respective ranges of motion to [0, 1].
     """
     def __init__(self, scale: QtyUnit, granularity: float, delay: float,
                  getter: Callable[[], Union[float, Awaitable[float]]],
@@ -134,7 +146,7 @@ class Tuner:
                     match the set value.
         :raises RuntimeError: The callback provided as getter raised something.
         """
-        return await asyncio_tools.safe_async_call(self._getter)
+        return await tools.safe_async_call(self._getter)
 
     async def set(self, value: float) -> None:
         """Set the value to ``value``. Includes wait time.
@@ -147,7 +159,7 @@ class Tuner:
         if not value >= 0 or not value <= 1:
             raise ValueError("Tuners only accept values in the [0, 1] range. %s was passed.",
                              value)
-        await asyncio_tools.safe_async_call(self._setter, value)
+        await tools.safe_async_call(self._setter, value)
         await asyncio.sleep(self.delay)
 
 
@@ -160,7 +172,8 @@ class LockBuddy:
                  scanner: Callable[[float], Awaitable[np.ndarray]],
                  scanner_range: QtyUnit,
                  tuners: List[Tuner],
-                 on_new_signal: Callable[[np.ndarray], None]=None) -> None:
+                 lockbox: Tuner,
+                 on_new_signal: Callable[[np.ndarray], None] = None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -179,6 +192,9 @@ class LockBuddy:
                     always take considerable time to fetch a signal.
         :param tuners: A list of Tuner objects that provide control over the
                     tunable quantity.
+        :param lockbox: A "read-only" tuner providing the current lockbox state
+                    as well as it's scale. This is needed for balancing during
+                    prolonged locks. The Tuner's .set() is not used.
         :param on_new_signal: Is called with every new signal acquired. It gets
                     passed the acquired data as np.ndarray.
 
@@ -199,6 +215,7 @@ class LockBuddy:
 
         self._locator = feature_locator.FeatureLocator()
         self._lock = lock
+        self._lockbox = lockbox  # type: Tuner
         self._locked = locked
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
@@ -258,6 +275,57 @@ class LockBuddy:
                 raise RuntimeError('"on_lock_engaged" Callback raised an exception.') from err
 
         return self.recent_signal
+
+    async def balance(self) -> None:
+        """Adjust available tuners to keep lockbox well within range of motion.
+
+        :raises RuntimeError: Lock is not engaged, thus there's nothing to
+                    balance.
+        """
+        if not self.lock_engaged:
+            raise RuntimeError("Lock is not running.")
+        imbalance = .5 - await self._lockbox.get()
+        if abs(imbalance) <= ALLOWABLE_LOCK_IMBALANCE:
+            LOGGER.debug("No need to balance lock.")
+            return
+        LOGGER.info("Balancing lock by %s units.", imbalance)
+        await self.tune(imbalance * self._lockbox.scale)
+
+    async def is_lock_lost(self) -> bool:
+        """Has the lock run into an extreme level, indicating lock loss?
+
+        :returns: The lock is likely to have been lost.
+        :raises RuntimeError: The lock isn't running at all.
+        """
+        if not self.lock_engaged:
+            LOGGER.warning("Lock isn't running, assuming loss of lock.")
+            return True
+        level = await self._lockbox.get()
+        return abs(1 - level) <= LOSS_THRESH or level <= LOSS_THRESH
+
+    async def monitor(self, when_lost: Callable[[], Optional[Awaitable[None]]]) -> None:
+        """Watch an engaged lock and compensate for drifts. Runs forever.
+
+        :param when_lost:
+        :raises RuntimeError: The lock isn't running.
+        """
+        if not self.lock_engaged:
+            raise RuntimeError("Lock is not running.")
+        LOGGER.info("Starting to track lock.")
+        imbalance_poller = tools.repeat_task(self.balance, MONITOR_INTERVAL,
+                                             self._locked)
+        lock_loss_poller = tools.poll_resource(self.is_lock_lost, LOSS_CHECK_INTERVAL,
+                                               on_connect=when_lost, name="Loss of lock")
+        _, pending = await asyncio.wait([imbalance_poller, lock_loss_poller],
+                                        return_when=asyncio.FIRST_COMPLETED)
+        # Most of the time, the second poller will abort itself soon after the
+        # first one, as both check the same break condition.  In case the lock
+        # gets re-enabled swiftly after a loss and before the next iteration of
+        # the imbalance poller, we need to make sure however, that the other
+        # poller doesn't keep running in the background.
+        for future in pending:
+            future.cancel()
+        LOGGER.info("Stopped monitoring lock, as the lock was disabled.")
 
     async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                             proximity_callback: Callable[[], Any] = lambda: None,
@@ -332,7 +400,7 @@ class LockBuddy:
                                    max_tries)
             if await iterate():  # raises!
                 LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
-                asyncio_tools.safe_call(proximity_callback)
+                tools.safe_call(proximity_callback)
                 if max_tries > 0:
                     break
 
