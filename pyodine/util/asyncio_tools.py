@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Any, Awaitable, Callable, List, Tuple, Union  # pylint: disable=unused-import
+from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union  # pylint: disable=unused-import
 
 LOGGER = logging.getLogger('asyncio_tools')
 
@@ -49,11 +49,11 @@ async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
 
-async def poll_resource(indicator: Callable[[], bool],
+async def poll_resource(indicator: Callable[[], Union[bool, Awaitable[bool]]],
                         delay: Union[float, int],
-                        prober: Callable[[], Union[None, Awaitable[None]]] = lambda: None,
-                        on_connect: Callable[[], None] = lambda: None,
-                        on_disconnect: Callable[[], None] = lambda: None,
+                        prober: Callable[[], Optional[Awaitable[None]]] = lambda: None,
+                        on_connect: Callable[[], Optional[Awaitable[None]]] = lambda: None,
+                        on_disconnect: Callable[[], Optional[Awaitable[None]]] = lambda: None,
                         name: str = '',
                         continuous: bool = False) -> None:
     """Wait for/periodically probe/check/monitor a resource.
@@ -90,49 +90,28 @@ async def poll_resource(indicator: Callable[[], bool],
         if not callable(callback):
             raise TypeError('Callback "%s" is not callable.', my_name)
 
-    probe_is_async = inspect.iscoroutinefunction(prober)
-
     # This outer loop will only run more than once if the user wants us to keep
     # observing a currently healthy connection.
     while True:
-        if not indicator():
+        if not await safe_async_call(indicator):
             LOGGER.info("Trying to connect connect %s.", name)
-            while not indicator():
+            while not await safe_async_call(indicator):
                 LOGGER.debug("Resource %s is still offline.", name)
-                try:
-                    if probe_is_async:
-                        await prober()
-                    else:
-                        prober()
-                except Exception:  # pylint: disable=broad-except
-                    # It doesn't make a lot of sense to raise here, as this is
-                    # a worker process.
-                    LOGGER.exception("'prober()' callback raised an exception:")
-                await asyncio.sleep(float(delay))
-            try:
-                on_connect()  # Notify the caller.
-            except Exception:  # pylint: disable=broad-except
-                # It doesn't make a lot of sense to raise here, as this is
-                # a worker process.
-                LOGGER.exception("'on_connect()' callback raised an exception:")
+                await safe_async_call(prober)
+                await asyncio.sleep(delay)
+            await safe_async_call(on_connect)  # Notify the caller.
             LOGGER.info("Resource %s is now available.", name)
         if not continuous:
             LOGGER.info("Stopped polling of resource %s.", name)
             break
         if not indicator():  # There was a connection, but it got lost.
-            try:
-                on_disconnect()
-            except Exception:  # pylint: disable=broad-except
-                # It doesn't make a lot of sense to raise here, as this is
-                # a worker process.
-                LOGGER.exception("'on_disconnect()' callback raised an exception:")
-
+            await safe_async_call(on_disconnect)
             LOGGER.info("Resource %s became unavailable.", name)
         await asyncio.sleep(float(delay))
 
 
 async def repeat_task(
-        coro: Union[Callable[[], Awaitable[None]], Callable[[], None]],
+        coro: Callable[[], Optional[Awaitable[None]]],
         period: float,
         do_continue: Callable[[], bool] = lambda: True,
         reps: int = 0, min_wait_time: float = 0.1) -> None:
