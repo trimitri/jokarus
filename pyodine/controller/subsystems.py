@@ -28,7 +28,7 @@ LD_DRIVERS = {'mo': 1, 'pa': 3}
 # TODO: Drop this and use `TecUnit` below instead.
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shgb': 3, 'shga': 4}
 
-LOCKBOXES = {'nu': 2}
+LOCKBOX_ID = 2
 DDS_PORT = '/dev/ttyUSB2'
 
 SCAN_TIME = 0.2  # The time to take for a frequency scan in seconds.
@@ -180,20 +180,20 @@ class Subsystems:
                                                                       since)
 
         # PII Controller
-        data['nu_lock_enabled'] = self._menlo.is_lock_enabled(LOCKBOXES['nu'])
+        data['nu_lock_enabled'] = self._menlo.is_lock_enabled(LOCKBOX_ID)
         data['nu_i1_enabled'] = \
-            self._menlo.is_integrator_enabled(LOCKBOXES['nu'], 1)
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 1)
         data['nu_i2_enabled'] = \
-            self._menlo.is_integrator_enabled(LOCKBOXES['nu'], 2)
-        data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(LOCKBOXES['nu'])
-        data['nu_prop'] = self._menlo.get_error_scale(LOCKBOXES['nu'])
-        data['nu_offset'] = self._menlo.get_error_offset(LOCKBOXES['nu'])
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 2)
+        data['nu_ramp_enabled'] = self._menlo.is_ramp_enabled(LOCKBOX_ID)
+        data['nu_prop'] = self._menlo.get_error_scale(LOCKBOX_ID)
+        data['nu_offset'] = self._menlo.get_error_offset(LOCKBOX_ID)
         data['nu_p_monitor'] = self._menlo.get_pii_monitor(
-            LOCKBOXES['nu'], p_only=True, since=since)
-        data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOXES['nu'],
+            LOCKBOX_ID, p_only=True, since=since)
+        data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOX_ID,
                                                          since=since)
         data['nu_ramp_amplitude'] = \
-            self._menlo.get_ramp_amplitude(LOCKBOXES['nu'])
+            self._menlo.get_ramp_amplitude(LOCKBOX_ID)
 
         return data
 
@@ -211,6 +211,9 @@ class Subsystems:
                 self._menlo.get_diode_current(LdDriver(unit)))
         except (ValueError, AttributeError) as err:
             raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
+
+    def get_lockbox_level(self) -> float:
+        return self._unwrap_buffer(self._menlo.get_pii_monitor(LOCKBOX_ID))
 
     def get_ramp_offset(self) -> float:
         """The zero position of the ramp used to acquire the error signal"""
@@ -313,7 +316,7 @@ class Subsystems:
         """
         try:
             return self._unwrap_buffer(
-                self._menlo.is_lock_enabled(LOCKBOXES['nu'])) == 1
+                self._menlo.is_lock_enabled(LOCKBOX_ID)) == 1
         except (AttributeError, ValueError) as err:  # Menlo is not available.
             raise ConnectionError(
                 "Can't inquire nu lock state, as Menlo is unavailable.") from err
@@ -457,29 +460,23 @@ class Subsystems:
         else:
             LOGGER.info("Set EOM frequency to %s MHz.", freq)
 
-    def set_error_offset(self, unit_name: str, percent: float) -> None:
+    def set_error_offset(self, percent: float) -> None:
         """Set the scaling factor for error signal input to lockbox."""
         try:
             percent = float(percent)
         except (TypeError, ValueError):
             LOGGER.exception("Please give a number for error signal offset.")
             return
-        if not self._is_pii_unit(unit_name):
-            return
+        self._menlo.set_error_offset(LOCKBOX_ID, percent)
 
-        self._menlo.set_error_offset(LOCKBOXES[unit_name], percent)
-
-    def set_error_scale(self, unit_name: str, factor: float) -> None:
+    def set_error_scale(self, factor: float) -> None:
         """Set the scaling factor for error signal input to lockbox."""
         try:
             factor = float(factor)
         except (TypeError, ValueError):
             LOGGER.exception("Please give a number for scaling factor.")
             return
-        if not self._is_pii_unit(unit_name):
-            return
-
-        self._menlo.set_error_scale(LOCKBOXES[unit_name], factor)
+        self._menlo.set_error_scale(LOCKBOX_ID, factor)
 
     def set_mixer_amplitude(self, amplitude: float) -> None:
         """Set the mixer driver amplitude betw. 0 and 1."""
@@ -560,15 +557,12 @@ class Subsystems:
             LOGGER.info("Switched to %s clock reference.", which)
 
     def switch_integrator(
-            self, unit_name: str, stage: int, switch_on: bool) -> None:
+            self, stage: int, switch_on: bool) -> None:
         """Switch the given PII integrator stage (1 or 2) on or off.
 
-        :param unit_name: Which PII unit to act on (1 or 2)
         :param stage: Which stage to act on--1 (fast) or 2 (slow)
         :param switch_on: True for enabling integrator false for disabling it
         """
-        if not self._is_pii_unit(unit_name):  # Will emit error itself.
-            return
         if stage not in [1, 2]:
             LOGGER.error("Please provide integrator stage: 1 or 2. Given: %s",
                          stage)
@@ -578,7 +572,7 @@ class Subsystems:
                          "stage on. Given: %s", switch_on)
             return
 
-        self._menlo.switch_integrator(LOCKBOXES[unit_name], stage, switch_on)
+        self._menlo.switch_integrator(LOCKBOX_ID, stage, switch_on)
 
     def switch_ld(self, unit_name: str, switch_on: bool) -> None:
         """
@@ -603,23 +597,19 @@ class Subsystems:
             LOGGER.exception("Critical error in osc. sup. unit!")
             raise SubsystemError("Critical error in osc. sup. unit!")
 
-    def switch_lock(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_pii_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_lock(LOCKBOXES[unit_name], switch_on)
-            else:
-                LOGGER.error("Please provide boolean \"on\" argument when "
-                             "switching pii lock electronics of unit %s.",
-                             unit_name)
+    def switch_lock(self, switch_on: bool) -> None:
+        if isinstance(switch_on, bool):
+            self._menlo.switch_lock(LOCKBOX_ID, switch_on)
+        else:
+            LOGGER.error("Please provide boolean \"on\" argument when "
+                         "switching pii lock electronics.")
 
-    def switch_pii_ramp(self, unit_name: str, switch_on: bool) -> None:
-        if self._is_pii_unit(unit_name):
-            if isinstance(switch_on, bool):
-                self._menlo.switch_ramp(LOCKBOXES[unit_name], switch_on)
-            else:
-                LOGGER.error('Please provide boolean "on" argument when '
-                             'switching pii ramp generation of unit %s.',
-                             unit_name)
+    def switch_pii_ramp(self, switch_on: bool) -> None:
+        if isinstance(switch_on, bool):
+            self._menlo.switch_ramp(LOCKBOX_ID, switch_on)
+        else:
+            LOGGER.error('Please provide boolean "on" argument when '
+                         'switching pii ramp generation.')
 
     def switch_tec(self, unit_name: str, switch_on: bool) -> None:
         if self._is_tec_unit(unit_name):
@@ -722,14 +712,6 @@ class Subsystems:
             return False
         if name not in TEC_CONTROLLERS:
             LOGGER.error('There is no TEC controller named "%s".', name)
-            return False
-        return True
-
-    def _is_pii_unit(self, name: str) -> bool:
-        if self._menlo is None:
-            return False
-        if name not in LOCKBOXES:
-            LOGGER.error('There is no Lockbox by the name "%s".', name)
             return False
         return True
 

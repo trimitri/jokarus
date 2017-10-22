@@ -75,12 +75,12 @@ class InstructionHandler:
             'set_shgb_temp_raw_set': lambda t: self._subs.set_temp(
                 TecUnit.SHGB, float(t), bypass_ramp=True),
 
-            'set_nu_prop': lambda f: self._subs.set_error_scale('nu', f),
-            'set_nu_offset': lambda p: self._subs.set_error_offset('nu', p),
+            'set_nu_prop': self._subs.set_error_scale,
+            'set_nu_offset': self._subs.set_error_offset,
             'switch_rf_clock_source': self._subs.switch_rf_clock_source,
             'switch_ld': self._subs.switch_ld,
-            'switch_nu_ramp': lambda f: self._subs.switch_pii_ramp('nu', f),
-            'switch_nu_lock': lambda f: self._subs.switch_lock('nu', f),
+            'switch_nu_ramp': self._subs.switch_pii_ramp,
+            'switch_nu_lock': self._subs.switch_lock,
             'switch_temp_ramp': self._subs.switch_temp_ramp,
             'switch_tec': self._subs.switch_tec,
             'switch_integrator': self._subs.switch_integrator,
