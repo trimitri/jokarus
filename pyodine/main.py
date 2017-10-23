@@ -92,7 +92,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         return (subs.get_ramp_offset() + 5) / 10
 
     def ramp_setter(value: float) -> None:
-        subs.set_ramp_offset(value * 10 + 5)
+        subs.set_ramp_offset(value * 10 - 5)
 
     ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
                                    getter=ramp_getter, setter=ramp_setter,
