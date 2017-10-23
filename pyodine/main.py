@@ -145,7 +145,7 @@ async def main() -> None:
                                  start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(readings_interval=0.5, flags_interval=1,
-                                    setup_interval=5, signal_interval=0,
+                                    setup_interval=5, signal_interval=4,
                                     status_update_interval=5)
 
     handler = instruction_handler.InstructionHandler(subs, face, locker)

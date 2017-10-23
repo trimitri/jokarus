@@ -145,7 +145,7 @@ class Interfaces:
         compression.
         """
         try:
-            self._locker.acquire_signal()
+            await self._locker.acquire_signal()
         except RuntimeError:
             LOGGER.exception("Couldn't publish error signal:")
             return
