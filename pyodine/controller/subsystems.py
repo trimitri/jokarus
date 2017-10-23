@@ -321,27 +321,6 @@ class Subsystems:
             raise ConnectionError(
                 "Can't inquire nu lock state, as Menlo is unavailable.") from err
 
-    def power_up_mo(self) -> None:
-        """
-        Switch on master oscillator and crank it to startup current.
-
-        This will only succeed, if PA is at a sufficient power level. Consider
-        running .power_up_pa() before to ensure this.
-
-        :raises SubsystemError:
-        """
-        self.switch_ld('mo', True)
-        self.set_current('mo', self.laser.mo_powerup_current)
-
-    def power_up_pa(self) -> None:
-        """
-        Switch on power amplifier and crank it to startup current.
-
-        :raises SubsystemError:
-        """
-        self.switch_ld('pa', True)
-        self.set_current('pa', self.laser.pa_powerup_current)
-
     async def refresh_status(self) -> None:
         if self._menlo is not None:
             await self._menlo.request_full_status()

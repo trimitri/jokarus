@@ -13,6 +13,12 @@ from .subsystems import Subsystems, SubsystemError, TecUnit
 
 LOGGER = logging.getLogger('control_flow')
 
+MO_STANDARD_CURRENT = 100.
+"""The default MO current, MO has to be lasing at that current."""
+PA_IDLE_CURRENT = 250.
+"""Safe current for PA, that allows switching MO on or off."""
+PA_STANDARD_CURRENT = 1500.
+"""The working current to use on the power amplifier."""
 NTC_CALCULATION_ERR = 0.1
 """How far will the NTC temperature readout be apart from the value that was
 set as target, assuming perfectly controlled plant. This is only due to NTC
@@ -116,7 +122,7 @@ def is_hot(_: Subsystems) -> bool:
 
 
 async def laser_power_up(subs: Subsystems) -> None:
-    """Switch on or reset the laser.
+    """Switch on the laser.
 
     After running this, the laser power may be adjusted through the PA current,
     the frequency through MO current.
@@ -125,14 +131,6 @@ async def laser_power_up(subs: Subsystems) -> None:
     """
     LOGGER.info("laser_power_up() called.")
     return  # FIXME only for testing
-    try:
-        subs.power_up_pa()
-        # Before trying to switch on the MO, we need to wait for the PA current
-        # to settle and be read.
-        await asyncio.sleep(1)
-        subs.power_up_mo()
-    except SubsystemError as err:
-        raise RuntimeError("Failed to power up laser.") from err
 
 
 async def laser_power_down(_: Subsystems) -> None:
