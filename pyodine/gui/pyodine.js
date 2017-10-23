@@ -277,9 +277,11 @@
           controls.prop('disabled', !this.checked);
         });
         controls.on('click', function armControlBtn() {
-          if (this.type === 'button') {
-            sswitch.prop('checked', false);
-            sswitch.trigger('change');
+          if (!document.getElementById('allow_permanent_unlock').checked) {
+            if (this.type === 'button') {
+              sswitch.prop('checked', false);
+              sswitch.trigger('change');
+            }
           }
         });
       });
