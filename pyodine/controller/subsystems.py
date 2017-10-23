@@ -139,7 +139,7 @@ class Subsystems:
              (mccdaq.DaqChannel(DaqChannel.PUMP_DIODE), mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
-            await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
+            return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
         except (AttributeError, ConnectionError) as err:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err

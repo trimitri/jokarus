@@ -92,7 +92,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         return (subs.get_ramp_offset() + 5) / 10
 
     def ramp_setter(value: float) -> None:
-        subs.set_ramp_offset(value * 10 + 5)
+        subs.set_ramp_offset(value * 10 - 5)
 
     ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
                                    getter=ramp_getter, setter=ramp_setter,
@@ -101,7 +101,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     # The lockbox itself has to be wrapped like a Tuner as well, as it does
     # effectively tune the laser. All values associated with setting stuff can
     # be ignored though ("1"'s and lambda below).
-    lockbox = lock_buddy.Tuner(20 * 74, 1, 1, subs.get_lockbox_level,
+    lockbox = lock_buddy.Tuner(20 * 74, .1, 1, subs.get_lockbox_level,
                                lambda _: None, "Lockbox")
 
     # Log all acquired signals.
@@ -145,7 +145,7 @@ async def main() -> None:
                                  start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(readings_interval=0.5, flags_interval=1,
-                                    setup_interval=5, signal_interval=0,
+                                    setup_interval=5, signal_interval=4,
                                     status_update_interval=5)
 
     handler = instruction_handler.InstructionHandler(subs, face, locker)

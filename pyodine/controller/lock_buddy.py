@@ -157,8 +157,8 @@ class Tuner:
         :raises ValueError: ``value`` is not in [0, 1] interval.
         """
         if not value >= 0 or not value <= 1:
-            raise ValueError("Tuners only accept values in the [0, 1] range. %s was passed.",
-                             value)
+            raise ValueError("Tuners only accept values in the [0, 1] range. "
+                             "{} was passed.".format(value))
         await tools.safe_async_call(self._setter, value)
         await asyncio.sleep(self.delay)
 
@@ -173,7 +173,7 @@ class LockBuddy:
                  scanner_range: QtyUnit,
                  tuners: List[Tuner],
                  lockbox: Tuner,
-                 on_new_signal: Callable[[np.ndarray], None] = None) -> None:
+                 on_new_signal: Callable[[np.ndarray], Optional[Awaitable[None]]] = lambda _: None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -267,13 +267,7 @@ class LockBuddy:
         except Exception as err:  # We don't know anything about the callback.
             raise RuntimeError('"scanner" Callback raised an exception.') from err
 
-        # Notify user of new signal. Can be used for logging or monitoring.
-        if callable(self._on_new_signal):
-            try:
-                self._on_new_signal(self.recent_signal)
-            except Exception as err:  # We don't know anything about the callback.
-                raise RuntimeError('"on_lock_engaged" Callback raised an exception.') from err
-
+        await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 
     async def balance(self) -> None:
