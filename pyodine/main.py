@@ -101,7 +101,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     # The lockbox itself has to be wrapped like a Tuner as well, as it does
     # effectively tune the laser. All values associated with setting stuff can
     # be ignored though ("1"'s and lambda below).
-    lockbox = lock_buddy.Tuner(20 * 74, 1, 1, subs.get_lockbox_level,
+    lockbox = lock_buddy.Tuner(20 * 74, .1, 1, subs.get_lockbox_level,
                                lambda _: None, "Lockbox")
 
     # Log all acquired signals.
