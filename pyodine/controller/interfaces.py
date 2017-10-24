@@ -87,8 +87,8 @@ class Interfaces:
             # the class member also has to change the callback. Otherwise the
             # initial dummy function would get passed. Thus we create a "window
             # function" into this class's scope.
-            def scope_window(wire: texus_relay.TimerWire, state: List[bool]) -> None:
-                self._timer_callback(wire, state)
+            async def scope_window(wire: texus_relay.TimerWire, state: List[bool]) -> None:
+                await self._timer_callback(wire, state)
             asyncio.ensure_future(self._texus.poll_for_change(scope_window))
             LOGGER.info("Started TEXUS relay.")
 

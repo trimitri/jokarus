@@ -32,7 +32,7 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
-def cool_down(_: Subsystems) -> None:
+async def cool_down(_: Subsystems) -> None:
     """Get the system to a state where it can be physically switched off."""
     LOGGER.info("cool_down() called.")  # TODO Implement cool-down procedure.
 

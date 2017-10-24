@@ -135,9 +135,9 @@ class InstructionHandler:
 
         if wire == TimerEffect.HOT:
             if timer_state[wire]:
-                control_flow.heat_up(self._subs)
+                await control_flow.heat_up(self._subs)
             else:
-                control_flow.cool_down(self._subs)
+                await control_flow.cool_down(self._subs)
         elif wire == TimerEffect.LASER:
             if timer_state[wire]:
                 await control_flow.laser_power_up(self._subs)
@@ -149,4 +149,5 @@ class InstructionHandler:
             else:
                 await control_flow.unlock(self._locker)
         else:
-            LOGGER.warning("Change in unused timer wire %s detected. Ignoring.")
+            LOGGER.warning("Change in unused timer wire %s detected. Ignoring.",
+                           wire)
