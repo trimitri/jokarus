@@ -83,7 +83,13 @@ class Interfaces:
         except ConnectionError:
             LOGGER.error("Error establishing TEXUS relay. Disabling.")
         else:
-            asyncio.ensure_future(self._texus.poll_for_change(self._timer_callback))
+            # We must not pass self._timer_callback directly, because updating
+            # the class member also has to change the callback. Otherwise the
+            # initial dummy function would get passed. Thus we create a "window
+            # function" into this class's scope.
+            def scope_window(wire: texus_relay.TimerWire, state: List[bool]) -> None:
+                self._timer_callback(wire, state)
+            asyncio.ensure_future(self._texus.poll_for_change(scope_window))
             LOGGER.info("Started TEXUS relay.")
 
     def start_publishing_regularly(self, readings_interval: float,
