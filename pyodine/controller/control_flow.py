@@ -45,12 +45,11 @@ async def heat_up(subs: Subsystems) -> None:
     temperatures that would have been set. This is to avoid overriding manual
     settings.
     """
-    LOGGER.info("heat_up() called.")
-    return  # FIXME only for testing
     if is_heating(subs):
         LOGGER.debug("""Won't "heat up", as TEC is already running.""")
         return
-    ambient_temp = 25.  # FIXME use actual NTC reading
+    LOGGER.info("Heating up systems...")
+    ambient_temp = 28.  # FIXME use actual NTC reading
     target_temps = {TecUnit.MIOB: 24.850, TecUnit.VHBG: 24.856,
                     TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.85}
     for unit in TecUnit:
@@ -59,8 +58,10 @@ async def heat_up(subs: Subsystems) -> None:
             subs.set_temp(unit, ambient_temp, False)  # ramp target temp
             # Wait for the temp. setpoint to arrive at actual TEC controller.
             await asyncio.sleep(.5)
-            subs.switch_temp_ramp(unit, True)
+            subs.switch_tec_by_id(unit, True)
+            await asyncio.sleep(3)  # Allow three seconds for thermalization.
             subs.set_temp(unit, target_temps[unit])
+            subs.switch_temp_ramp(unit, True)
         else:
             LOGGER.warning("Skipping %s TEC, as it was already active.")
 

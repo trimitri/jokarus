@@ -595,6 +595,14 @@ class Subsystems:
             if isinstance(switch_on, bool):
                 self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
 
+    def switch_tec_by_id(self, unit: TecUnit, switch_on: bool) -> None:
+        try:
+            unit = TecUnit(unit)
+        except (ValueError, TypeError):
+            LOGGER.exception("Invalid unit: %s.", unit)
+        if isinstance(switch_on, bool):
+            self._menlo.switch_tec(unit, switch_on)
+
     def switch_temp_ramp(self, unit: TecUnit, enable: bool) -> None:
         """Start or halt ramping the temperature setpoint."""
         try:
