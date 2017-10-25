@@ -25,6 +25,7 @@ set as target, assuming perfectly controlled plant. This is only due to NTC
 calculations and DAC/ADC errors, not related to the actual plant and
 controller!
 """
+AMBIENT_TEMP = 23.  # FIXME use NTC readings!
 
 
 class ReturnState(enum.IntEnum):
@@ -49,13 +50,12 @@ async def heat_up(subs: Subsystems) -> None:
         LOGGER.debug("""Won't "heat up", as TEC is already running.""")
         return
     LOGGER.info("Heating up systems...")
-    ambient_temp = 28.  # FIXME use actual NTC reading
     target_temps = {TecUnit.MIOB: 24.850, TecUnit.VHBG: 24.856,
                     TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.85}
     for unit in TecUnit:
         if not subs.is_tec_enabled(unit):
-            subs.set_temp(unit, ambient_temp, True)  # actual setpoint
-            subs.set_temp(unit, ambient_temp, False)  # ramp target temp
+            subs.set_temp(unit, AMBIENT_TEMP, True)  # actual setpoint
+            subs.set_temp(unit, AMBIENT_TEMP, False)  # ramp target temp
             # Wait for the temp. setpoint to arrive at actual TEC controller.
             await asyncio.sleep(.5)
             subs.switch_tec_by_id(unit, True)

@@ -21,7 +21,7 @@ from ..util import asyncio_tools
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
 # LOGGER.setLevel(logging.DEBUG)
 WS_PORT = 56320
-MAX_SIGNAL_SAMPLES = 500
+MAX_SIGNAL_SAMPLES = 5000
 
 class Interfaces:
     """This is how to talk to Pyodine.
