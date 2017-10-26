@@ -33,9 +33,17 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
-async def cool_down(_: Subsystems) -> None:
+async def cool_down(subs: Subsystems) -> None:
     """Get the system to a state where it can be physically switched off."""
-    LOGGER.info("cool_down() called.")  # TODO Implement cool-down procedure.
+    LOGGER.info("Cooling down components...")
+    for unit in TecUnit:
+        if subs.is_tec_enabled(unit):
+            subs.set_temp(unit, AMBIENT_TEMP)  # ramp target temp
+            subs.switch_temp_ramp(unit, True)
+        else:
+            LOGGER.warning("Skipping %s on cooldown, as TEC was disabled.",
+                           unit)
+
 
 
 async def heat_up(subs: Subsystems) -> None:

@@ -300,14 +300,14 @@ class Subsystems:
         return self._temp_ramps[unit].target_temperature
 
     def is_tec_enabled(self, unit: TecUnit) -> bool:
-        """Is ``unit``'s TEC controller currently running?"""
+        """Is ``unit``'s TEC controller currently running?
+
+        :raises ConnectionError: No values have been received (yet).
+        """
         try:
             return self._unwrap_buffer(self._menlo.is_tec_enabled(unit)) == 1
         except ValueError:
-            # If there's no data (yet) on whether this tec is enabled, assume
-            # that it would be as to avoid harmful temperature jumps.
-            LOGGER.error("Couldn't figure out if TEC is enabled. Assuming it is.")
-            return True
+            raise ConnectionError("Didn't receive data from Menlo.")
 
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?
@@ -689,10 +689,10 @@ class Subsystems:
 
         # Set maximum allowable temperature gradients according to the
         # datasheets or educated guesses.
-        self._temp_ramps[TEC_CONTROLLERS['miob']].maximum_gradient = 1/60
-        self._temp_ramps[TEC_CONTROLLERS['vhbg']].maximum_gradient = 1/5
-        self._temp_ramps[TEC_CONTROLLERS['shga']].maximum_gradient = 1/5
-        self._temp_ramps[TEC_CONTROLLERS['shgb']].maximum_gradient = 1/5
+        self._temp_ramps[TecUnit.MIOB].maximum_gradient = 1/60
+        self._temp_ramps[TecUnit.VHBG].maximum_gradient = 1/5
+        self._temp_ramps[TecUnit.SHGA].maximum_gradient = 1/5
+        self._temp_ramps[TecUnit.SHGB].maximum_gradient = 1/5
 
     def _is_tec_unit(self, name: str) -> bool:
         if self._menlo is None:
