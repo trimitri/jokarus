@@ -8,8 +8,7 @@ exceptions. A return status of type .ReturnState is provided to detect errors.
 import asyncio
 import enum
 import logging
-from . import lock_buddy
-from .subsystems import Subsystems, SubsystemError, TecUnit
+from . import lock_buddy, subsystems
 
 LOGGER = logging.getLogger('control_flow')
 
@@ -33,10 +32,10 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
-async def cool_down(subs: Subsystems) -> None:
+async def cool_down(subs: subsystems.Subsystems) -> None:
     """Get the system to a state where it can be physically switched off."""
     LOGGER.info("Cooling down components...")
-    for unit in TecUnit:
+    for unit in subsystems.TecUnit:
         if subs.is_tec_enabled(unit):
             subs.set_temp(unit, AMBIENT_TEMP)  # ramp target temp
             subs.switch_temp_ramp(unit, True)
@@ -46,7 +45,7 @@ async def cool_down(subs: Subsystems) -> None:
 
 
 
-async def heat_up(subs: Subsystems) -> None:
+async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled components to their target value.
 
     If the temperature control is currently active for all those components,
@@ -58,9 +57,9 @@ async def heat_up(subs: Subsystems) -> None:
         LOGGER.debug("""Won't "heat up", as TEC is already running.""")
         return
     LOGGER.info("Heating up systems...")
-    target_temps = {TecUnit.MIOB: 24.850, TecUnit.VHBG: 24.856,
-                    TecUnit.SHGA: 40.95, TecUnit.SHGB: 40.85}
-    for unit in TecUnit:
+    target_temps = {subsystems.TecUnit.MIOB: 24.850, subsystems.TecUnit.VHBG: 24.856,
+                    subsystems.TecUnit.SHGA: 40.95, subsystems.TecUnit.SHGB: 40.85}
+    for unit in subsystems.TecUnit:
         if not subs.is_tec_enabled(unit):
             subs.set_temp(unit, AMBIENT_TEMP, True)  # actual setpoint
             subs.set_temp(unit, AMBIENT_TEMP, False)  # ramp target temp
@@ -74,7 +73,7 @@ async def heat_up(subs: Subsystems) -> None:
             LOGGER.warning("Skipping %s TEC, as it was already active.")
 
 
-def initialize_rf_chain(subs: Subsystems) -> ReturnState:
+def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
     """Setup the RF sources for heterodyne detection.
 
     This provides EOM, AOM and mixer with the correct driving signals.
@@ -104,11 +103,11 @@ def initialize_rf_chain(subs: Subsystems) -> ReturnState:
     return ReturnState.SUCCESS
 
 
-def is_heating(subs: Subsystems) -> bool:
+def is_heating(subs: subsystems.Subsystems) -> bool:
     """If this returns True, heat_up() will have no effect.
 
     The system is currently heating up or already at a stable temperature"""
-    for unit in TecUnit:
+    for unit in subsystems.TecUnit:
         if not subs.is_tec_enabled(unit):
             return False
 
@@ -121,7 +120,7 @@ def is_heating(subs: Subsystems) -> bool:
     return True
 
 
-def is_hot(_: Subsystems) -> bool:
+def is_hot(_: subsystems.Subsystems) -> bool:
     """All subsystems are stabilized to any temperature.
 
     If there has been no manual adjustment, this will be the temperatures set
@@ -130,7 +129,7 @@ def is_hot(_: Subsystems) -> bool:
     pass  # TODO Implement is_hot().
 
 
-async def laser_power_up(subs: Subsystems) -> None:
+async def laser_power_up(subs: subsystems.Subsystems) -> None:
     """Switch on the laser.
 
     After running this, the laser power may be adjusted through the PA current,
@@ -138,16 +137,30 @@ async def laser_power_up(subs: Subsystems) -> None:
 
     :raises RuntimeError: Failed to power up laser.
     """
-    LOGGER.info("laser_power_up() called.")
-    return  # FIXME only for testing
+    LOGGER.info("Powering up laser...")
+    for unit in subsystems.TecUnit:
+        if not subs.is_tec_enabled(unit):
+            raise RuntimeError("At least one TEC controller is not enabled.")
+    subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
+    subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
+    await asyncio.sleep(.5)
+    subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, MO_STANDARD_CURRENT)
+    await asyncio.sleep(.5)
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_STANDARD_CURRENT)
 
 
-async def laser_power_down(_: Subsystems) -> None:
+async def laser_power_down(subs: subsystems.Subsystems) -> None:
     """Shut down and switch off laser.
 
     :raises RuntimerError: Failed to switch off laser.
     """
-    LOGGER.info("laser_power_down() called.")  # TODO Implement laser power down procedure.
+    LOGGER.info("Powering down laser...")
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
+    await asyncio.sleep(.5)
+    subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, False)
+    await asyncio.sleep(.5)
+    subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
 async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:

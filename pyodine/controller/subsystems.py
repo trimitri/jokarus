@@ -397,15 +397,15 @@ class Subsystems:
         else:
             LOGGER.info("Setting AOM frequency to %s MHz.", freq)
 
-    def set_current(self, unit_name: str, milliamps: float) -> None:
+    def set_current(self, unit: LdDriver, milliamps: float) -> None:
         """Set diode current setpoint of given unit.
 
         :raises SubsystemError: Something went wrong in calling a callback.
         """
         try:
-            if unit_name == 'mo':
+            if unit == LdDriver.MASTER_OSCILLATOR:
                 self.laser.set_mo_current(milliamps)
-            elif unit_name == 'pa':
+            elif unit == LdDriver.POWER_AMPLIFIER:
                 self.laser.set_pa_current(milliamps)
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
@@ -413,7 +413,7 @@ class Subsystems:
             LOGGER.exception("Failed to set laser current.")
         except ecdl_mopa.CallbackError as err:
             raise SubsystemError("Critical error in osc. sup. unit!") from err
-        LOGGER.info("Set diode current of unit %s to %s mA", unit_name, milliamps)
+        LOGGER.info("Set diode current of unit %s to %s mA", unit, milliamps)
 
     def set_eom_amplitude(self, amplitude: float) -> None:
         """Set the electro-optic modulator driver amplitude betw. 0 and 1."""
@@ -553,25 +553,25 @@ class Subsystems:
 
         self._menlo.switch_integrator(LOCKBOX_ID, stage, switch_on)
 
-    def switch_ld(self, unit_name: str, switch_on: bool) -> None:
+    def switch_ld(self, unit: LdDriver, switch_on: bool) -> None:
         """
         :raises SubsystemError:
         """
         try:
-            if unit_name == 'mo':
+            if unit == LdDriver.MASTER_OSCILLATOR:
                 if switch_on:
                     self.laser.enable_mo()
                 else:
                     self.laser.disable_mo()
-            elif unit_name == 'pa':
+            elif unit == LdDriver.POWER_AMPLIFIER:
                 if switch_on:
                     self.laser.enable_pa()
                 else:
                     self.laser.disable_pa()
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
-        except ValueError as err:
-            LOGGER.error(str(err))
+        except ValueError:
+            LOGGER.exception("Couldn't switch LD")
         except ecdl_mopa.CallbackError:
             LOGGER.exception("Critical error in osc. sup. unit!")
             raise SubsystemError("Critical error in osc. sup. unit!")
