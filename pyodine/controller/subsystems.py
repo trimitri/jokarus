@@ -439,14 +439,14 @@ class Subsystems:
         else:
             LOGGER.info("Set EOM frequency to %s MHz.", freq)
 
-    def set_error_offset(self, percent: float) -> None:
+    def set_error_offset(self, millivolts: float) -> None:
         """Set the scaling factor for error signal input to lockbox."""
         try:
-            percent = float(percent)
+            millivolts = float(millivolts)
         except (TypeError, ValueError):
             LOGGER.exception("Please give a number for error signal offset.")
             return
-        self._menlo.set_error_offset(LOCKBOX_ID, percent)
+        self._menlo.set_error_offset(LOCKBOX_ID, millivolts)
 
     def set_error_scale(self, factor: float) -> None:
         """Set the scaling factor for error signal input to lockbox."""

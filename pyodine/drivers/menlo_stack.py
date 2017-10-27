@@ -480,37 +480,34 @@ class MenloStack:
         """Scaling factor of the error signal input stage (P gain)."""
         return self._get_pii_prop(unit, 257)
 
-    def set_error_offset(self, unit: int, percent: float) -> None:
+    def set_error_offset(self, unit: int, millivolts: float) -> None:
         """Set the error signal input stage offset compensation.
 
         **Building on the explanation given at set_error_scale()**:
+        # TODO: move this to Menlo documentation and away from the code.
         The AD633 voltage multiplier is also equipped with an offset port. The
         DAC connected to this offset port may add or substract up to 19.6mV
         from the multiplied output voltage. As the multiplier output swings
         about +-10V, this is only a 2% offset though.
 
         :param unit: The PII unit to act on (1 or 2)
-        :param percent: Offset voltage: 100% == 19.6mV, -100% -19.6mV
+        :param millivolts: Arbitrary value, see menlo test sheet for meaning.
         """
         if unit not in PII_NODES:
             LOGGER.error("Can't set error scale of unit %s, as there is no "
                          "such unit.", unit)
             return
-        if not percent <= 100 or not percent >= -100:
-            LOGGER.error("Error scale out of bounds (-1...1, %s "
-                         "given).", percent)
-            return
         LOGGER.info("Setting error offset of PII unit %s to %s%%",
-                    unit, percent)
+                    unit, millivolts)
 
+        # TODO: move this to Menlo documentation and away from the code.
         # The DAC used in this stage has a 1000mV = 1/51 Volt "attenuation"
-        dac_counts = 10 * percent  # 1000 counts = 19.6 mV
-        self._send_command(unit, 4, dac_counts)
+        # dac_counts = 10 * percent  # 1000 counts = 19.6 mV
+        self._send_command(unit, 4, millivolts)
 
     def get_error_offset(self, unit: int) -> Buffer:
         """The error signal input stage offset compensation in percent."""
-        return [(time, value / 10) for time, value
-                in self._get_pii_prop(unit, 256)]
+        return self._get_pii_prop(unit, 256)
 
     ###################
     # Private Methods #
