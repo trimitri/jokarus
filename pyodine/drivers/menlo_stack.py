@@ -446,7 +446,7 @@ class MenloStack:
         return self._get_pii_prop(unit, 258)
 
     def set_error_scale(self, unit: int, factor: float) -> None:
-        """Set the scaling factor of the error signal input stage.
+        """Set the scaling factor of the error signal input stage (P gain).
 
         The input stage is a voltage multiplier. One input to the multiplier is
         the error signal, the other input is constant and given here. Thus it
@@ -469,18 +469,16 @@ class MenloStack:
             LOGGER.error("Can't set error scale of unit %s, as there is no "
                          "such unit.", unit)
             return
-        if not factor <= 1 or not factor >= -1:
-            LOGGER.error("Error scale out of bounds (-1...1, %s "
+        if not factor <= 2300 or not factor >= -2300:
+            LOGGER.error("Error scale out of bounds (-2300...2300, %s "
                          "given).", factor)
             return
         LOGGER.info("Setting error scaling of PII unit %s to %s", unit, factor)
-
-        millivolts = 1/4.3e-4 * factor  # 1.0 (0dB) <-> 2325 mV DAC voltage
-        self._send_command(unit, 5, millivolts)
+        self._send_command(unit, 5, factor)
 
     def get_error_scale(self, unit: int) -> Buffer:
-        return [(time, factor * 4.3e-4) for time, factor in
-                self._get_pii_prop(unit, 257)]
+        """Scaling factor of the error signal input stage (P gain)."""
+        return self._get_pii_prop(unit, 257)
 
     def set_error_offset(self, unit: int, percent: float) -> None:
         """Set the error signal input stage offset compensation.
