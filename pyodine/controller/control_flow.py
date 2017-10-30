@@ -144,9 +144,9 @@ async def laser_power_up(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
     subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
-    await asyncio.sleep(.5)
+    await asyncio.sleep(3)
     subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, MO_STANDARD_CURRENT)
-    await asyncio.sleep(.5)
+    await asyncio.sleep(3)
     subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_STANDARD_CURRENT)
 
 
@@ -157,9 +157,9 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     """
     LOGGER.info("Powering down laser...")
     subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
-    await asyncio.sleep(.5)
+    await asyncio.sleep(3)
     subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, False)
-    await asyncio.sleep(.5)
+    await asyncio.sleep(3)
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
