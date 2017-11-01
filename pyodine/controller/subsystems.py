@@ -38,7 +38,7 @@ SCAN_TIME = 0.2  # The time to take for a frequency scan in seconds.
 MenloUnit = Union[float, int]
 
 # Measurement (time, reading)
-DataPoint = Tuple[float, MenloUnit]  # pylint: disable=unsubscriptable-object
+DataPoint = Tuple[float, MenloUnit]
 Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
