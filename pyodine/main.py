@@ -144,9 +144,9 @@ async def main() -> None:
     face = interfaces.Interfaces(subs, locker, start_ws_server=True,
                                  start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly(readings_interval=0.5, flags_interval=1,
-                                    setup_interval=5, signal_interval=4,
-                                    status_update_interval=5)
+    face.start_publishing_regularly(readings_interval=.8, flags_interval=1,
+                                    setup_interval=3, signal_interval=4,
+                                    status_update_interval=10)
 
     handler = instruction_handler.InstructionHandler(subs, face, locker)
     face.register_on_receive_callback(handler.handle_instruction)

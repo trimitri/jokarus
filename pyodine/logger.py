@@ -15,6 +15,8 @@ from logging.handlers import (BufferingHandler, MemoryHandler,
 import re
 from typing import Dict, Union  # pylint: disable=unused-import
 
+from .util import asyncio_tools as tools
+
 PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
 QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
@@ -118,18 +120,9 @@ def start_flushing_regularly(seconds: float) -> None:
         logging.error("Flushing was already scheduled already. Ignoring.")
         return
     _is_flushing = True
-    if seconds < 2:
-        raise ValueError("Interval must be > 2 seconds to ensure asyncio flow.")
-
-    if not asyncio.get_event_loop().is_running():
-        logging.warning("Periodical disk flushing of logs might not work, as "
-                        "no event loop is running. Scheduling anyway.")
-
-    async def worker() -> None:
-        while True:
-            await asyncio.sleep(float(seconds))
-            flush_to_disk()
-    asyncio.ensure_future(worker())
+    if not seconds > .5:
+        raise ValueError("Choose a flushing interval larger than 0.5s.")
+    asyncio.ensure_future(tools.repeat_task(flush_to_disk, seconds))
 
 
 def start_new_files() -> None:
