@@ -49,6 +49,13 @@ class DaqChannel(IntEnum):
     ERR_SIGNAL = mccdaq.DaqChannel.C_7
     RAMP_MONITOR = mccdaq.DaqChannel.C_11
     PUMP_DIODE = mccdaq.DaqChannel.C_12
+    NTC_CELL = mccdaq.DaqChannel.C_0
+    NTC_SHG = mccdaq.DaqChannel.C_8
+    NTC_LASER = mccdaq.DaqChannel.C_9
+    NTC_AOM = mccdaq.DaqChannel.C_9
+    NTC_EOM = mccdaq.DaqChannel.C_2
+    NTC_AOM_AMP = mccdaq.DaqChannel.C_10
+    NTC_MENLO = mccdaq.DaqChannel.C_3
 
 class DdsChannel(IntEnum):
     """The four channels of the DDS device."""
