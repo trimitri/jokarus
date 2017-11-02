@@ -12,6 +12,7 @@ LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
 class DaqChannel(IntEnum):
     """The DAQ features 16 analog input in single-ended mode."""
+    C_0 = 0
     C_1 = 1
     C_2 = 2
     C_3 = 3
@@ -27,7 +28,6 @@ class DaqChannel(IntEnum):
     C_13 = 13
     C_14 = 14
     C_15 = 15
-    C_16 = 16
 
 class RampShape(IntEnum):
     """Possible ways to ramp the frequency"""
