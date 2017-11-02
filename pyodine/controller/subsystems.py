@@ -42,6 +42,15 @@ DataPoint = Tuple[float, MenloUnit]
 Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
+class AuxTemp(IntEnum):
+    """How to index the array returned by get_aux_temps?"""
+    AOM = 0
+    AOM_AMP = 1
+    CELL = 2
+    EOM = 3
+    LASER = 4
+    MENLO = 5
+    SHG = 6
 
 class DaqChannel(IntEnum):
     """The MCC USB1608G-2AO features 16 analog inputs."""
@@ -150,6 +159,23 @@ class Subsystems:
         except (AttributeError, ConnectionError) as err:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
+
+    async def get_aux_temps(self) -> List[float]:
+        """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
+
+        :raises ConnectionError: Couldn't convince the DAQ to send us data.
+        """
+        channels = [(DaqChannel.NTC_AOM, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_CELL, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_EOM, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_LASER, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_MENLO, mccdaq.InputRange.PM_5V),
+                    (DaqChannel.NTC_SHG, mccdaq.InputRange.PM_5V)]
+        def fetch_readings():
+            return self._daq.sample_channels(channels).tolist()  # may raise!
+
+        return await asyncio.get_event_loop().run_in_executor(None, fetch_readings)
 
     def get_full_set_of_readings(self,
                                  since: float = None) -> Dict[str, Buffer]:

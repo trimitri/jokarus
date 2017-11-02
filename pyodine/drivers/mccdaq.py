@@ -116,6 +116,37 @@ class MccDaq:
                 "Failed to fetch scan. `FetchScan()` returned {}".format(ret))
         return response
 
+    def sample_channels(self, channels: List[Tuple[DaqChannel, InputRange]],
+                        n_samples: int = 1, frequency: float = 1000) -> np.ndarray:
+        """Sample analog input channels.
+
+        :param channels: Which output channels to log during sweep?
+        :returns: A two-dimensional array of values read. Those are raw uint16,
+                    as received from the device's 16-bit ADC chip.
+        :raises ConnectionError: DAQ's playing tricks...
+        """
+
+        # Allocate some memory for the C library to save it's result in.
+        response = np.empty([n_samples, len(channels)], dtype=np.uint16)
+
+        # CAUTION: Beware of the python optimizer/garbage collector! When
+        # inlining the two variables below, Python clears the memory before the
+        # C library starts to access it, leading to unexpected behaviour of the
+        # C code.
+        chan = np.array([c[0] for c in channels], dtype='uint8')
+        gain = np.array([c[1] for c in channels], dtype='uint8')
+        ret = self._daq.SampleChannels(
+            ct.c_uint(n_samples),
+            ct.c_double(frequency),
+            chan.ctypes.data,  # channels; See note above!
+            gain.ctypes.data,  # gains; See note above!
+            ct.c_uint(len(channels)),
+            response.ctypes.data)
+        if ret != 0:
+            raise ConnectionError("Failed to sample channels. "
+                                  "`SampleChannels()` returned {}".format(ret))
+        return response
+
     def ping(self) -> bool:
         """The DAQ talks to us and seems healthy."""
         try:
