@@ -24,7 +24,6 @@ int main() {
     }
   }
   free(data);
-  */
 
   uint n_samples = LIBMCCDAQ_BULK_TRANSFER_SIZE / 2;
   const uint8_t channels[] = {11, 7, 12};
@@ -56,5 +55,24 @@ int main() {
   char str[12];
   sprintf(str, "%d", Ping());
   puts(str);
+  */
+  puts("Reading Temps...");
+  uint16_t * readings = calloc(5 * 4, sizeof(uint16_t));
+  const uint8_t chans[] = {0, 3, 8, 4};
+  const uint8_t gns[] = {5, 5, 5, 5};
+  int ret = SampleChannels(10, 100., chans, gns, 4, readings);
+  if (ret != 0) {
+    puts("ey!");
+  } else {
+    puts("Fetched Scan...");
+    for (uint i = 0; i < 10; i++) {
+      printf("%d\t%d\t%d\t%d\n",
+             readings[4*i],
+             readings[4*i + 1],
+             readings[4*i + 2],
+             readings[4*i + 3]
+      );
+    }
+  }
   return 0;
 }
