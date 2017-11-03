@@ -22,8 +22,6 @@ from ..util import asyncio_tools
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-# TODO: Drop this and use `LdDriver` below instead.
-LD_DRIVERS = {'mo': 1, 'pa': 3}
 
 # TODO: Drop this and use `TecUnit` below instead.
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shgb': 3, 'shga': 4}
@@ -172,13 +170,12 @@ class Subsystems:
                     (DaqChannel.NTC_LASER, mccdaq.InputRange.PM_5V),
                     (DaqChannel.NTC_MENLO, mccdaq.InputRange.PM_5V),
                     (DaqChannel.NTC_SHG, mccdaq.InputRange.PM_5V)]
-        def fetch_readings():
+        def fetch_readings() -> List[float]:
             return self._daq.sample_channels(channels).tolist()  # may raise!
 
         return await asyncio.get_event_loop().run_in_executor(None, fetch_readings)
 
-    def get_full_set_of_readings(self,
-                                 since: float = None) -> Dict[str, Buffer]:
+    def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
 
@@ -191,13 +188,11 @@ class Subsystems:
                                                                      since)
 
         # LD current drivers
-        for name, unit in LD_DRIVERS.items():
-            data[name + '_enabled'] = \
-                self._menlo.is_current_driver_enabled(unit)
-            data[name + '_current'] = \
-                self._menlo.get_diode_current(unit, since)
-            data[name + '_current_set'] = \
-                self._menlo.get_diode_current_setpoint(unit)
+        for name, unit in [('mo', LdDriver.MASTER_OSCILLATOR),
+                           ('pa', LdDriver.POWER_AMPLIFIER)]:
+            data[name + '_enabled'] = self._menlo.is_current_driver_enabled(unit)
+            data[name + '_current'] = self._menlo.get_diode_current(unit, since)
+            data[name + '_current_set'] = self._menlo.get_diode_current_setpoint(unit)
 
         # TEC controllers
         for name, unit in TEC_CONTROLLERS.items():
@@ -629,6 +624,7 @@ class Subsystems:
                 self._menlo.switch_tec(TEC_CONTROLLERS[unit_name], switch_on)
 
     def switch_tec_by_id(self, unit: TecUnit, switch_on: bool) -> None:
+        """Like switch_tec(), but using the unit ID instead of name."""
         try:
             unit = TecUnit(unit)
         except (ValueError, TypeError):
@@ -654,20 +650,16 @@ class Subsystems:
     def _init_laser(self) -> None:
         # Initalize a laser controller class using the methods that the menlo
         # stack current drivers expose.
-        get_mo = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['mo'])
-        get_pa = partial(self._menlo.get_diode_current,
-                         unit_number=LD_DRIVERS['pa'])
-        set_mo = partial(self._menlo.set_current, unit_number=LD_DRIVERS['mo'])
-        set_pa = partial(self._menlo.set_current, unit_number=LD_DRIVERS['pa'])
-        disable_mo = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['mo'])
-        disable_pa = partial(self._menlo.switch_ld,
-                             switch_on=False, unit_number=LD_DRIVERS['pa'])
-        enable_mo = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['mo'])
-        enable_pa = partial(self._menlo.switch_ld,
-                            switch_on=True, unit_number=LD_DRIVERS['pa'])
+        mo_id = LdDriver.MASTER_OSCILLATOR
+        pa_id = LdDriver.POWER_AMPLIFIER
+        get_mo = partial(self._menlo.get_diode_current, unit_number=mo_id)
+        get_pa = partial(self._menlo.get_diode_current, unit_number=pa_id)
+        set_mo = partial(self._menlo.set_current, unit_number=mo_id)
+        set_pa = partial(self._menlo.set_current, unit_number=pa_id)
+        disable_mo = partial(self._menlo.switch_ld, switch_on=False, unit_number=mo_id)
+        disable_pa = partial(self._menlo.switch_ld, switch_on=False, unit_number=pa_id)
+        enable_mo = partial(self._menlo.switch_ld, switch_on=True, unit_number=mo_id)
+        enable_pa = partial(self._menlo.switch_ld, switch_on=True, unit_number=pa_id)
 
         self.laser = ecdl_mopa.EcdlMopa(
             # _unwrap_buffer may raise if there's no data yet, but EcdlMopa can
