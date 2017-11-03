@@ -7,7 +7,7 @@ SAFETY POLICY: This class silently assumes all passed arguments to be of
 correct type. The values are allowed to be wrong, though.
 """
 import asyncio
-from enum import IntEnum
+import enum
 from functools import partial
 import logging
 import time
@@ -40,7 +40,7 @@ DataPoint = Tuple[float, MenloUnit]
 Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
-class AuxTemp(IntEnum):
+class AuxTemp(enum.IntEnum):
     """How to index the array returned by get_aux_temps?"""
     AOM = 0
     AOM_AMP = 1
@@ -50,8 +50,10 @@ class AuxTemp(IntEnum):
     MENLO = 5
     SHG = 6
 
-class DaqChannel(IntEnum):
-    """The MCC USB1608G-2AO features 16 analog inputs."""
+class DaqInput:  # pylint: disable=too-few-public-methods
+    """The MCC USB1608G-2AO features 16 analog inputs.
+
+    Static constants container. Don't instanciate."""
     REF_5V = mccdaq.DaqChannel.C_4
     ERR_SIGNAL = mccdaq.DaqChannel.C_7
     RAMP_MONITOR = mccdaq.DaqChannel.C_11
@@ -64,18 +66,18 @@ class DaqChannel(IntEnum):
     NTC_AOM_AMP = mccdaq.DaqChannel.C_10
     NTC_MENLO = mccdaq.DaqChannel.C_3
 
-class DdsChannel(IntEnum):
+class DdsChannel(enum.IntEnum):
     """The four channels of the DDS device."""
     AOM = 1
     EOM = 0
     MIXER = 2
     FREE = 3  # not in use
 
-class LdDriver(IntEnum):
+class LdDriver(enum.IntEnum):
     MASTER_OSCILLATOR = 1
     POWER_AMPLIFIER = 2
 
-class TecUnit(IntEnum):
+class TecUnit(enum.IntEnum):
     """The Menlo stack's TEC controllers."""
     MIOB = 1
     VHBG = 2
@@ -148,9 +150,9 @@ class Subsystems:
         blocking_fetch = lambda: self._daq.fetch_scan(
             amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
             SCAN_TIME,
-            [(mccdaq.DaqChannel(DaqChannel.RAMP_MONITOR), mccdaq.InputRange.PM_10V),
-             (mccdaq.DaqChannel(DaqChannel.ERR_SIGNAL), mccdaq.InputRange.PM_2V),
-             (mccdaq.DaqChannel(DaqChannel.PUMP_DIODE), mccdaq.InputRange.PM_5V)],
+            [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
+             (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
+             (DaqInput.PUMP_DIODE, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
             return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
@@ -163,13 +165,13 @@ class Subsystems:
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
-        channels = [(DaqChannel.NTC_AOM, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_CELL, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_EOM, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_LASER, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_MENLO, mccdaq.InputRange.PM_5V),
-                    (DaqChannel.NTC_SHG, mccdaq.InputRange.PM_5V)]
+        channels = [(DaqInput.NTC_AOM, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_EOM, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_LASER, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_MENLO, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V)]
         def fetch_readings() -> List[float]:
             return self._daq.sample_channels(channels).tolist()  # may raise!
 
@@ -196,16 +198,16 @@ class Subsystems:
 
         # TEC controllers
         for name, unit in TEC_CONTROLLERS.items():
-            data[name + '_tec_enabled'] = self._menlo.is_tec_enabled(unit)
-            data[name + '_temp'] = self._menlo.get_temperature(unit, since)
-            data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unit)
+            unt = TecUnit(unit)
+            data[name + '_tec_enabled'] = self._menlo.is_tec_enabled(unt)
+            data[name + '_temp'] = self._menlo.get_temperature(unt, since)
+            data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unt)
             data[name + '_temp_set'] = self._wrap_into_buffer(
-                self._temp_ramps[unit].target_temperature)
+                self._temp_ramps[unt].target_temperature)
             data[name + '_temp_ramp_active'] = self._wrap_into_buffer(
-                self._temp_ramps[unit].is_running)
-            data[name + '_temp_ok'] = self._menlo.is_temp_ok(unit)
-            data[name + '_tec_current'] = self._menlo.get_tec_current(unit,
-                                                                      since)
+                self._temp_ramps[unt].is_running)
+            data[name + '_temp_ok'] = self._menlo.is_temp_ok(unt)
+            data[name + '_tec_current'] = self._menlo.get_tec_current(unt, since)
 
         # PII Controller
         data['nu_lock_enabled'] = self._menlo.is_lock_enabled(LOCKBOX_ID)

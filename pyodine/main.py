@@ -156,12 +156,16 @@ async def main() -> None:
     # backdoor, practically providing a powerful CLI to Pyodine.
     open_backdoor({'subs': subs, 'face': face, 'locker': locker})
 
+    temps = await subs.get_aux_temps()
+    for index, temp in enumerate(temps):
+        print(subsystems.AuxTemp(index), temp)
+
     await asyncio_tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
         lambda: LOGGER.debug("Event loop is healthy."))
 
+    LOGGER.error("Dropped to emergency loop keep-alive.")
     while True:  # Shouldn't reach this.
-        LOGGER.error("Dropped to emergency loop keep-alive.")
         await asyncio.sleep(10)
 
 
