@@ -1,3 +1,5 @@
+"""Enhance the Menlo stack accuracy by means of individual calibration.
+"""
 import enum
 
 class OscCard(enum.IntEnum):
@@ -12,4 +14,4 @@ class OscCard(enum.IntEnum):
     OSC4B = 11216
 
 LD_CURRENT_SETTER = {card: lambda x: x for card in OscCard}
-LD_CURRENT_SETTER[OscCard.OSC1A] = lambda 
+LD_CURRENT_SETTER[OscCard.OSC1A] = lambda x: x
