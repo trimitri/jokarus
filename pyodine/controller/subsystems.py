@@ -75,7 +75,7 @@ class DdsChannel(enum.IntEnum):
 
 class LdDriver(enum.IntEnum):
     MASTER_OSCILLATOR = 1
-    POWER_AMPLIFIER = 2
+    POWER_AMPLIFIER = 3
 
 class TecUnit(enum.IntEnum):
     """The Menlo stack's TEC controllers."""
