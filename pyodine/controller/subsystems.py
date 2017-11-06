@@ -172,7 +172,7 @@ class Subsystems:
                     (DaqInput.NTC_LASER, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MENLO, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V)]
-        def fetch_readings() -> List[float]:
+        def fetch_readings() -> List[int]:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
 
         return ms_ntc.to_temperatures(
