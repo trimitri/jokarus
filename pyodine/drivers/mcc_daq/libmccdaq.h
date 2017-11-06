@@ -57,8 +57,8 @@ Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate);
 // 0: The DAQ connection is alive and DAQ seems healthy
 // 1: Something is wrong. Reset is advised.
 //
-// This internally checks the "USB Status" of the device to be 0x160, which
-// seems to be "normal mode".
+// This internally checks the serial number of the device to be "018D1960".
+// CAUTION: This obviously needs to be changed when using a different unit.
 int Ping(void);
 
 // Sample one or more analog outputs for the given number of samples at the

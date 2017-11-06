@@ -186,15 +186,9 @@ Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
 }
 
 int Ping() {
-  uint8_t requesttype = (DEVICE_TO_HOST | VENDOR_TYPE | DEVICE_RECIPIENT);
-  uint16_t status = 0x0;
-
-  char snum[9];
-  usbGetSerialNumber_USB1608G(dev, snum);
-  puts(snum);
-  libusb_control_transfer(dev, requesttype, 0x40, 0x0, 0x0,
-                          (unsigned char *) &status, sizeof(status), 2000);
-  if (status == 0x160) {
+  char serial_number[9];
+  usbGetSerialNumber_USB1608G(dev, serial_number);
+  if (strcmp(serial_number, "018D1960") == 0) {
     return 0;
   }
   return 1;
