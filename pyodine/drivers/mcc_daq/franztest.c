@@ -56,6 +56,9 @@ int main() {
   sprintf(str, "%d", Ping());
   puts(str);
   */
+
+  puts("Pinging");
+  Ping();
   puts("Reading Temps...");
   uint16_t * readings = calloc(5 * 4, sizeof(uint16_t));
   const uint8_t chans[] = {0, 3, 8, 4};
