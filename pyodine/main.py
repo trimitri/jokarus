@@ -144,9 +144,9 @@ async def main() -> None:
     face = interfaces.Interfaces(subs, locker, start_ws_server=True,
                                  start_serial_server=True)
     await face.init_async()
-    face.start_publishing_regularly(readings_interval=.8, flags_interval=1,
-                                    setup_interval=3, signal_interval=4,
-                                    status_update_interval=10)
+    face.start_publishing_regularly(readings_interval=.8, flags_interval=1.3,
+                                    setup_interval=3.1, signal_interval=0,
+                                    status_update_interval=0)
 
     handler = instruction_handler.InstructionHandler(subs, face, locker)
     face.register_on_receive_callback(handler.handle_instruction)
@@ -155,10 +155,6 @@ async def main() -> None:
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
     open_backdoor({'subs': subs, 'face': face, 'locker': locker})
-
-    temps = await subs.get_aux_temps()
-    for index, temp in enumerate(temps):
-        print(subsystems.AuxTemp(index), temp)
 
     await asyncio_tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),

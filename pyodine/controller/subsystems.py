@@ -16,7 +16,7 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 
 from .temperature_ramp import TemperatureRamp
-from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq
+from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
@@ -173,9 +173,10 @@ class Subsystems:
                     (DaqInput.NTC_MENLO, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V)]
         def fetch_readings() -> List[float]:
-            return self._daq.sample_channels(channels).tolist()  # may raise!
+            return self._daq.sample_channels(channels).tolist()[0]  # may raise!
 
-        return await asyncio.get_event_loop().run_in_executor(None, fetch_readings)
+        return ms_ntc.to_temperatures(
+            await asyncio.get_event_loop().run_in_executor(None, fetch_readings))
 
     def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
