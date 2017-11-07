@@ -7,8 +7,8 @@ SAFETY POLICY: This class silently assumes all passed arguments to be of
 correct type. The values are allowed to be wrong, but may lead to silent
 errors/ignores.
 """
-
-import asyncio     # Needed for websockets.
+import asyncio
+import enum
 import logging
 import math
 import time        # To keep track of when replies came in.
@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple, Union
 import websockets
 
 from . import ati_tec
+from . import menlo_stack_calibration as mcal
 from .. import logger
 from ..util import ntc_temp
 
@@ -111,6 +112,33 @@ ADC_SVC_GET = {
     15: "ADC_temp_7"}
 ADC_SVC_SET = {}  # type: Dict[int, str] # ADC has no input channels
 MUC_SVC_GET = {1: "system_time"}
+
+class OscCard(enum.Enum):
+    """A physical oscillator supply card.
+
+    Values are the respective board's serial number."""
+    OSC1A = 4  # Card number 1 from stack A
+    OSC2A = 5  # Card number 2 from stack A
+    OSC3A = 6
+    OSC4A = 7
+    OSC1B = 31216  # Card number 1 from stack B
+    OSC2B = 21216
+    OSC3B = 41216
+    OSC4B = 11216
+
+_OSC_CARD_IDX = {OscCard.OSC1A: 3,
+                 OscCard.OSC1B: 3,
+                 1: 3,
+                 OscCard.OSC2A: 4,
+                 OscCard.OSC2B: 4,
+                 2: 4,
+                 OscCard.OSC3A: 5,
+                 OscCard.OSC3B: 5,
+                 3: 5,
+                 OscCard.OSC4A: 6,
+                 OscCard.OSC4B: 6,
+                 4: 6}  # type: Dict[Union[OscCard, int], int]
+"""The CAN bus indices assigned to the physical cards."""
 
 # Define some custom types. As the typing library is quite a recent feature,
 # there are some inconveniencies regarding pylint:
@@ -302,15 +330,23 @@ class MenloStack:
         return [(time, self._to_ntc_resistance(int(val), is_setpoint=True))
                 for (time, val) in self._get_osc_prop(unit_number, 256)]
 
-    def get_diode_current(self,
-                          unit_number: int, since: Time = None) -> Buffer:
-        return self._get_osc_prop(unit_number, 275, since)
+    def get_diode_current(self, unit: Union[OscCard, int], since: Time = None) -> Buffer:
+        raw = self._get_osc_prop(unit, 275, since)
+        try:  # Use calibration.
+            return [(time, mcal.LD_CURRENT_GETTER[OscCard(unit)](val))
+                    for (time, val) in raw]
+        except (KeyError, ValueError):  # No calibration present.
+            return raw
 
-    def get_diode_current_setpoint(self, unit_number: int,
+    def get_diode_current_setpoint(self, unit: Union[int, OscCard],
                                    since: Time = None) -> Buffer:
-        return [(time, val / 8.)
-                for (time, val)
-                in self._get_osc_prop(unit_number, 257, since)]
+        """The currently set current setpoint of given card."""
+        try:  # Use calibration.
+            return [(time, mcal.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
+                    for (time, val) in self._get_osc_prop(unit, 257, since)]
+        except (KeyError, ValueError):  # No calibration present.
+            return [(time, val / 8.) for (time, val)
+                    in self._get_osc_prop(unit, 257, since)]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, val - self._tec_current_offsets[unit_number])
@@ -341,19 +377,22 @@ class MenloStack:
         logger.log_quantity('temp_sp',
                             "{}\t{}\t{}".format(unit_number, ohms, dac_counts))
 
-    def set_current(self, unit_number: int, milliamps: float) -> None:
+    def set_current(self, unit: Union[int, OscCard], milliamps: float) -> None:
         """Set the current driver setpoint to the given value in mA.
         """
+        # Apply calibration data if present.
+        if unit in mcal.LD_CURRENT_SETTER:
+            milliamps = mcal.LD_CURRENT_SETTER[unit](milliamps)
+
         # Enforce argument types.
         try:
-            unit_number = int(unit_number)
             dac_value = int(milliamps * 8)  # One DAC count is 0.125 mA.
         except (ValueError, TypeError, ArithmeticError):
             LOGGER.exception("Invalid argument passed.")
             return
 
         try:  # Only work on existing nodes.
-            node = self._get_osc_node_id(unit_number)
+            node = self._get_osc_node_id(unit)
         except ValueError:
             LOGGER.exception("No such osc. sup. node.")
             return
@@ -513,9 +552,9 @@ class MenloStack:
     # Private Methods #
     ###################
 
-    def _get_osc_prop(self, unit_number: int, service_id: int,
+    def _get_osc_prop(self, unit: Union[int, OscCard], service_id: int,
                       since: Time = None) -> Buffer:
-        node_id = self._get_osc_node_id(unit_number)
+        node_id = self._get_osc_node_id(unit)
         since = since if isinstance(since, float) else math.nan
         return self._get_latest(self._buffers[node_id][service_id], since)
 
@@ -738,21 +777,18 @@ class MenloStack:
         return self._standard_ntc.to_temp(ohms)
 
     @staticmethod
-    def _get_osc_node_id(unit_number: int) -> int:
-        # Return the CAN bus node id of the osc unit with given index.
-        # Expects unit indices 1-4.
+    def _get_osc_node_id(unit: Union[int, OscCard]) -> int:
+        """The CAN bus node id of the given oscillator supply unit.
 
-        # We consolidate all possible exceptions this method could raise into
-        # the expected "ValueError" to make sure nothing is unhandled.
+        :param unit: Can either be a physical `OscCard`, or a card index (1-4).
+                    Card indices are accepted for backwards compatibility
+                    reasons; see also `OSC_CARD_IDX`.
+        :raises ValueError: Couldn't parse passed unit.
+        """
         try:
-            node = int(unit_number) + 2
-        except (ValueError, TypeError, ArithmeticError):
-            LOGGER.exception("No such osc. sup. node.")
-            raise ValueError("Couldn't parse passed unit_number.")
-        else:
-            if node in OSC_NODES:
-                return node
-        raise ValueError("There is no oscillator supply unit %s.", unit_number)
+            return _OSC_CARD_IDX[unit]
+        except (TypeError, KeyError) as err:
+            raise ValueError("No such OSC node.") from err
 
     @staticmethod
     def _is_pii_unit(unit_number: int) -> bool:

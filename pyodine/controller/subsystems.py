@@ -74,8 +74,20 @@ class DdsChannel(enum.IntEnum):
     FREE = 3  # not in use
 
 class LdDriver(enum.IntEnum):
+    """Card indices of current drivers used.
+
+    To ensure backwards compatibility, the values equal the "unit numbers" of
+    the respective OSC cards. For new code, however, no assumptions about the
+    enum values should be made.
+    """
     MASTER_OSCILLATOR = 1
     POWER_AMPLIFIER = 3
+
+_LD_CARDS = {
+    LdDriver.MASTER_OSCILLATOR: menlo_stack.OscCard.OSC1A,
+    LdDriver.POWER_AMPLIFIER: menlo_stack.OscCard.OSC3B
+}  # type: Dict[LdDriver, menlo_stack.OscCard]
+"""The connection between oscillator supply cards and driven currents."""
 
 class TecUnit(enum.IntEnum):
     """The Menlo stack's TEC controllers."""
@@ -439,7 +451,7 @@ class Subsystems:
             elif unit == LdDriver.POWER_AMPLIFIER:
                 self.laser.set_pa_current(milliamps)
             else:
-                LOGGER.error('Can only set current for either "mo" or "pa".')
+                LOGGER.error("No such laser diode.")
         except ValueError:
             LOGGER.exception("Failed to set laser current.")
         except ecdl_mopa.CallbackError as err:
@@ -653,12 +665,18 @@ class Subsystems:
     def _init_laser(self) -> None:
         # Initalize a laser controller class using the methods that the menlo
         # stack current drivers expose.
-        mo_id = LdDriver.MASTER_OSCILLATOR
+        get_mo = partial(self._menlo.get_diode_current,
+                         unit=_LD_CARDS[LdDriver.MASTER_OSCILLATOR])
+        get_pa = partial(self._menlo.get_diode_current,
+                         unit=_LD_CARDS[LdDriver.POWER_AMPLIFIER])
+        set_mo = partial(self._menlo.set_current,
+                         unit=_LD_CARDS[LdDriver.MASTER_OSCILLATOR])
+        set_pa = partial(self._menlo.set_current,
+                         unit=_LD_CARDS[LdDriver.POWER_AMPLIFIER])
+
+        # TODO: phase out use of legacy unit indexing
+        mo_id = LdDriver.MASTER_OSCILLATOR  # Will be resolved to integers...
         pa_id = LdDriver.POWER_AMPLIFIER
-        get_mo = partial(self._menlo.get_diode_current, unit_number=mo_id)
-        get_pa = partial(self._menlo.get_diode_current, unit_number=pa_id)
-        set_mo = partial(self._menlo.set_current, unit_number=mo_id)
-        set_pa = partial(self._menlo.set_current, unit_number=pa_id)
         disable_mo = partial(self._menlo.switch_ld, switch_on=False, unit_number=mo_id)
         disable_pa = partial(self._menlo.switch_ld, switch_on=False, unit_number=pa_id)
         enable_mo = partial(self._menlo.switch_ld, switch_on=True, unit_number=mo_id)
