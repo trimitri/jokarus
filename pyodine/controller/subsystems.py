@@ -206,8 +206,8 @@ class Subsystems:
         for name, unit in [('mo', LdDriver.MASTER_OSCILLATOR),
                            ('pa', LdDriver.POWER_AMPLIFIER)]:
             data[name + '_enabled'] = self._menlo.is_current_driver_enabled(unit)
-            data[name + '_current'] = self._menlo.get_diode_current(unit, since)
-            data[name + '_current_set'] = self._menlo.get_diode_current_setpoint(unit)
+            data[name + '_current'] = self._menlo.get_diode_current(_LD_CARDS[unit], since)
+            data[name + '_current_set'] = self._menlo.get_diode_current_setpoint(_LD_CARDS[unit])
 
         # TEC controllers
         for name, unit in TEC_CONTROLLERS.items():

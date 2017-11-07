@@ -162,7 +162,7 @@ class _Cal:  # This won't be instanciated. # pylint: disable=too-few-public-meth
     LD_CURRENT_GETTER = {card: lambda x: x for card in OscCard}
     """Estimate the actual current given a menlo current reading."""
     LD_CURRENT_GETTER[OscCard.OSC1A] = \
-        lambda I: 1.021324354657688 * I + 17.542087542087543
+        lambda I: 0.9791694725028058 * I + 7.16309764309765
 
     LD_CURRENT_SETPOINT_GETTER = {card: lambda x: x for card in OscCard}
     """Estimate the actual current setpoint given a menlo current setpoint reading."""
@@ -360,12 +360,12 @@ class MenloStack:
     def get_diode_current_setpoint(self, unit: Union[int, OscCard],
                                    since: Time = None) -> Buffer:
         """The currently set current setpoint of given card."""
+        raw = self._get_osc_prop(unit, 257, since)
         try:  # Use calibration.
             return [(time, _Cal.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
-                    for (time, val) in self._get_osc_prop(unit, 257, since)]
+                    for (time, val) in raw]
         except (KeyError, ValueError):  # No calibration present.
-            return [(time, val / 8.) for (time, val)
-                    in self._get_osc_prop(unit, 257, since)]
+            return [(time, val / 8.) for (time, val) in raw]
 
     def get_tec_current(self, unit_number: int, since: Time = None) -> Buffer:
         return [(time, val - self._tec_current_offsets[unit_number])
