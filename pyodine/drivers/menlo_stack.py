@@ -17,7 +17,6 @@ from typing import Dict, List, Tuple, Union
 import websockets
 
 from . import ati_tec
-from . import menlo_stack_calibration as mcal
 from .. import logger
 from ..util import ntc_temp
 
@@ -149,6 +148,26 @@ Buffer = List[DataPoint]
 Buffers = Dict[int, Dict[int, Buffer]]  # Node -> Service -> Buffer
 Time = float  # Unix timestamp, as returned by time.time()
 # pylint: enable=invalid-name,unsubscriptable-object
+
+
+class _Cal:  # This won't be instanciated. # pylint: disable=too-few-public-methods
+    """Static Menlo stack calibration data."""
+    # Using linear fits on data acquired in a calibration run, we may improve the
+    # current driver accuracy. Data is on JOKARUS share.
+    LD_CURRENT_SETTER = {card: lambda I: I for card in OscCard}
+    """Translate a desired current setpoint into a value to send to the stack."""
+    LD_CURRENT_SETTER[OscCard.OSC1A] = \
+        lambda I: 1.0430516711750952 * I + 10.07060657466415
+
+    LD_CURRENT_GETTER = {card: lambda x: x for card in OscCard}
+    """Estimate the actual current given a menlo current reading."""
+    LD_CURRENT_GETTER[OscCard.OSC1A] = \
+        lambda I: 1.021324354657688 * I + 17.542087542087543
+
+    LD_CURRENT_SETPOINT_GETTER = {card: lambda x: x for card in OscCard}
+    """Estimate the actual current setpoint given a menlo current setpoint reading."""
+    LD_CURRENT_SETPOINT_GETTER[OscCard.OSC1A] = \
+        lambda I: 0.9587252747252747 * I - 9.654945054945046
 
 
 # pylint: disable=too-many-public-methods
@@ -333,7 +352,7 @@ class MenloStack:
     def get_diode_current(self, unit: Union[OscCard, int], since: Time = None) -> Buffer:
         raw = self._get_osc_prop(unit, 275, since)
         try:  # Use calibration.
-            return [(time, mcal.LD_CURRENT_GETTER[OscCard(unit)](val))
+            return [(time, _Cal.LD_CURRENT_GETTER[OscCard(unit)](val))
                     for (time, val) in raw]
         except (KeyError, ValueError):  # No calibration present.
             return raw
@@ -342,7 +361,7 @@ class MenloStack:
                                    since: Time = None) -> Buffer:
         """The currently set current setpoint of given card."""
         try:  # Use calibration.
-            return [(time, mcal.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
+            return [(time, _Cal.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
                     for (time, val) in self._get_osc_prop(unit, 257, since)]
         except (KeyError, ValueError):  # No calibration present.
             return [(time, val / 8.) for (time, val)
@@ -381,8 +400,8 @@ class MenloStack:
         """Set the current driver setpoint to the given value in mA.
         """
         # Apply calibration data if present.
-        if unit in mcal.LD_CURRENT_SETTER:
-            milliamps = mcal.LD_CURRENT_SETTER[unit](milliamps)
+        if unit in _Cal.LD_CURRENT_SETTER:
+            milliamps = _Cal.LD_CURRENT_SETTER[unit](milliamps)
 
         # Enforce argument types.
         try:
