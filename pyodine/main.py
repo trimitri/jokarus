@@ -154,7 +154,7 @@ async def main() -> None:
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
-    open_backdoor({'subs': subs, 'face': face, 'locker': locker})
+    open_backdoor({'subs': subs, 'face': face, 'locker': locker, 'flow': handler._flow})
 
     await asyncio_tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
