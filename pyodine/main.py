@@ -114,15 +114,15 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
             'spectroscopy_signal', data_type + '\t' + shape + '\t' + values)
 
 
-    # Assemble the actual lock buddy using the tuners above.
     def nu_locked() -> bool:
         try:
             return subs.nu_locked()
         except ConnectionError:
             logging.warning("Couldn't fetch actual frequency lockbox state. "
-                            'Assuming "Not Locked".')
-            return False
+                            'Assuming "Locked".')
+            return True
 
+    # Assemble the actual lock buddy using the tuners above.
     locker = lock_buddy.LockBuddy(
         lock=lambda: subs.switch_lock(True),
         unlock=lambda: subs.switch_lock(False),
