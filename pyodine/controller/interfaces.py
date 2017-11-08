@@ -153,7 +153,7 @@ class Interfaces:
         try:
             await self._locker.acquire_signal()
         except RuntimeError:
-            LOGGER.exception("Couldn't publish error signal:")
+            LOGGER.debug("Couldn't publish error signal:", exc_info=True)
             return
         raw_data = self._locker.recent_signal
 
