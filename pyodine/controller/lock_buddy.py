@@ -286,7 +286,7 @@ class LockBuddy:
         await self.tune(imbalance * self._lockbox.scale)
 
     async def is_lock_lost(self) -> bool:
-        """Has the lock run into an extreme level, indicating lock loss?
+        """Has the lockbox railed, indicating lock loss?
 
         :returns: The lock is likely to have been lost.
         :raises RuntimeError: The lock isn't running at all.

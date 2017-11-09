@@ -19,6 +19,8 @@ from . import logger
 from .controller import (interfaces, instruction_handler, lock_buddy, subsystems)
 from .util import asyncio_tools
 
+MIOB_TEMP_RANGE = [15, 40]
+"""Lowest and highest MiOB temperature awailable to the tuner."""
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     """Provide a python interpreter capable of probing the system state."""
@@ -40,14 +42,18 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
 
     def get_miob_temp() -> float:
         """Temperature of the micro-optical bench."""
-        try:
-            temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
-        except ConnectionError:
-            return float('nan')
-        return (temp - 20) / 10
+        # This might raise a ConnectionError, but we don't catch here to
+        # prevent the locker from going rogue with some NaNs.
+        temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
+        low = MIOB_TEMP_RANGE[0]
+        high = MIOB_TEMP_RANGE[1]
+
+        if not temp > low or not temp < high:
+            raise RuntimeError("MiOB temperature out of tuning range.")
+        return (temp - low) / (high - low)
 
     def set_miob_temp(value: float) -> None:
-        temp = 10 * value + 20
+        temp = MIOB_TEMP_RANGE[0] + value * (MIOB_TEMP_RANGE[1] - MIOB_TEMP_RANGE[0])
         subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
     # FIXME: provide estimates of tuning characteristic (#122)
