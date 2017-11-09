@@ -283,8 +283,10 @@ class LockBuddy:
         if abs(imbalance) <= ALLOWABLE_LOCK_IMBALANCE:
             LOGGER.debug("No need to balance lock.")
             return
-        LOGGER.info("Balancing lock by %s units.", imbalance)
-        await self.tune(imbalance * self._lockbox.scale)
+        LOGGER.info("Imbalance is %s", imbalance)
+        distance = imbalance * self._lockbox.scale
+        LOGGER.info("Balancing lock by %s units.", distance)
+        await self.tune(distance)
 
     async def is_lock_lost(self) -> bool:
         """Has the lockbox railed, indicating lock loss?
@@ -416,16 +418,19 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
+        LOGGER.debug("Tuning %s...", delta)
         # We won't tune if delta is smaller than any of the available
         # granularities.
-        if not delta >= self.min_step:
-            LOGGER.warning("Can't tune this fine. Ignoring.")
+        if not abs(delta) >= self.min_step:
+            LOGGER.warning("Can't tune this fine %s %s. Ignoring.", delta, self.min_step)
             return
         tuners = [t for t in self._tuners
-                  if speed_constraint > 0 and t.delay < speed_constraint]
+                  if speed_constraint == 0 or t.delay < speed_constraint]
         if not tuners:
             raise ValueError("Speed constraint of {} disqualifies all tuners"
                              .format(speed_constraint))
+
+        LOGGER.debug("%s tuners left.", len(tuners))
 
         # Try using a single tuner first. The tuners are sorted by ascending
         # granularity, so more coarse tuners are only used if the finer tuners
@@ -433,7 +438,9 @@ class LockBuddy:
         for index, tuner in enumerate(tuners):
             # Skip this tuner if it doesn't have enough range left to jump by
             # ``delta``.
-            target = await tuner.get() + (delta / tuner.scale)
+            state = await tuner.get()
+            target = state + (delta / tuner.scale)
+            LOGGER.debug("Target of %s would be %s.", tuner.name, target)
             if target < 0 or target > 1:
                 LOGGER.debug("Skipping %s for insufficient range of motion.",
                              tuner.name)
@@ -446,8 +453,9 @@ class LockBuddy:
             # case, and---if so---do a balancing operation.
 
             # Did we have to skip any of the finer tuners?
+            compensation = .0
             if index > 0:
-                compensation = .0
+                LOGGER.debug("Checking for necessity of compensation.")
                 for skipped_tuner in tuners[:index]:
                     state = await skipped_tuner.get()
                     # Is the tuner imbalanced?
@@ -470,6 +478,7 @@ class LockBuddy:
                     else:
                         LOGGER.debug("Imbalance wasn't the reason to skip %s.",
                                      skipped_tuner.name)
+            LOGGER.debug("Setting tuner %s to %s (was %s).", tuner.name, target + compensation, state)
             await tuner.set(target + compensation)
             if compensation > 0:
                 LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")

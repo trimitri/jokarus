@@ -68,8 +68,8 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         subs.laser.set_mo_current(arb_units * (mo_rng[1] - mo_rng[0]) + mo_rng[0])
 
     return lock_buddy.Tuner(
-        scale=(mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA,
-        granularity=cs.LD_MO_GRANULARITY_mA,
+        scale=abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA),
+        granularity=abs(cs.LD_MO_GRANULARITY_mA / (mo_rng[1] - mo_rng[0])),
         delay=cs.LD_MO_DELAY_s,
         getter=mo_getter,
         setter=mo_setter,
@@ -86,7 +86,7 @@ def _spawn_ramp_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         subs.set_ramp_offset(ramp_range * value + ramp[0])
 
     return lock_buddy.Tuner(
-        scale=cs.DAQ_MHz_V * ramp_range,
+        scale=abs(cs.DAQ_MHz_V * ramp_range),
         granularity=cs.DAQ_GRANULARITY_V / ramp_range,
         delay=cs.DAQ_DELAY_s,
         getter=ramp_getter,
@@ -106,8 +106,8 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         return (subs.get_lockbox_level() - lock[0]) / lock_range
 
     lockbox = lock_buddy.Tuner(
-        scale=lock_range * cs.LOCKBOX_MHz_V,
-        granularity=42,  # not used
+        scale=abs(lock_range * cs.LOCKBOX_MHz_V),
+        granularity=.42,  # not used
         delay=42,  # not used
         getter=lockbox_getter,
         setter=lambda _: None,  # not used
