@@ -30,8 +30,25 @@ def safe_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
 
+async def async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
+    """Call it like it's async.
+
+    This returns a coroutine object no matter if ``callback`` is a coroutine
+    function or not. It passes on additional arguments to the callee, just
+    like functools.partial does.
+
+    :param callback: The function to call. May expect arbitrary combination of
+                arguments. It's return value is returned if the call succeeds.
+                Can be a regular or a coroutine function.
+    :raises Exception: Whatever the challback might raise.
+    """
+    if inspect.iscoroutinefunction(callback):
+        return await callback(*args, **kwargs)
+    return callback(*args, **kwargs)
+
+
 async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
-    """Try to call a callback and catch everything that might be raised.
+    """Call it like it's async and catch everything that might be raised.
 
     This returns a coroutine object no matter if ``callback`` is a coroutine
     function or not. It passes on additional arguments to the callee, just
