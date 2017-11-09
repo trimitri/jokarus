@@ -16,11 +16,10 @@ import aioconsole
 import numpy as np
 
 from . import logger
+from . import constants as cs
 from .controller import (interfaces, instruction_handler, lock_buddy, subsystems)
 from .util import asyncio_tools
 
-MIOB_TEMP_RANGE = [15, 40]
-"""Lowest and highest MiOB temperature awailable to the tuner."""
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     """Provide a python interpreter capable of probing the system state."""
@@ -32,83 +31,87 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     asyncio.ensure_future(
         aioconsole.start_interactive_server(factory=console_factory))
 
-
-def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
-    """Initialize the frequency prelock and lock system."""
-
-    ##
-    # Tuning by Temperature of the Micro-Optical Bench
-    ##
-
+def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+    """Get a tuner that utilizes the MiOB temperature for frequency tuning."""
     def get_miob_temp() -> float:
         """Temperature of the micro-optical bench."""
         # This might raise a ConnectionError, but we don't catch here to
         # prevent the locker from going rogue with some NaNs.
         temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
-        low = MIOB_TEMP_RANGE[0]
-        high = MIOB_TEMP_RANGE[1]
+        low = cs.MIOB_TEMP_RANGE[0]
+        high = cs.MIOB_TEMP_RANGE[1]
 
         if not temp > low or not temp < high:
             raise RuntimeError("MiOB temperature out of tuning range.")
         return (temp - low) / (high - low)
 
     def set_miob_temp(value: float) -> None:
-        temp = MIOB_TEMP_RANGE[0] + value * (MIOB_TEMP_RANGE[1] - MIOB_TEMP_RANGE[0])
+        temp = cs.MIOB_TEMP_RANGE[0] + value * (cs.MIOB_TEMP_RANGE[1] - cs.MIOB_TEMP_RANGE[0])
         subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
-    # FIXME: provide estimates of tuning characteristic (#122)
-    miob_temp = lock_buddy.Tuner(scale=50, granularity=.01, delay=60,
-                                 getter=get_miob_temp, setter=set_miob_temp,
-                                 name="MiOB temp")
+    abs_range = cs.MIOB_TEMP_RANGE[1] - cs.MIOB_TEMP_RANGE[0]
+    return lock_buddy.Tuner(
+        scale=abs_range * cs.MIOB_MHz_K,
+        granularity=cs.TEC_GRANULARITY_K / abs_range,
+        delay=90,
+        getter=get_miob_temp,
+        setter=set_miob_temp,
+        name="MiOB temp")
 
-    ##
-    # Tuning by Diode Current
-    ##
-
-    # Based on the FBH preliminary spec sheet we assume a usable MO current
-    # tuning range of 60 to 160 mA. In those 100mA of movement, the laser spans
-    # about 7600 MHz.
-    #
-    # The granularity however is quite bad, as 125μA is the smallest step
-    # possible. This yields 0.125mA / 100mA = 1.25e-3 for granularity.
-    #
-    # The delay for MO tuning originates mostly in the websocket protocol and
-    # the Menlo firmware and is estimated to be about a second.
-    #
-    # The setter and getter methods project the mA values like 0 = 60mA,
-    # 1 = 160mA.
+def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+    """Get a tuner that utilizes the MO current for frequency tuning."""
+    mo_rng = cs.LD_MO_TUNING_RANGE
     def mo_getter() -> float:
-        return (subs.laser.get_mo_current() - 60) / 100
+        return (subs.laser.get_mo_current() - mo_rng[0]) / (mo_rng[1] - mo_rng[0])
 
     def mo_setter(arb_units: float) -> None:
-        subs.laser.set_mo_current(arb_units * 100 + 60)
+        subs.laser.set_mo_current(arb_units * (mo_rng[1] - mo_rng[0]) + mo_rng[0])
 
-    mo_current = lock_buddy.Tuner(scale=7600, granularity=1.25e-3, delay=1,
-                                  getter=mo_getter, setter=mo_setter,
-                                  name="MO current")
+    return lock_buddy.Tuner(
+        scale=(mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA,
+        granularity=cs.LD_MO_GRANULARITY_mA,
+        delay=cs.LD_MO_DELAY_s,
+        getter=mo_getter,
+        setter=mo_setter,
+        name="MO current")
 
-    ##
-    # Tuning by Modulation Ramp Offset
-    ##
-
-    # The diode driver modulation port does about 1mA/V. As we have a 10V range
-    # of motion for our ramp offset, and the Laser does about 74MHz/mA, this
-    # leads to 740MHz of tuning range.
+def _spawn_ramp_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+    """Get a tuner that utilizes the ramp offset for frequency tuning."""
+    ramp = cs.DAQ_RAMP_OFFSET_RANGE_V
+    ramp_range = ramp[1] - ramp[0]
     def ramp_getter() -> float:
-        return (subs.get_ramp_offset() + 5) / 10
+        return (subs.get_ramp_offset() - ramp[0]) / ramp_range
 
     def ramp_setter(value: float) -> None:
-        subs.set_ramp_offset(value * 10 - 5)
+        subs.set_ramp_offset(ramp_range * value + ramp[0])
 
-    ramp_offset = lock_buddy.Tuner(scale=740, granularity=3.05e-4, delay=0.2,
-                                   getter=ramp_getter, setter=ramp_setter,
-                                   name="ramp offset")
+    return lock_buddy.Tuner(
+        scale=cs.DAQ_MHz_V * ramp_range,
+        granularity=cs.DAQ_GRANULARITY_V / ramp_range,
+        delay=cs.DAQ_DELAY_s,
+        getter=ramp_getter,
+        setter=ramp_setter,
+        name="ramp offset")
+
+def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
+    """Initialize the frequency prelock and lock system."""
+
 
     # The lockbox itself has to be wrapped like a Tuner as well, as it does
     # effectively tune the laser. All values associated with setting stuff can
     # be ignored though ("1"'s and lambda below).
-    lockbox = lock_buddy.Tuner(20 * 74, .1, 1, subs.get_lockbox_level,
-                               lambda _: None, "Lockbox")
+    lock = cs.LOCKBOX_RANGE_V
+    lock_range = lock[1] - lock[0]
+    def lockbox_getter() -> float:
+        return (subs.get_lockbox_level() - lock[0]) / lock_range
+
+    lockbox = lock_buddy.Tuner(
+        scale=lock_range * cs.LOCKBOX_MHz_V,
+        granularity=42,  # not used
+        delay=42,  # not used
+        getter=lockbox_getter,
+        setter=lambda _: None,  # not used
+        name="Lockbox")
 
     # Log all acquired signals.
     def on_new_signal(data: np.ndarray) -> None:
@@ -136,7 +139,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         lockbox=lockbox,
         scanner=subs.fetch_scan,
         scanner_range=700.,  # FIXME measure correct scaling coefficient.
-        tuners=[miob_temp, mo_current, ramp_offset],
+        tuners=[_spawn_miob_tuner(subs), _spawn_current_tuner(subs), _spawn_ramp_tuner(subs)],
         on_new_signal=on_new_signal)
     return locker
 

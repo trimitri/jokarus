@@ -173,7 +173,8 @@ class LockBuddy:
                  scanner_range: QtyUnit,
                  tuners: List[Tuner],
                  lockbox: Tuner,
-                 on_new_signal: Callable[[np.ndarray], Optional[Awaitable[None]]] = lambda _: None) -> None:
+                 on_new_signal: Callable[
+                     [np.ndarray], Optional[Awaitable[None]]]=lambda _: None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -476,9 +477,11 @@ class LockBuddy:
             return
         raise ValueError("Could't fulfill tuning request by means of a single tuner.")
 
-        # Can we reach the desired jump by combining tuners?
-        # TODO Try to use combined tuners. This would only be important if all
-        # available tuners have a similar range of motion.
+        # Can we reach the desired jump by combining tuners?  This would only
+        # be important if all available tuners have a similar range of motion.
+        # In our case, however, the MiOB temperature has such a vast range,
+        # that combining tuners will never be necessary.
+        # FEATURE
 
     @staticmethod
     def _pick_match(candidates: List[List[float]], near: QtyUnit = None) -> QtyUnit:
