@@ -334,7 +334,7 @@ class Subsystems:
         :raises ValueError: The provided unit is not a TecUnit.
         """
         try:
-            return self._unwrap_buffer(self._menlo.get_temperature(TecUnit(unit)))
+            return self._unwrap_buffer(self._menlo.get_temp_setpoint(TecUnit(unit)))
         except (AttributeError, ValueError) as err:
             raise ConnectionError("Couldn't fetch temp. setpt. from Menlo.") from err
 
