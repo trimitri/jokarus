@@ -66,10 +66,10 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MO current for frequency tuning."""
     mo_rng = cs.LD_MO_TUNING_RANGE
     def mo_getter() -> float:
-        return (subs.laser.get_mo_current() - mo_rng[0]) / (mo_rng[1] - mo_rng[0])
+        return (mo_rng[1] - subs.laser.get_mo_current()) / (mo_rng[1] - mo_rng[0])
 
-    def mo_setter(arb_units: float) -> None:
-        subs.laser.set_mo_current(arb_units * (mo_rng[1] - mo_rng[0]) + mo_rng[0])
+    def mo_setter(value: float) -> None:
+        subs.laser.set_mo_current(mo_rng[1] - (value * (mo_rng[1] - mo_rng[0])))
 
     return lock_buddy.Tuner(
         scale=abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA),
@@ -84,10 +84,10 @@ def _spawn_ramp_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     ramp = cs.DAQ_RAMP_OFFSET_RANGE_V
     ramp_range = ramp[1] - ramp[0]
     def ramp_getter() -> float:
-        return (subs.get_ramp_offset() - ramp[0]) / ramp_range
+        return (ramp[1] - subs.get_ramp_offset()) / ramp_range
 
     def ramp_setter(value: float) -> None:
-        subs.set_ramp_offset(ramp_range * value + ramp[0])
+        subs.set_ramp_offset(ramp[1] - ramp_range * value)
 
     return lock_buddy.Tuner(
         scale=abs(cs.DAQ_MHz_V * ramp_range),

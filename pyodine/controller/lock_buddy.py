@@ -484,9 +484,9 @@ class LockBuddy:
                         LOGGER.debug("Imbalance wasn't the reason to skip %s.",
                                      skipped_tuner.name)
             LOGGER.debug("Setting tuner %s to %s (was %s).", tuner.name, target + compensation, state)
-            await tuner.set(target + compensation)
             if compensation > 0:
                 LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
+            await tuner.set(target + compensation)
             LOGGER.debug("Tuned %s by %s units.", tuner.name, delta)
             return
         raise ValueError("Could't fulfill tuning request by means of a single tuner.")
