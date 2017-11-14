@@ -59,6 +59,12 @@ LD_MO_GRANULARITY_mA = .125
 This is accurately known due to the DAC resolution.
 """
 
+LOCK_SFG_FACTOR = 2
+"""The spectrum moves by this many Hz when tuning the laser by 1 Hz.
+
+This is to allow for sum-frequency generation (SFG) setups.
+"""
+
 LOCKBOX_RANGE_V = [-10, 10]
 """What is the lockbox output stage able to generate?"""
 
@@ -85,7 +91,7 @@ _LOCKBOX_MONITOR_mV = lambda x: 1.0226708051346947 * x + 21.502497351238581
 This was obtained from the data taken on 2017-10-23.
 """
 
-_MIOB_mV_K = -95821.785132407866
+_MIOB_mV_K = 95821.785132407866
 """Measured detuning of laser detuning (in lockbox mV) vs MiOB temp in K.
 
 Acquired 2017-11-08 from a fit to a measurement taken 2017-11-07.
@@ -97,8 +103,9 @@ Acquired 2017-11-08 from a fit to a measurement taken 2017-11-07.
 
 MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 """Laser tuning in MHz per Kelvin of MiOB temperature change."""
-# TODO This is about 30% apart from a measurement that the FBH did
-# (Tuningcurve.pdf).
+# This is about 30% apart from a measurement that the FBH did
+# (Tuningcurve.pdf):
+# MIOB_MHz_K = -4330  # FBH measurement
 
 DAQ_MHz_V = LD_MO_MHz_mA * _LOCKBOX_mA_mV * 1000
 """How far will the laser tune for 1V of DAQ ramp?"""
