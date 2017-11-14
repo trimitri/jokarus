@@ -12,11 +12,6 @@ from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
-ALLOWABLE_LOCK_IMBALANCE = .2
-"""OK deviation of lockbox level from center position. In [0, .5].
-
-See ``balance()`` below for details.
-"""
 MONITOR_INTERVAL = 22.
 """Check for lock imbalance every ~ seconds."""
 MAX_JUMPS = 10
@@ -281,14 +276,16 @@ class LockBuddy:
         """
         if not self.lock_engaged:
             raise RuntimeError("Lock is not running.")
-        imbalance = .5 - await self._lockbox.get()
-        if abs(imbalance) <= ALLOWABLE_LOCK_IMBALANCE:
+        imbalance = await self._lockbox.get() - .5
+        LOGGER.info("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
+        if abs(imbalance) <= cs.LOCKBOX_ALLOWABLE_IMBALANCE:
             LOGGER.debug("No need to balance lock.")
             return
-        LOGGER.info("Imbalance is %s", imbalance)
+        # We need to manually tune the distance that is currently maintained by
+        # the lockbox output.
         distance = imbalance * self._lockbox.scale
         LOGGER.info("Balancing lock by %s units.", distance)
-        await self.tune(distance)
+        await self.tune(cs.LOCK_SFG_FACTOR * distance)
 
     async def is_lock_lost(self) -> bool:
         """Has the lockbox railed, indicating lock loss?
@@ -462,12 +459,12 @@ class LockBuddy:
             if index > 0:
                 LOGGER.debug("Checking for necessity of compensation.")
                 for skipped_tuner in tuners[:index]:
-                    state = await skipped_tuner.get()
+                    local_state = await skipped_tuner.get()
                     # Is the tuner imbalanced?
-                    if state < BALANCE_AT[0] or state > BALANCE_AT[1]:
+                    if local_state < BALANCE_AT[0] or local_state > BALANCE_AT[1]:
                         # How much compensation would be required
                         # downstream when resetting this tuner?
-                        detuning = (state - 0.5) * skipped_tuner.scale
+                        detuning = (local_state - 0.5) * skipped_tuner.scale
                         carry = detuning / tuner.scale
 
                         # Is there still room in the downstream tuner

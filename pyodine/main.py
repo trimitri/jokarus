@@ -104,13 +104,13 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     # The lockbox itself has to be wrapped like a Tuner as well, as it does
     # effectively tune the laser. All values associated with setting stuff can
     # be ignored though ("1"'s and lambda below).
-    lock = cs.LOCKBOX_RANGE_V
+    lock = cs.LOCKBOX_RANGE_mV
     lock_range = lock[1] - lock[0]
     def lockbox_getter() -> float:
-        return (subs.get_lockbox_level() - lock[0]) / lock_range
+        return (lock[1] - subs.get_lockbox_level()) / lock_range
 
     lockbox = lock_buddy.Tuner(
-        scale=abs(lock_range * cs.LOCKBOX_MHz_V),
+        scale=abs(lock_range * cs.LOCKBOX_MHz_mV),
         granularity=.42,  # not used
         delay=42,  # not used
         getter=lockbox_getter,
@@ -167,7 +167,11 @@ async def main() -> None:
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a powerful CLI to Pyodine.
-    open_backdoor({'subs': subs, 'face': face, 'locker': locker, 'flow': handler._flow})
+    open_backdoor({'cs': cs,
+                   'face': face,
+                   'flow': handler._flow,
+                   'locker': locker,
+                   'subs': subs})
 
     await asyncio_tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
