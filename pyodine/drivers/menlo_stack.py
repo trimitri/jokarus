@@ -329,15 +329,14 @@ class MenloStack:
     def is_temp_ok(self, unit_number: int) -> Buffer:
         return self._get_osc_prop(unit_number, 288)
 
-    def get_temperature(self, unit_number: int, since: Time = None) -> Buffer:
+    def get_temperature(self, unit: Union[int, OscCard], since: Time = None) -> Buffer:
         """Buffer of temp. readings in °C of given unit since `since`."""
         return [(time, self._to_temperature(int(val)))
-                for (time, val)
-                in self._get_osc_prop(unit_number, 272, since)]
+                for (time, val) in self._get_osc_prop(unit, 272, since)]
 
-    def get_temp_setpoint(self, unit_number: int) -> Buffer:
+    def get_temp_setpoint(self, unit: Union[int, OscCard]) -> Buffer:
         return [(time, self._to_temperature(int(val), is_setpoint=True))
-                for (time, val) in self._get_osc_prop(unit_number, 256)]
+                for (time, val) in self._get_osc_prop(unit, 256)]
 
     def get_temp_rth(self, unit_number: int, since: Time = None) -> Buffer:
         """Get the object thermistor resistance of given TEC unit."""

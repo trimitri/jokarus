@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable, List, Optional, Union
 import numpy as np
 
 from . import feature_locator
+from .. import constants as cs
 from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
@@ -102,7 +103,8 @@ class Tuner:
 
     As there are often multiple such means means, we provide a unified
     interface for such "knobs" here. All tuners linearize and scale their
-    respective ranges of motion to [0, 1].
+    respective ranges of motion to [0, 1]. A setting of 1 must produce the
+    highest possible quantity, 0 the lowest.
     """
     def __init__(self, scale: QtyUnit, granularity: float, delay: float,
                  getter: Callable[[], Union[float, Awaitable[float]]],
@@ -111,8 +113,8 @@ class Tuner:
         """A tuner must scale it's full range of motion [0, 1] interval.
 
         :param scale: (Approximate) number of "LockBuddy units" that fit into
-                    the controllers [0, 1] range. The range is expected to be
-                    linearized.
+                    the controllers [0, 1] range. Must be >0. The range is
+                    expected to be linearized.
         :param granularity: Smallest step that will make an actual difference
                     in the controlled system. This must be given relative to
                     the linearized [0, 1] range.
@@ -418,7 +420,8 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
-        LOGGER.debug("Tuning %s...", delta)
+        LOGGER.debug("Tuning 2 * %s MHz...", delta)
+        delta /= cs.LOCK_SFG_FACTOR
         # We won't tune if delta is smaller than any of the available
         # granularities.
         if not abs(delta) >= self.min_step:
@@ -440,6 +443,8 @@ class LockBuddy:
             # ``delta``.
             state = await tuner.get()
             target = state + (delta / tuner.scale)
+            LOGGER.debug("state: %s, delta: %s, delta / scale: %s", state,
+                         delta, delta / tuner.scale)
             LOGGER.debug("Target of %s would be %s.", tuner.name, target)
             if target < 0 or target > 1:
                 LOGGER.debug("Skipping %s for insufficient range of motion.",
