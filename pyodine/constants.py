@@ -65,7 +65,15 @@ LOCK_SFG_FACTOR = 2
 This is to allow for sum-frequency generation (SFG) setups.
 """
 
-LOCKBOX_RANGE_V = [-10, 10]
+LOCKBOX_ALLOWABLE_IMBALANCE = .1
+"""OK deviation of lockbox level from center position.
+
+The Lockbox will be balanced if the level is further off than this.
+Has to be in [0, .5], as the lockbox level is normalized to [0, 1] and one
+can't deviate any further from 0.5 in this range.
+"""
+
+LOCKBOX_RANGE_mV = [-10000, 10000]
 """What is the lockbox output stage able to generate?"""
 
 TEC_GRANULARITY_K = 0.0005
@@ -110,7 +118,7 @@ MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 DAQ_MHz_V = LD_MO_MHz_mA * _LOCKBOX_mA_mV * 1000
 """How far will the laser tune for 1V of DAQ ramp?"""
 
-LOCKBOX_MHz_V = LD_MO_MHz_mA * _LOCKBOX_mA_mV * 1000
+LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""
 
 # pylint: enable=invalid-name
