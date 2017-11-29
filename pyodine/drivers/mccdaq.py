@@ -3,9 +3,13 @@
 import ctypes as ct
 from enum import IntEnum
 import logging
+import threading
 from typing import List, Tuple
 
 import numpy as np
+
+DISALLOW_NAIVE_LOCKING = True
+"""Error instead of blocking when trying to make requests to a busy device."""
 
 MAX_AOUT_SAMPLES = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
@@ -47,6 +51,7 @@ class MccDaq:
     """A stateful wrapper around the MCC DAQ device."""
 
     def __init__(self) -> None:
+        """Construnctor shouldn't block and is not thread safe."""
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
         state = self._daq.OpenConnection()
         if state == 1:  # 'kConnectionError in error types enum in C'
@@ -55,6 +60,11 @@ class MccDaq:
             raise ConnectionError("Unexpected error while trying to connect "
                                   "to DAQ.")
         self._offset = 0.0  # Offset voltage the ramp centers around.
+
+        # As main methods of this class are blocking, they are likely to be
+        # executed in a threaded environment.  We thus need to provide a mutex
+        # lock for the device.
+        self._lock = threading.Lock()
 
     @property
     def ramp_offset(self) -> float:
@@ -65,6 +75,18 @@ class MccDaq:
         if volts <= 5 and volts >= -5:
             self._offset = volts
         else: raise ValueError("Ramp value out of bounds [-5, 5]")
+
+    @property
+    def is_busy(self) -> bool:
+        """Is the device currently blocked?
+
+        :returns bool: True: Unusual wait times are to be expected when using the
+                    device now.  False: OK to use.
+        """
+        if self._lock.acquire(False):
+            self._lock.release()
+            return False
+        return True
 
     def fetch_scan(self, amplitude: float, time: float,
                    channels: List[Tuple[DaqChannel, InputRange]],
@@ -79,38 +101,44 @@ class MccDaq:
         :param channels: Which output channels to log during sweep?
         :returns: A two-dimensional array of values read. Those are raw uint16,
                     as received from the device's 16-bit ADC chip.
+        :raises BlockingIOError: The DAQ is currently busy.
         """
         # TODO:
         # - Try reading at higher sample rate than writing
         # - Validate `channels`
         if not amplitude <= 10 or not amplitude > 0:
-            raise ValueError("Passed amplitude {} not in ]0, 1].".format(amplitude))
+            raise ValueError("Passed amplitude {} not in ]0, 10].".format(amplitude))
         if not time > 0:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
 
+        # We choose to block the mutex quite early to avoid two calls being
+        # prepared at the same time in a threaded environment.
+        if DISALLOW_NAIVE_LOCKING and self.is_busy:
+            raise BlockingIOError("DAQ is busy.")
         n_samples = MAX_AOUT_SAMPLES
 
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
 
-        # CAUTION: Beware of the python optimizer/garbage collector! When
-        # inlining the two variables below, Python clears the memory before the
-        # C library starts to access it, leading to unexpected behaviour of the
-        # C code.
+        # CAUTION: Beware of the python optimizer/garbage collector!  When
+        # inlining the two variables below, Python clears the memory before
+        # the C library starts to access it, leading to unexpected
+        # behaviour of the C code.
         chan = np.array([c[0] for c in channels], dtype='uint8')
         gain = np.array([c[1] for c in channels], dtype='uint8')
-        ret = self._daq.FetchScan(
-            ct.c_double(float(self._offset)),
-            ct.c_double(amplitude),
-            ct.c_double(time),
-            ct.c_uint(n_samples),
-            chan.ctypes.data,  # channels; See note above!
-            gain.ctypes.data,  # gains; See note above!
-            ct.c_uint(len(channels)),
-            ct.c_int(int(shape)),
-            response.ctypes.data)
+        with self._lock:
+            ret = self._daq.FetchScan(
+                ct.c_double(float(self._offset)),
+                ct.c_double(amplitude),
+                ct.c_double(time),
+                ct.c_uint(n_samples),
+                chan.ctypes.data,  # channels; See note above!
+                gain.ctypes.data,  # gains; See note above!
+                ct.c_uint(len(channels)),
+                ct.c_int(int(shape)),
+                response.ctypes.data)
         if ret != 0:
             raise ConnectionError(
                 "Failed to fetch scan. `FetchScan()` returned {}".format(ret))
@@ -123,8 +151,11 @@ class MccDaq:
         :param channels: Which output channels to log during sweep?
         :returns: A two-dimensional array of values read. Those are raw uint16,
                     as received from the device's 16-bit ADC chip.
+        :raises BlockingIOError: The device is currently blocked.
         :raises ConnectionError: DAQ's playing tricks...
         """
+        if DISALLOW_NAIVE_LOCKING and self.is_busy:
+            raise BlockingIOError("DAQ is busy.")
 
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
@@ -135,13 +166,14 @@ class MccDaq:
         # C code.
         chan = np.array([c[0] for c in channels], dtype='uint8')
         gain = np.array([c[1] for c in channels], dtype='uint8')
-        ret = self._daq.SampleChannels(
-            ct.c_uint(n_samples),
-            ct.c_double(frequency),
-            chan.ctypes.data,  # channels; See note above!
-            gain.ctypes.data,  # gains; See note above!
-            ct.c_uint(len(channels)),
-            response.ctypes.data)
+        with self._lock:
+            ret = self._daq.SampleChannels(
+                ct.c_uint(n_samples),
+                ct.c_double(frequency),
+                chan.ctypes.data,  # channels; See note above!
+                gain.ctypes.data,  # gains; See note above!
+                ct.c_uint(len(channels)),
+                response.ctypes.data)
         if ret != 0:
             raise ConnectionError("Failed to sample channels. "
                                   "`SampleChannels()` returned {}".format(ret))
@@ -150,7 +182,8 @@ class MccDaq:
     def ping(self) -> bool:
         """The DAQ talks to us and seems healthy."""
         try:
-            return self._daq.Ping() == 0
+            with self._lock:
+                return self._daq.Ping() == 0
         except:  # Who knows what it might raise... # pylint: disable=bare-except
             LOGGER.exception("DAQ got sick.")
         return False

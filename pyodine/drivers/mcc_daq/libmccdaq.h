@@ -35,6 +35,7 @@ Error FetchScan(
     uint16_t *readings);
 
 // Generate a signal for analog output. It will span from zero to 2^16-1.
+// :param amplitude: Peak-to-peak amplitude in volts. Must not exceed 20.
 Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
                           double amplitude, double offset, uint16_t *samples);
 
