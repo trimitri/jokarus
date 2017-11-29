@@ -72,6 +72,9 @@ Error SampleChannels(
     const uint n_channels,
     uint16_t * results);
 
+// Sleep `n_seconds` seconds. For debugging of locking behaviour.
+int Sleep(const uint n_seconds);
+
 // Generate continuous triangle signal using full 20 volt range.
 void Triangle(void);
 
