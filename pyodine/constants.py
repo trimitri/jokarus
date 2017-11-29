@@ -8,24 +8,28 @@ DAQ_DELAY_s = 0.2
 This is guesswork.
 """
 
-DAQ_RAMP_OFFSET_RANGE_V = [-5, 5]
+DAQ_RAMP_OFFSET_RANGE_V = [-0.5, 0.5]
 """The portion of the DAQ range of motion that is used for tuning the laser.
 
-This is kept at +-5V margin to the actual range of motion (-10V...10V), to
-allow for +-5V ramp generation in every possible state.
+In order to not disturb lockbox railing detection, this is kept at a very small
+range of motion.  We don't need it in JOKARUS anyway, because the "catching
+directional lock" behaviour seems to work and thus we don't need such a fine
+tuner during prelock.
 """
 
 DAQ_GRANULARITY_V = 20 / 2**16
-"""How fine can the DAQ analog output be set?
+"""How fine can the DAQ analog output be set (in Volts)?
 
 This is a 16 bit device.
 """
 
-MIOB_TEMP_RANGE = [15, 40]
+MIOB_TEMP_RANGE = [20, 30]
 """Lowest and highest MiOB temperature available to the tuner.
 
-Based on arbitrary guesswork. Low temps can lead to condensation, higher ones
-to disintegration of glued components. Or.. can they?
+Based on arbitrary guesswork.  Due to the tight current limit on the VHBG TEC,
+we must not deviate from the VHBG working point too much.  5K should be safe,
+as VHBG can reach about 7K difference.  Also, of course the upper and lower
+limits must not damage any laser components.
 """
 
 LD_MO_MHz_mA = -74
@@ -35,7 +39,7 @@ This is an estimate taken from the printed MiLas "user guide".
 """
 # TODO: Conduct better measurement of Milas MHz per mA.
 
-LD_MO_TUNING_RANGE = [65, 160]
+LD_MO_TUNING_RANGE = [75, 150]
 """Lowest and highest MO current available to the tuner.
 
 Based on FBH preliminary spec sheet.
