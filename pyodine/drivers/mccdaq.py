@@ -8,9 +8,6 @@ from typing import List, Tuple
 
 import numpy as np
 
-DISALLOW_NAIVE_LOCKING = True
-"""Error instead of blocking when trying to make requests to a busy device."""
-
 MAX_AOUT_SAMPLES = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
@@ -50,8 +47,27 @@ class InputRange(IntEnum):
 class MccDaq:
     """A stateful wrapper around the MCC DAQ device."""
 
-    def __init__(self) -> None:
-        """Construnctor shouldn't block and is not thread safe."""
+    def __init__(self, lock_timeout: float = 0) -> None:
+        """Construnctor shouldn't block and is not thread safe.
+
+        :param lock_timeout: How to handle simultaneous requests to an already
+                    busy device?
+                    False: Always block until the device is free.  This can
+                           lead to piling up waiting requests if in a busy
+                           threaded environment.  Not recommended.
+                    0:     Don't wait at all.  Simultaneous requests raise
+                           Errors.  This is the default to encourage external
+                           queueing.
+                    > 0:   Wait this many seconds before erroring.  This can be
+                           a viable setting in light load systems.  Every
+                           caller must handle the possible request queue
+                           overflow, however.
+        """
+        self.lock_timeout = lock_timeout if lock_timeout >= 0 else -1
+        """Timeout passed to threading.Lock.acquire() when accessing the DAQ.
+
+        -1 means wait forever.
+        """
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
         state = self._daq.OpenConnection()
         if state == 1:  # 'kConnectionError in error types enum in C'
@@ -77,13 +93,18 @@ class MccDaq:
         else: raise ValueError("Ramp value out of bounds [-5, 5]")
 
     @property
-    def is_busy(self) -> bool:
-        """Is the device currently blocked?
+    def is_too_busy(self) -> bool:
+        """Will return True if we have to wait for the device too long.
 
-        :returns bool: True: Unusual wait times are to be expected when using the
-                    device now.  False: OK to use.
+        Too long is everything longer than self.lock_timeout, so depending on
+        that setting, even any waiting at all can be forbidden.  As soon as the
+        device is free, the lock is released and control is returned to the
+        caller.
+
+        :returns bool: Did we have to wait for the device longer than
+                    `self.lock_timeout`?
         """
-        if self._lock.acquire(False):
+        if self._lock.acquire(timeout=self.lock_timeout):
             self._lock.release()
             return False
         return True
@@ -112,11 +133,8 @@ class MccDaq:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
-
-        # We choose to block the mutex quite early to avoid two calls being
-        # prepared at the same time in a threaded environment.
-        if DISALLOW_NAIVE_LOCKING and self.is_busy:
-            raise BlockingIOError("DAQ is busy.")
+        if self.is_too_busy:
+            raise BlockingIOError("DAQ is too busy to fetch a scan.")
         n_samples = MAX_AOUT_SAMPLES
 
         # Allocate some memory for the C library to save it's result in.
@@ -154,8 +172,8 @@ class MccDaq:
         :raises BlockingIOError: The device is currently blocked.
         :raises ConnectionError: DAQ's playing tricks...
         """
-        if DISALLOW_NAIVE_LOCKING and self.is_busy:
-            raise BlockingIOError("DAQ is busy.")
+        if self.is_too_busy:
+            raise BlockingIOError("DAQ is too busy to sample channels.")
 
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
