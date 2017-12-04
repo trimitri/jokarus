@@ -18,6 +18,7 @@ import numpy as np
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
+from .. import logger
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -172,7 +173,7 @@ class Subsystems:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
 
-    async def get_aux_temps(self) -> List[float]:
+    async def get_aux_temps(self, dont_log: bool = False) -> List[float]:
         """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
@@ -187,8 +188,11 @@ class Subsystems:
         def fetch_readings() -> List[int]:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
 
-        return ms_ntc.to_temperatures(
+        temps = ms_ntc.to_temperatures(
             await asyncio.get_event_loop().run_in_executor(None, fetch_readings))
+        if not dont_log:
+            logger.log_quantity('daq_temps', '\t'.join([str(t) for t in temps]))
+        return temps
 
     def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
