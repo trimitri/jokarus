@@ -242,6 +242,10 @@ class Subsystems:
         data['nu_ramp_amplitude'] = \
             self._menlo.get_ramp_amplitude(LOCKBOX_ID)
 
+        # DAQ readings
+        aux_temps = self.get_aux_temps()
+        data['aux_temps'] = {sensor.name: aux_temps[sensor] for sensor in AuxTemp}
+
         return data
 
     def get_ld_current(self, unit: LdDriver) -> float:
