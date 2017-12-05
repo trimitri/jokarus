@@ -398,7 +398,11 @@ class Subsystems:
         del self._dds
         self._dds = None
         try:
-            attempt = dds9_control.Dds9Control(DDS_PORT)
+            # The DDS class is written in synchronous style although it
+            # contains lots of blocking calls.  Initialization is the heaviest
+            # of them all and is thus run in a thread pool executor.
+            attempt = await self._loop.run_in_executor(
+                None, partial(dds9_control.Dds9Control, DDS_PORT))
         except ConnectionError:
             LOGGER.error("Couldn't connect to DDS.")
             LOGGER.debug("Couldn't connect to DDS.", exc_info=True)
