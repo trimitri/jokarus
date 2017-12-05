@@ -198,9 +198,9 @@ class Subsystems:
             logger.log_quantity('daq_temps', '\t'.join([str(t) for t in temps]))
         return temps
 
-    async def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
+    async def get_full_set_of_readings(self, since: float = None) -> Dict[str, Union[Buffer, Dict]]:
         """Return a dict of all readings, ready to be sent to the client."""
-        data = {}  # type: Dict[str, Buffer]
+        data = {}  # type: Dict[str, Union[Buffer, Dict]]
 
         if self._menlo is None:
             return data
