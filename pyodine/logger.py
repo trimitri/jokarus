@@ -83,7 +83,8 @@ def log_quantity(qty_id: str, value: Union[float, str], time: float = None) -> N
     """Append "value" to the logfile of given name.
 
     :param id: This distinguishes logfiles from each other.
-    :param time: Unix time of when the passed "value" was measured.
+    :param time: Unix time of when the passed "value" was measured. If passed,
+                this will be printed in addition to the current time.
     :param value: Value to log. None is fine as well.
     """
     logger = _get_qty_logger(qty_id)
