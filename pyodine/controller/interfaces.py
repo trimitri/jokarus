@@ -191,7 +191,7 @@ class Interfaces:
         # We need to use a transitional variable here to make sure that we
         # don't claim to have published newer readings than we actually did.
         prev = self._readings_published_at
-        data = self._subs.get_full_set_of_readings(since=prev)
+        data = await self._subs.get_full_set_of_readings(since=prev)
         await self._publish_message(packer.create_message(data, 'readings'), 'readings')
         self._readings_published_at = time.time()
 

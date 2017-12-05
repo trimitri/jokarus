@@ -198,7 +198,7 @@ class Subsystems:
             logger.log_quantity('daq_temps', '\t'.join([str(t) for t in temps]))
         return temps
 
-    def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
+    async def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
         """Return a dict of all readings, ready to be sent to the client."""
         data = {}  # type: Dict[str, Buffer]
 
@@ -247,7 +247,7 @@ class Subsystems:
             self._menlo.get_ramp_amplitude(LOCKBOX_ID)
 
         # DAQ readings
-        aux_temps = self.get_aux_temps()
+        aux_temps = await self.get_aux_temps()
         data['aux_temps'] = {sensor.name: aux_temps[sensor] for sensor in AuxTemp}
 
         return data
