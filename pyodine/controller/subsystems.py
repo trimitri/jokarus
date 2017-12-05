@@ -115,6 +115,9 @@ class Subsystems:
         # they arrive.
         self._menlo = None  # type: menlo_stack.MenloStack
         self.laser = None  # type: ecdl_mopa.EcdlMopa
+        self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
+        """The event loop all our tasks will run in."""
+
         asyncio.ensure_future(
             asyncio_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
@@ -124,9 +127,9 @@ class Subsystems:
         # We keep the poller alive to monitor the RS232 connection which got
         # stuck sometimes during testing.
         self._dds = None  # type: dds9_control.Dds9Control
-        asyncio.ensure_future(
-            asyncio_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
-                                        continuous=True, name="DDS"))
+        dds_poller = asyncio_tools.poll_resource(
+            self.dds_alive, 15, self.reset_dds, continuous=True, name="DDS")
+        self._dds_poller = self._loop.create_task(dds_poller)  # type: asyncio.Task
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
@@ -284,7 +287,7 @@ class Subsystems:
             phases = self._dds.phases
             ext_clock = self._dds.runs_on_ext_clock_source
         except (ConnectionError, AttributeError):
-            LOGGER.error("Couldn't get setup parameters as DDS is offline")
+            LOGGER.warning("Couldn't get setup parameters as DDS is offline")
             return data
 
         data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
@@ -387,7 +390,7 @@ class Subsystems:
     async def reset_dds(self) -> None:
         """Reset the connection to the Menlo subsystem.
 
-        This will not raise anything on failure. Check dds_alive() to for
+        This will not raise anything on failure. Use dds_alive() to check
         success.
         """
         # For lack of better understanding of the object destruction mechanism,
@@ -397,7 +400,8 @@ class Subsystems:
         try:
             attempt = dds9_control.Dds9Control(DDS_PORT)
         except ConnectionError:
-            LOGGER.exception("Couldn't connect to DDS.")
+            LOGGER.error("Couldn't connect to DDS.")
+            LOGGER.debug("Couldn't connect to DDS.", exc_info=True)
         else:
             LOGGER.info("Successfully (re-)set DDS.")
             self._dds = attempt
