@@ -42,31 +42,36 @@ Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
 class AuxTemp(enum.IntEnum):
-    """How to index the array returned by get_aux_temps?"""
-    AOM = 0
-    AOM_AMP = 1
-    CELL = 2
-    EOM = 3
-    LASER = 4
-    MENLO = 5
-    SHG = 6
+    """How to index the array returned by `get_aux_temps()`?"""
+    # Keep this synchronized with `get_aux_temps()`!
+    CELL = 0
+    LD_MO = 1
+    LD_PA = 2
+    SHG = 3
+    MENLO = 4
+    AOM_AMP = 5
+    HEATSINK_A = 6  # sensor closer to the side
+    HEATSINK_B = 7  # sensor closer to the back
 
 class DaqInput:  # pylint: disable=too-few-public-methods
     """The MCC USB1608G-2AO features 16 analog inputs.
 
     Static constants container. Don't instanciate."""
-    REF_5V = mccdaq.DaqChannel.C_4
+    DETECTOR_LINEAR = mccdaq.DaqChannel.C_6
+    DETECTOR_PUMP = mccdaq.DaqChannel.C_14
     ERR_SIGNAL = mccdaq.DaqChannel.C_7
-    RAMP_MONITOR = mccdaq.DaqChannel.C_11
-    PUMP_DIODE = mccdaq.DaqChannel.C_14
-    LIN_DIODE = mccdaq.DaqChannel.C_6
-    NTC_CELL = mccdaq.DaqChannel.C_0
-    NTC_SHG = mccdaq.DaqChannel.C_8
-    NTC_LASER = mccdaq.DaqChannel.C_9
-    NTC_AOM = mccdaq.DaqChannel.C_9
-    NTC_EOM = mccdaq.DaqChannel.C_2
     NTC_AOM_AMP = mccdaq.DaqChannel.C_10
+    NTC_CELL = mccdaq.DaqChannel.C_0
+    NTC_HEATSINK_A = mccdaq.DaqChannel.C_1  # sensor closer to the side
+    NTC_HEATSINK_B = mccdaq.DaqChannel.C_9  # sensor closer to the back
     NTC_MENLO = mccdaq.DaqChannel.C_3
+    NTC_MO = mccdaq.DaqChannel.C_12
+    NTC_PA = mccdaq.DaqChannel.C_2
+    NTC_SHG = mccdaq.DaqChannel.C_8
+    PD_ISOLATOR = mccdaq.DaqChannel.C_13
+    PD_MIOB = mccdaq.DaqChannel.C_5
+    RAMP_MONITOR = mccdaq.DaqChannel.C_11
+    REF_5V = mccdaq.DaqChannel.C_4
 
 class DdsChannel(enum.IntEnum):
     """The four channels of the DDS device."""
@@ -169,7 +174,7 @@ class Subsystems:
             SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
              (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
-             (DaqInput.PUMP_DIODE, mccdaq.InputRange.PM_5V)],
+             (DaqInput.DETECTOR_PUMP, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
             return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
@@ -182,13 +187,15 @@ class Subsystems:
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
-        channels = [(DaqInput.NTC_AOM, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_EOM, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_LASER, mccdaq.InputRange.PM_5V),
+        # Keep this synchronized with `AuxTemp`!
+        channels = [(DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_MO, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_PA, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MENLO, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V)]
+                    (DaqInput.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_HEATSINK_A, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_HEATSINK_B, mccdaq.InputRange.PM_5V)]
         def fetch_readings() -> List[int]:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
 
