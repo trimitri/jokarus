@@ -39,7 +39,7 @@ def init() -> None:
     """Call this on first import. Don't call it again later."""
     global _is_inited
     if _is_inited:
-        raise RuntimeError("This is a singleton module. Only init() once.")
+        raise RuntimeError('This is a "singleton module". Only init() once.')
     _is_inited = True
 
     root_logger = logging.getLogger()
@@ -50,7 +50,8 @@ def init() -> None:
     # Log to file.
 
     # We need to specify 3600 seconds here instead of one hour, to force
-    # detailed file name suffixes for manual log rotation.
+    # detailed file name suffixes for manual log rotation.  This may lead to
+    # problems if the program is started/stopped multiple times per second.
     write_to_disk = TimedRotatingFileHandler(PROGRAM_LOG_FNAME, when='s',
                                              interval=3600)
     # Start a new file every time pyodine is run.
@@ -83,7 +84,8 @@ def log_quantity(qty_id: str, value: Union[float, str], time: float = None) -> N
     """Append "value" to the logfile of given name.
 
     :param id: This distinguishes logfiles from each other.
-    :param time: Unix time of when the passed "value" was measured.
+    :param time: Unix time of when the passed "value" was measured. If passed,
+                this will be printed in addition to the current time.
     :param value: Value to log. None is fine as well.
     """
     logger = _get_qty_logger(qty_id)

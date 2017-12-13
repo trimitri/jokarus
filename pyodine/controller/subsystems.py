@@ -18,6 +18,7 @@ import numpy as np
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
+from .. import logger
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -41,30 +42,36 @@ Buffer = List[DataPoint]
 # pylint: enable=invalid-name
 
 class AuxTemp(enum.IntEnum):
-    """How to index the array returned by get_aux_temps?"""
-    AOM = 0
-    AOM_AMP = 1
-    CELL = 2
-    EOM = 3
-    LASER = 4
-    MENLO = 5
-    SHG = 6
+    """How to index the array returned by `get_aux_temps()`?"""
+    # Keep this synchronized with `get_aux_temps()`!
+    CELL = 0
+    LD_MO = 1
+    LD_PA = 2
+    SHG = 3
+    MENLO = 4
+    AOM_AMP = 5
+    HEATSINK_A = 6  # sensor closer to the side
+    HEATSINK_B = 7  # sensor closer to the back
 
 class DaqInput:  # pylint: disable=too-few-public-methods
     """The MCC USB1608G-2AO features 16 analog inputs.
 
     Static constants container. Don't instanciate."""
-    REF_5V = mccdaq.DaqChannel.C_4
+    DETECTOR_LINEAR = mccdaq.DaqChannel.C_6
+    DETECTOR_PUMP = mccdaq.DaqChannel.C_14
     ERR_SIGNAL = mccdaq.DaqChannel.C_7
-    RAMP_MONITOR = mccdaq.DaqChannel.C_11
-    PUMP_DIODE = mccdaq.DaqChannel.C_12
-    NTC_CELL = mccdaq.DaqChannel.C_0
-    NTC_SHG = mccdaq.DaqChannel.C_8
-    NTC_LASER = mccdaq.DaqChannel.C_9
-    NTC_AOM = mccdaq.DaqChannel.C_9
-    NTC_EOM = mccdaq.DaqChannel.C_2
     NTC_AOM_AMP = mccdaq.DaqChannel.C_10
+    NTC_CELL = mccdaq.DaqChannel.C_0
+    NTC_HEATSINK_A = mccdaq.DaqChannel.C_1  # sensor closer to the side
+    NTC_HEATSINK_B = mccdaq.DaqChannel.C_9  # sensor closer to the back
     NTC_MENLO = mccdaq.DaqChannel.C_3
+    NTC_MO = mccdaq.DaqChannel.C_12
+    NTC_PA = mccdaq.DaqChannel.C_2
+    NTC_SHG = mccdaq.DaqChannel.C_8
+    PD_ISOLATOR = mccdaq.DaqChannel.C_13
+    PD_MIOB = mccdaq.DaqChannel.C_5
+    RAMP_MONITOR = mccdaq.DaqChannel.C_11
+    REF_5V = mccdaq.DaqChannel.C_4
 
 class DdsChannel(enum.IntEnum):
     """The four channels of the DDS device."""
@@ -114,6 +121,9 @@ class Subsystems:
         # they arrive.
         self._menlo = None  # type: menlo_stack.MenloStack
         self.laser = None  # type: ecdl_mopa.EcdlMopa
+        self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
+        """The event loop all our tasks will run in."""
+
         asyncio.ensure_future(
             asyncio_tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
@@ -123,9 +133,9 @@ class Subsystems:
         # We keep the poller alive to monitor the RS232 connection which got
         # stuck sometimes during testing.
         self._dds = None  # type: dds9_control.Dds9Control
-        asyncio.ensure_future(
-            asyncio_tools.poll_resource(self.dds_alive, 5.5, self.reset_dds,
-                                        continuous=True, name="DDS"))
+        dds_poller = asyncio_tools.poll_resource(
+            self.dds_alive, 15, self.reset_dds, continuous=True, name="DDS")
+        self._dds_poller = self._loop.create_task(dds_poller)  # type: asyncio.Task
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
@@ -164,7 +174,7 @@ class Subsystems:
             SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
              (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
-             (DaqInput.PUMP_DIODE, mccdaq.InputRange.PM_5V)],
+             (DaqInput.DETECTOR_PUMP, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
             return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
@@ -172,27 +182,32 @@ class Subsystems:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
 
-    async def get_aux_temps(self) -> List[float]:
+    async def get_aux_temps(self, dont_log: bool = False) -> List[float]:
         """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
-        channels = [(DaqInput.NTC_AOM, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_EOM, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_LASER, mccdaq.InputRange.PM_5V),
+        # Keep this synchronized with `AuxTemp`!
+        channels = [(DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_MO, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_PA, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MENLO, mccdaq.InputRange.PM_5V),
-                    (DaqInput.NTC_SHG, mccdaq.InputRange.PM_5V)]
+                    (DaqInput.NTC_AOM_AMP, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_HEATSINK_A, mccdaq.InputRange.PM_5V),
+                    (DaqInput.NTC_HEATSINK_B, mccdaq.InputRange.PM_5V)]
         def fetch_readings() -> List[int]:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
 
-        return ms_ntc.to_temperatures(
+        temps = ms_ntc.to_temperatures(
             await asyncio.get_event_loop().run_in_executor(None, fetch_readings))
+        if not dont_log:
+            logger.log_quantity('daq_temps', '\t'.join([str(t) for t in temps]))
+        return temps
 
-    def get_full_set_of_readings(self, since: float = None) -> Dict[str, Buffer]:
+    async def get_full_set_of_readings(self, since: float = None) -> Dict[str, Union[Buffer, Dict]]:
         """Return a dict of all readings, ready to be sent to the client."""
-        data = {}  # type: Dict[str, Buffer]
+        data = {}  # type: Dict[str, Union[Buffer, Dict]]
 
         if self._menlo is None:
             return data
@@ -235,9 +250,6 @@ class Subsystems:
             LOCKBOX_ID, p_only=True, since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOX_ID,
                                                          since=since)
-        data['nu_ramp_amplitude'] = \
-            self._menlo.get_ramp_amplitude(LOCKBOX_ID)
-
         return data
 
     def get_ld_current(self, unit: LdDriver) -> float:
@@ -283,7 +295,7 @@ class Subsystems:
             phases = self._dds.phases
             ext_clock = self._dds.runs_on_ext_clock_source
         except (ConnectionError, AttributeError):
-            LOGGER.error("Couldn't get setup parameters as DDS is offline")
+            LOGGER.warning("Couldn't get setup parameters as DDS is offline")
             return data
 
         data['eom_freq'] = self._wrap_into_buffer(freqs[DdsChannel.EOM])
@@ -386,7 +398,7 @@ class Subsystems:
     async def reset_dds(self) -> None:
         """Reset the connection to the Menlo subsystem.
 
-        This will not raise anything on failure. Check dds_alive() to for
+        This will not raise anything on failure. Use dds_alive() to check
         success.
         """
         # For lack of better understanding of the object destruction mechanism,
@@ -394,9 +406,14 @@ class Subsystems:
         del self._dds
         self._dds = None
         try:
-            attempt = dds9_control.Dds9Control(DDS_PORT)
+            # The DDS class is written in synchronous style although it
+            # contains lots of blocking calls.  Initialization is the heaviest
+            # of them all and is thus run in a thread pool executor.
+            attempt = await self._loop.run_in_executor(
+                None, partial(dds9_control.Dds9Control, DDS_PORT))
         except ConnectionError:
-            LOGGER.exception("Couldn't connect to DDS.")
+            LOGGER.error("Couldn't connect to DDS.")
+            LOGGER.debug("Couldn't connect to DDS.", exc_info=True)
         else:
             LOGGER.info("Successfully (re-)set DDS.")
             self._dds = attempt

@@ -1,7 +1,6 @@
 """Some tools for recurrent I/O tasks."""
 
 import asyncio
-import inspect
 import logging
 import time
 from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union  # pylint: disable=unused-import
@@ -19,7 +18,7 @@ def safe_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
                 arguments, as long as they are passed to me. It's return value
                 is returned if the call succeeds.
     """
-    if inspect.iscoroutinefunction(callback):
+    if asyncio.iscoroutinefunction(callback):
         LOGGER.error("Callback %s is a coroutine function.  This is very "
                      "likely to be a mistake.", callback.__name__)
         LOGGER.debug("Consider using safe_async_call() for async calls.")
@@ -42,7 +41,7 @@ async def async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
                 Can be a regular or a coroutine function.
     :raises Exception: Whatever the challback might raise.
     """
-    if inspect.iscoroutinefunction(callback):
+    if asyncio.iscoroutinefunction(callback):
         return await callback(*args, **kwargs)
     return callback(*args, **kwargs)
 
@@ -59,7 +58,7 @@ async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
                 Can be a regular or a coroutine function.
     """
     try:
-        if inspect.iscoroutinefunction(callback):
+        if asyncio.iscoroutinefunction(callback):
             return await callback(*args, **kwargs)
         return callback(*args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except

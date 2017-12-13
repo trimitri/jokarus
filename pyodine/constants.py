@@ -23,7 +23,7 @@ DAQ_GRANULARITY_V = 20 / 2**16
 This is a 16 bit device.
 """
 
-MIOB_TEMP_RANGE = [20, 30]
+MIOB_TEMP_TUNING_RANGE = [24, 26]
 """Lowest and highest MiOB temperature available to the tuner.
 
 Based on arbitrary guesswork.  Due to the tight current limit on the VHBG TEC,
@@ -39,7 +39,7 @@ This is an estimate taken from the printed MiLas "user guide".
 """
 # TODO: Conduct better measurement of Milas MHz per mA.
 
-LD_MO_TUNING_RANGE = [75, 150]
+LD_MO_TUNING_RANGE = [80, 160]
 """Lowest and highest MO current available to the tuner.
 
 Based on FBH preliminary spec sheet.
