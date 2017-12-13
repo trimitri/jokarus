@@ -2,27 +2,6 @@
 """
 # pylint: disable=invalid-name
 
-DAQ_DELAY_s = 0.2
-"""How long does the DAQ take to physically realize a given setting.
-
-This is guesswork.
-"""
-
-DAQ_RAMP_OFFSET_RANGE_V = [-0.5, 0.5]
-"""The portion of the DAQ range of motion that is used for tuning the laser.
-
-In order to not disturb lockbox railing detection, this is kept at a very small
-range of motion.  We don't need it in JOKARUS anyway, because the "catching
-directional lock" behaviour seems to work and thus we don't need such a fine
-tuner during prelock.
-"""
-
-DAQ_GRANULARITY_V = 20 / 2**16
-"""How fine can the DAQ analog output be set (in Volts)?
-
-This is a 16 bit device.
-"""
-
 MIOB_TEMP_TUNING_RANGE = [24, 26]
 """Lowest and highest MiOB temperature available to the tuner.
 
@@ -118,9 +97,6 @@ MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 # This is about 30% apart from a measurement that the FBH did
 # (Tuningcurve.pdf):
 # MIOB_MHz_K = -4330  # FBH measurement
-
-DAQ_MHz_V = LD_MO_MHz_mA * _LOCKBOX_mA_mV * 1000
-"""How far will the laser tune for 1V of DAQ ramp?"""
 
 LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""

@@ -81,24 +81,6 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         setter=mo_setter,
         name="MO current")
 
-def _spawn_ramp_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
-    """Get a tuner that utilizes the ramp offset for frequency tuning."""
-    ramp = cs.DAQ_RAMP_OFFSET_RANGE_V
-    ramp_range = ramp[1] - ramp[0]
-    def ramp_getter() -> float:
-        return (ramp[1] - subs.get_ramp_offset()) / ramp_range
-
-    def ramp_setter(value: float) -> None:
-        subs.set_ramp_offset(ramp[1] - ramp_range * value)
-
-    return lock_buddy.Tuner(
-        scale=abs(cs.DAQ_MHz_V * ramp_range),
-        granularity=cs.DAQ_GRANULARITY_V / ramp_range,
-        delay=cs.DAQ_DELAY_s,
-        getter=ramp_getter,
-        setter=ramp_setter,
-        name="ramp offset")
-
 def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
 
@@ -145,7 +127,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         lockbox=lockbox,
         scanner=subs.fetch_scan,
         scanner_range=700.,  # FIXME measure correct scaling coefficient.
-        tuners=[_spawn_miob_tuner(subs), _spawn_current_tuner(subs), _spawn_ramp_tuner(subs)],
+        tuners=[_spawn_miob_tuner(subs), _spawn_current_tuner(subs)],
         on_new_signal=on_new_signal)
     return locker
 
