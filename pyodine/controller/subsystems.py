@@ -19,6 +19,7 @@ from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
 from .. import logger
+from .. import constants as cs
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -699,7 +700,14 @@ class Subsystems:
         enable_mo = partial(self._menlo.switch_ld, switch_on=True, unit_number=mo_id)
         enable_pa = partial(self._menlo.switch_ld, switch_on=True, unit_number=pa_id)
 
+        milas = ecdl_mopa.MopaSpec(
+            mo_max=cs.MILAS_MO_MAX,
+            mo_seed=cs.MILAS_MO_SEED,
+            pa_max=cs.MILAS_PA_MAX,
+            pa_transparency=cs.MILAS_PA_TRANSPARENCY,
+            pa_backfire=cs.MILAS_PA_BACKFIRE)
         self.laser = ecdl_mopa.EcdlMopa(
+            laser_specification=milas,
             # _unwrap_buffer may raise if there's no data yet, but EcdlMopa can
             # handle Exceptions raised in callbacks.
             get_mo_callback=lambda: self._unwrap_buffer(get_mo()),
