@@ -175,7 +175,7 @@ class Subsystems:
             SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
              (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
-             (DaqInput.DETECTOR_PUMP, mccdaq.InputRange.PM_5V)],
+             (DaqInput.DETECTOR_LINEAR, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
             return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
