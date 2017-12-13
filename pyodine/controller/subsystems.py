@@ -19,6 +19,7 @@ from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
 from .. import logger
+from .. import constants as cs
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
@@ -388,7 +389,7 @@ class Subsystems:
         del self._daq
         self._daq = None
         try:
-            attempt = mccdaq.MccDaq()
+            attempt = mccdaq.MccDaq(lock_timeout=cs.DAQ_ALLOWABLE_BLOCKING_TIME)
         except ConnectionError:
             LOGGER.exception("Couldn't connect to DAQ.")
         else:

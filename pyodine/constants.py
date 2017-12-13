@@ -2,6 +2,11 @@
 """
 # pylint: disable=invalid-name
 
+DAQ_ALLOWABLE_BLOCKING_TIME = 2
+"""The DAQ may be blocked this many seconds before we assume that something has
+gone wrong.
+"""
+
 DAQ_DELAY_s = 0.2
 """How long does the DAQ take to physically realize a given setting.
 
