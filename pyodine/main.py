@@ -34,12 +34,12 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MiOB temperature for frequency tuning."""
     def get_miob_temp() -> float:
-        """Temperature of the micro-optical bench."""
+        """Normalized temperature of the micro-optical bench."""
         # This might raise a ConnectionError, but we don't catch here to
         # prevent the locker from going rogue with some NaNs.
         temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
-        low = cs.MIOB_TEMP_RANGE[0]
-        high = cs.MIOB_TEMP_RANGE[1]
+        low = cs.MIOB_TEMP_TUNING_RANGE[0]
+        high = cs.MIOB_TEMP_TUNING_RANGE[1]
 
         if not temp > low or not temp < high:
             raise RuntimeError("MiOB temperature out of tuning range.")
@@ -48,12 +48,14 @@ def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         return (high - temp) / (high - low)
 
     def set_miob_temp(value: float) -> None:
+        """Set normalized temperature of the micro-optical bench."""
         # The MiLas has a negative thermal tuning coefficient, which has us
         # reverse this.
-        temp = cs.MIOB_TEMP_RANGE[1] - (value * (cs.MIOB_TEMP_RANGE[1] - cs.MIOB_TEMP_RANGE[0]))
+        temp = cs.MIOB_TEMP_TUNING_RANGE[1] - \
+               (value * (cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]))
         subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
-    abs_range = cs.MIOB_TEMP_RANGE[1] - cs.MIOB_TEMP_RANGE[0]
+    abs_range = cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]
     return lock_buddy.Tuner(
         scale=abs(abs_range * cs.MIOB_MHz_K),
         granularity=cs.TEC_GRANULARITY_K / abs_range,
