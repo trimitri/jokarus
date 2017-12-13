@@ -1,6 +1,6 @@
 """A generic driver for the combined current drivers of an ECDL MOPA.
 
-As a "Master Oscillator"-"Power Amplifier" setup does not allow for arbitrary
+A "Master Oscillator"-"Power Amplifier" setup does not allow for arbitrary
 combinations of MO and PA current which is why the fitness of every state
 change must be checked before it is applied.
 """
@@ -10,27 +10,27 @@ from typing import Callable
 
 LOGGER = logging.getLogger('ecdl_mopa')
 
-MopaSpec = collections.namedtuple('MopaSpec', [
-    'mo_max',   # Absolute max. current for master oscillator
-    'mo_seed',  # MO begins to lase, significant enough to seed the PA
-    'pa_max',   # Absolute max. current for power amplifier
-    'pa_transparency',  # PA becomes about transparent at this current
+MopaSpec = collections.namedtuple(
+    'MopaSpec', ['mo_max', 'mo_seed', 'pa_max', 'pa_transparency', 'pa_backfire'])
+"""A set of current limits describing a particular MOPA laser.
 
-    # PA population inversion is high enough to cause damage if not seeded.
-    'pa_backfire'])
+The members obviously can't be set arbitrarily.  Choosing sensible settings is
+left to the informed user. All settings are in milliamps:
 
-
-MILAS = MopaSpec(mo_max=200, mo_seed=50,
-                 pa_max=1610, pa_transparency=200, pa_backfire=300)
-DUMMY_SPEC = MopaSpec(0, 0, 0, 0, 0)
-
+`mo_max`: The MO current must never exceed this many mA.
+`mo_seed`: At this current, the MO lases enough to safely seed the PA.  The PA
+            may thus be used in its full range only as long as the MO runs
+            above this threshold.
+`pa_max`: The PA current must never exceed this many mA.
+`pa_transparency`: At this current, the PA is "transparent enough" (i.e. it
+            actually amplifies instead of absorbing) to receive the full MO
+            power.
+`pa_backfire`:  Below this current, ASE from the _unseeded_ PA is weak enough
+            to not damage any internal laser component whatsoever.
+"""
 
 class CallbackError(RuntimeError):
-    """There was an error executing one of the callbacks.
-
-    As the callback functions are supposed to not raise any exceptions, this is
-    most definitely an indicator for a necessary subsystem reset.
-    """
+    """There was an error executing one of the callbacks."""
     pass
 
 
@@ -51,9 +51,7 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
     a ValueError in case the current operating regime forbids the requested
     action.
     """
-    def __init__(self,  # pylint: disable=too-many-arguments
-                 # pylint: disable=unsubscriptable-object
-                 get_mo_callback: Callable[[], float],
+    def __init__(self, get_mo_callback: Callable[[], float],
                  set_mo_callback: Callable[[float], None],
                  get_pa_callback: Callable[[], float],
                  set_pa_callback: Callable[[float], None],
@@ -61,8 +59,7 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
                  disable_mo_callback: Callable[[], None],
                  enable_pa_callback: Callable[[], None],
                  disable_pa_callback: Callable[[], None],
-                 # pylint: enable=unsubscriptable-object
-                 laser_specification: MopaSpec = MILAS) -> None:
+                 laser_specification: MopaSpec) -> None:
         self._spec = laser_specification
         self._get_mo_current = get_mo_callback
         self._set_mo_current = set_mo_callback
