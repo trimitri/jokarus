@@ -18,7 +18,7 @@ import numpy as np
 from . import logger
 from . import constants as cs
 from .controller import (interfaces, instruction_handler, lock_buddy, subsystems)
-from .util import asyncio_tools
+from .util import asyncio_tools, git_adapter
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -196,6 +196,8 @@ if __name__ == '__main__':
     if not logger.is_ok:
         # FIXME: make sure this doesn't fire unexpectedly (#123)
         raise OSError("Failed to set up logging.")
+    logger.log_quantity('git_revision',
+                        asyncio_tools.safe_call(git_adapter.get_revision))
 
     logger.start_flushing_regularly(7)  # Write data to disk every 7 seconds.
     try:
