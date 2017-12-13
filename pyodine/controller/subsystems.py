@@ -250,13 +250,6 @@ class Subsystems:
             LOCKBOX_ID, p_only=True, since=since)
         data['nu_monitor'] = self._menlo.get_pii_monitor(LOCKBOX_ID,
                                                          since=since)
-        data['nu_ramp_amplitude'] = \
-            self._menlo.get_ramp_amplitude(LOCKBOX_ID)
-
-        # DAQ readings
-        aux_temps = await self.get_aux_temps()
-        data['aux_temps'] = {sensor.name: aux_temps[sensor] for sensor in AuxTemp}
-
         return data
 
     def get_ld_current(self, unit: LdDriver) -> float:
