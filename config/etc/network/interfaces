@@ -17,10 +17,16 @@ iface enp2s0 inet static
 # The secondary network interface. The server will be accessible through that
 # interface. It is hardcoded to the "icarus.physik.hu-berlin.de" IP to make it
 # work in the HU network as well as when directly connected to a control PC.
+# auto ens1
+# iface ens1 inet static
+# 	address 141.20.43.210
+# 	netmask 255.255.248.0
+# 	gateway 141.20.40.1
+# 	dns-nameservers 141.20.40.2 141.20.40.1
+# 	dns-search physik.hu-berlin.de hu-berlin.de
+
+# The Menlo network config for the external interface.
 auto ens1
 iface ens1 inet static
-	address 141.20.43.210
-	netmask 255.255.248.0
-	gateway 141.20.40.1
-	dns-nameservers 141.20.40.2 141.20.40.1
-	dns-search physik.hu-berlin.de hu-berlin.de
+	address 10.0.3.150
+	netmask 255.255.252.0
