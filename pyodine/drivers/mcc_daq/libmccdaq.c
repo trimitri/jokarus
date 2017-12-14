@@ -252,6 +252,11 @@ Error SampleChannels(
   return kSuccess;
 }
 
+int Sleep(const uint n_seconds) {
+  sleep(n_seconds);
+  return 0;
+}
+
 void Triangle() {
 
   // holds 16 bit unsigned analog output data

@@ -45,6 +45,7 @@ class Interfaces:
         self._texus = None  # type: texus_relay.TexusRelay
         self._subs = subsystem_controller
         self._locker = locker
+        self._loop = asyncio.get_event_loop()
         self._rcv_callback = on_receive
         self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], Union[Awaitable[None], None]]  # pylint: disable=line-too-long
         """If set, this handles timer change events."""
@@ -96,7 +97,8 @@ class Interfaces:
                                    flags_interval: float,
                                    setup_interval: float,
                                    signal_interval: float,
-                                   status_update_interval: float) -> None:
+                                   status_update_interval: float,
+                                   aux_temps_interval: float) -> asyncio.Task:
         """Schedule asyncio tasks to publish data regularly.
 
         This includes the following types of data:
@@ -127,21 +129,26 @@ class Interfaces:
                     interval specified here.  Set to zero to never request
                     those params.
         """
+        services = []  # type: List[Awaitable]
         if signal_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_error_signal, signal_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_error_signal,
+                                                      signal_interval))
         if flags_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_flags, flags_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_flags,
+                                                      flags_interval))
         if readings_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_readings, readings_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_readings,
+                                                      readings_interval))
         if setup_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_setup_parameters, setup_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_setup_parameters,
+                                                      setup_interval))
         if status_update_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self._subs.refresh_status, status_update_interval))
+            services.append(asyncio_tools.repeat_task(self._subs.refresh_status,
+                                                      status_update_interval))
+        if aux_temps_interval > 0:
+            services.append(asyncio_tools.repeat_task(self.publish_aux_temps,
+                                                      aux_temps_interval))
+        return asyncio.gather(*services)
 
     async def publish_error_signal(self) -> None:
         """Publish the most recently acquired error signal.
@@ -200,6 +207,18 @@ class Interfaces:
         LOGGER.debug("Scheduling setup parameter publication.")
         data = self._subs.get_setup_parameters()
         await self._publish_message(packer.create_message(data, 'setup'), 'setup')
+
+    async def publish_aux_temps(self) -> None:
+        """Acquire and publish DAQ temperature readings.
+
+        As acquiring the DAQ readings is a blocking operation, this must not be
+        called too frequently.
+        """
+        aux_temps = await self._subs.get_aux_temps()
+        human_readable = {sensor.name: aux_temps[sensor]
+                          for sensor in subsystems.AuxTemp}
+        await self._publish_message(packer.create_message(human_readable, 'aux_temps'),
+                                    'aux_temps')
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         """Set an outgoing "Jokarus" flag."""
