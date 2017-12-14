@@ -131,26 +131,24 @@ class Interfaces:
         """
         services = []  # type: List[Awaitable]
         if signal_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_error_signal, signal_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_error_signal,
+                                                      signal_interval))
         if flags_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_flags, flags_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_flags,
+                                                      flags_interval))
         if readings_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_readings, readings_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_readings,
+                                                      readings_interval))
         if setup_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self.publish_setup_parameters, setup_interval))
+            services.append(asyncio_tools.repeat_task(self.publish_setup_parameters,
+                                                      setup_interval))
         if status_update_interval > 0:
-            asyncio.ensure_future(asyncio_tools.repeat_task(
-                self._subs.refresh_status, status_update_interval))
+            services.append(asyncio_tools.repeat_task(self._subs.refresh_status,
+                                                      status_update_interval))
         if aux_temps_interval > 0:
             services.append(asyncio_tools.repeat_task(self.publish_aux_temps,
                                                       aux_temps_interval))
-        # Return a Task that groups all the services.  This may be used to
-        # cancel or monitor stuff.
-        return self._loop.create_task(asyncio.gather(*services))
+        return asyncio.gather(*services)
 
     async def publish_error_signal(self) -> None:
         """Publish the most recently acquired error signal.
