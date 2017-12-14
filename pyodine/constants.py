@@ -2,6 +2,16 @@
 """
 # pylint: disable=invalid-name
 
+DAQ_ALLOWABLE_BLOCKING_TIME = 2
+"""The DAQ may be blocked this many seconds before we assume that something has
+gone wrong.
+"""
+
+MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
+"""Those types of messages can be sent out by pyodine.  Messages of types that
+are not in this list will be dropped and not published.
+"""
+
 MIOB_TEMP_TUNING_RANGE = [24, 26]
 """Lowest and highest MiOB temperature available to the tuner.
 
@@ -100,5 +110,20 @@ MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 
 LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""
+
+#####################
+# MiLas laser specs #
+#####################
+
+MILAS_MO_MAX = 180
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_MO_SEED = 60
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_MAX = 1550
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_TRANSPARENCY = 200
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_BACKFIRE = 260
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 
 # pylint: enable=invalid-name
