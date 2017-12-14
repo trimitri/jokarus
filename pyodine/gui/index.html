@@ -55,644 +55,623 @@
 		</section>
 		<div class="tabs">
 			<ul>
-				<li><a href="#tab_logging">Logging and I/O</a></li>
-				<li><a href="#tab_control">Runtime Control</a></li>
-				<li><a href="#tab_setup">Setup and State</a></li>
+				<li><a href="#tab_texus">TEXUS Relay</a></li>
+				<li><a href="#tab_osc">Laser</a></li>
+				<li><a href="#tab_pii">Lock</a></li>
+				<li><a href="#tab_rf">RF Chain and Power Supply</a></li>
+				<li><a href="#tab_temps">Temperatures</a></li>
 			</ul>
-			<section id="tab_logging">
-				<div class="tabs">
-					<ul>
-						<li><a href="#tab_texus">TEXUS Relay</a></li>
-					</ul>
-					<div id="tab_texus" class="flex_container">
-						<div class="layout_block">
-							<h2>Incoming Flags</h2>
-							<table id="incoming_flags" class="flags">
-								<tr>
-									<th>Signal</th>
-									<th>State</th>
-									<th>Changed</th>
-									<th>Updated</th>
-								</tr>
-								<tr data-flag="liftoff">
-									<th class="title">LiftOff</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="microg">
-									<th class="title">3-Axis Go</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex1">
-									<th class="title">TEXUS 1</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex2">
-									<th class="title">TEXUS 2</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex3">
-									<th class="title">TEXUS 3</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex4">
-									<th class="title">TEXUS 4</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex5">
-									<th class="title">TEXUS 5</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr data-flag="tex6">
-									<th class="title">TEXUS 6</th>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-							</table>
-						</div>
-						<div class="layout_block">
-							<h2>Outgoing Flags</h2>
-							<table id="outgoing_flags" class="flags">
-								<tr>
-									<th>Signal</th>
-									<th>
-										Set 
-										<label>
-											(enable
-											<input type="checkbox" data-safety-switch="#outgoing_flags input.switch" />)
-										</label>
-									</th>
-									<th>State</th>
-									<th>Changed</th>
-									<th>Updated</th>
-								</tr>
-								<tr class="flag" data-flag="jok1">
-									<th class="title">Signal 1</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled="disabled" type="button" value="On" />
-										<input class="switch off" disabled="disabled" type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok2">
-									<th class="title">Signal 2</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled="1" type="button" value="On" />
-										<input class="switch off" disabled="1" type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok3">
-									<th class="title">Signal 3</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled="1" type="button" value="On" />
-										<input class="switch off" disabled="1" type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-								<tr class="flag" data-flag="jok4">
-									<th class="title">Signal 4</th>
-									<td class="set" title="enable above">
-										<input class="switch on" disabled="1" type="button" value="On" />
-										<input class="switch off" disabled="1" type="button" value="Off" />
-									</td>
-									<td class="indicator">N/A</td>
-									<td class="changed">Never</td>
-									<td class="updated">Never</td>
-								</tr>
-							</table>
-						</div>
-					</div>
+			<div id="tab_texus" class="flex_container">
+				<div class="layout_block">
+					<h2>Incoming Flags</h2>
+					<table id="incoming_flags" class="flags">
+						<tr>
+							<th>Signal</th>
+							<th>State</th>
+							<th>Changed</th>
+							<th>Updated</th>
+						</tr>
+						<tr data-flag="liftoff">
+							<th class="title">LiftOff</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="microg">
+							<th class="title">3-Axis Go</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex1">
+							<th class="title">TEXUS 1</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex2">
+							<th class="title">TEXUS 2</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex3">
+							<th class="title">TEXUS 3</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex4">
+							<th class="title">TEXUS 4</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex5">
+							<th class="title">TEXUS 5</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr data-flag="tex6">
+							<th class="title">TEXUS 6</th>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+					</table>
 				</div>
-			</section>
-			<section id="tab_control">
-				<div class="tabs">
-					<ul>
-						<li><a href="#tab_osc">Laser</a></li>
-						<li><a href="#tab_pii">Lock</a></li>
-					</ul>
-					<div id="tab_osc" class="flex_container">
-						<div class="layout_block osc">  <!-- Master Oscillator -->
-							<div class="osc_plot"
-								data-title="MO Current & VHBG Temperature"
-								data-current1="mo_current"
-								data-current1-set="mo_current_set"
-								data-tec-current="vhbg_tec_current"
-								data-temp="vhbg_temp"
-								data-temp-set="vhbg_temp_set"
-								data-temp-raw-set="vhbg_temp_raw_set"></div>
-							<div class="controls">
-								<h2>MO Current & VHBG Temperature</h2>
-								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch=".mo_controls input" />
-									</label>
-								</p>
-								<div class="mo_controls">
-									<table>
-										<tr>
-											<td></td>
-											<th>TEC</th>
-											<th>LD Driver</th>
-										</tr>
-										<tr>
-											<th>State</th>
-											<td class="indicator" data-qty="vhbg_tec_enabled">N/A</td>
-											<td class="indicator" data-qty="mo_enabled">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="vhbg_tec_enabled">Never</td>
-											<td class="update_indicator" data-qty="mo_enabled">Never</td>
-										</tr>
-										<tr>
-											<th>Switch</th>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["vhbg", true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["vhbg", false]' />
-											</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_mo" data-arguments="[true]" />
-												<input type="button" class="command" value="Off"
-													data-method="switch_mo" data-arguments="[false]" />
-											</td>
-										</tr>
-										<tr>
-											<th>Temp OK</th>
-											<td class="indicator" data-qty="vhbg_temp_ok" data-text-true="OK"
-												data-text-false="not OK">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="vhbg_temp_ok">Never</td>
-										</tr>
-									</table>
-									<h3>Setpoints</h3>
-									<p>
-										Temperature Ramp:
-										<input type="number" class="source" data-qty="vhbg_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="vhbg_temp_set" value="Set" />
-									</p>
-									<div>
-										Ramp:
-										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[2, true]' />
-										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[2, false]' />
-										<p>
-											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="vhbg_temp_raw_set"
-												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="vhbg_temp_raw_set" value="Set" />
-										</p>
-										<p>
-											Diode Current:
-											<input type="number" class="source" data-qty="mo_current_set" step="any" />&thinsp;mA
-											<input type="button" class="setter" data-qty="mo_current_set" value="Set" />
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="layout_block osc">  <!-- Power amplifier -->
-							<div class="osc_plot"
-								data-title="PA Current and MiOB Temperature"
-								data-current1="pa_current"
-								data-current1-set="pa_current_set"
-								data-tec-current="miob_tec_current"
-								data-temp="miob_temp"
-								data-temp-set="miob_temp_set"
-								data-temp-raw-set="miob_temp_raw_set"></div>
-							<div class="controls">
-								<h2>PA Current & MiOB Temperature</h2>
-								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch=".pa_controls input" />
-									</label>
-								</p>
-								<div class="pa_controls">
-									<table>
-										<tr>
-											<td></td>
-											<th>TEC</th>
-											<th>LD Driver</th>
-										</tr>
-										<tr>
-											<th>State</th>
-											<td class="indicator" data-qty="miob_tec_enabled">N/A</td>
-											<td class="indicator" data-qty="pa_enabled">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="miob_tec_enabled">Never</td>
-											<td class="update_indicator" data-qty="pa_enabled">Never</td>
-										</tr>
-										<tr>
-											<th>Switch</th>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["miob", true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["miob", false]' />
-											</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_pa" data-arguments="[true]" />
-												<input type="button" class="command" value="Off"
-													data-method="switch_pa" data-arguments="[false]" />
-											</td>
-										</tr>
-										<tr>
-											<th>Temp OK</th>
-											<td class="indicator" data-qty="miob_temp_ok" data-text-true="OK"
-												data-text-false="not OK">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="miob_temp_ok">Never</td>
-										</tr>
-									</table>
-									<h3>Setpoints</h3>
-									<p>
-										Temperature Ramp:
-										<input type="number" class="source" data-qty="miob_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="miob_temp_set" value="Set" />
-									</p>
-									<div>
-										Ramp:
-										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[1, true]' />
-										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[1, false]' />
-										<p>
-											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="miob_temp_raw_set"
-												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="miob_temp_raw_set" value="Set" />
-										</p>
-										<p>
-											Diode Current:
-											<input type="number" class="source" data-qty="pa_current_set" step="any" />&thinsp;mA
-											<input type="button" class="setter" data-qty="pa_current_set" value="Set" />
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div id="tab_pii" class="flex_container">
-						<div class="layout_block pii">
-							<div class="pii plot" data-unit-name="nu"></div>
-							<div class="controls">
-								<h2>Frequency Lock</h2>
-								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch=".nu_controls input" />
-									</label>
-								</p>
-								<div class="nu_controls">
-									<table>
-										<tr>
-											<td></td>
-											<th>State</th>
-											<th>Updated</th>
-											<th>Switch</th>
-										</tr>
-										<tr>
-											<th>Enable Lock</th>
-											<td class="indicator" data-qty="nu_lock_enabled">N/A</td>
-											<td class="update_indicator" data-qty="nu_lock_enabled">Never</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_nu_lock" data-arguments='[true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_nu_lock" data-arguments='[false]' />
-											</td>
-										</tr>
-										<tr>
-											<th>Integrator 1</th>
-											<td class="indicator" data-qty="nu_i1_enabled">N/A</td>
-											<td class="update_indicator" data-qty="nu_i1_enabled">Never</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_integrator" data-arguments='[1, true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_integrator" data-arguments='[1, false]' />
-											</td>
-										</tr>
-										<tr>
-											<th>Integrator 2</th>
-											<td class="indicator" data-qty="nu_i2_enabled">N/A</td>
-											<td class="update_indicator" data-qty="nu_i2_enabled">Never</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_integrator" data-arguments='[2, true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_integrator" data-arguments='[2, false]' />
-											</td>
-										</tr>
-										<tr>
-											<th>Enable Ramp</th>
-											<td class="indicator" data-qty="nu_ramp_enabled">N/A</td>
-											<td class="update_indicator" data-qty="nu_ramp_enabled">Never</td>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_nu_ramp" data-arguments='[true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_nu_ramp" data-arguments='[false]' />
-											</td>
-										</tr>
-									</table>
-									<h3>Parameters</h3>
-									<p>
-										P Gain (see Menlo spec sheet):<br />
-										<input type="number" class="source" data-qty="nu_prop" min="-2300" max="2300" step="10" />
-										<input type="button" class="setter" data-qty="nu_prop" value="Set" />
-									</p>
-									<p>
-										P Stage Offset Compensation (&minus;2300 &ndash; 2300):<br />
-										<input type="number" class="source" data-qty="nu_offset" min="-2300" max="2300" step="10" />
-										<input type="button" class="setter" data-qty="nu_offset" value="Set" />
-									</p>
-									<p>
-										Ramp Amplitude:
-										<input type="number" class="source" data-qty="nu_ramp_amplitude" step="any" />&thinsp;mV
-										<input type="button" class="setter" data-qty="nu_ramp_amplitude" value="Set" />
-									</p>
-								</div>
-							</div>
-						</div>
-						<div class="layout_block signal">
-							<p>
+				<div class="layout_block">
+					<h2>Outgoing Flags</h2>
+					<table id="outgoing_flags" class="flags">
+						<tr>
+							<th>Signal</th>
+							<th>
+								Set 
 								<label>
-									<input type="checkbox" id="plotVsRamp" />
-									&ensp;Use ramp value as x axis.</label>
-							</p>
-							<div id="signalPlot" class="signal plot"></div>
-						</div>
-					</div>
+									(enable
+									<input type="checkbox" data-safety-switch="#outgoing_flags input.switch" />)
+								</label>
+							</th>
+							<th>State</th>
+							<th>Changed</th>
+							<th>Updated</th>
+						</tr>
+						<tr class="flag" data-flag="jok1">
+							<th class="title">Signal 1</th>
+							<td class="set" title="enable above">
+								<input class="switch on" disabled="disabled" type="button" value="On" />
+								<input class="switch off" disabled="disabled" type="button" value="Off" />
+							</td>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr class="flag" data-flag="jok2">
+							<th class="title">Signal 2</th>
+							<td class="set" title="enable above">
+								<input class="switch on" disabled="1" type="button" value="On" />
+								<input class="switch off" disabled="1" type="button" value="Off" />
+							</td>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr class="flag" data-flag="jok3">
+							<th class="title">Signal 3</th>
+							<td class="set" title="enable above">
+								<input class="switch on" disabled="1" type="button" value="On" />
+								<input class="switch off" disabled="1" type="button" value="Off" />
+							</td>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+						<tr class="flag" data-flag="jok4">
+							<th class="title">Signal 4</th>
+							<td class="set" title="enable above">
+								<input class="switch on" disabled="1" type="button" value="On" />
+								<input class="switch off" disabled="1" type="button" value="Off" />
+							</td>
+							<td class="indicator">N/A</td>
+							<td class="changed">Never</td>
+							<td class="updated">Never</td>
+						</tr>
+					</table>
 				</div>
-			</section>
-			<section id="tab_setup">
-				<div class="tabs">
-					<ul>
-						<li><a href="#tab_rf">RF Chain and Power Supply</a></li>
-						<li><a href="#tab_temps">Temperatures</a></li>
-					</ul>
-					<section id="tab_rf">
-						<h2>RF Chain</h2>
+			</div>
+			<div id="tab_osc" class="flex_container">
+				<div class="layout_block osc">  <!-- Master Oscillator -->
+					<div class="osc_plot"
+						data-title="MO Current & VHBG Temperature"
+						data-current1="mo_current"
+						data-current1-set="mo_current_set"
+						data-tec-current="vhbg_tec_current"
+						data-temp="vhbg_temp"
+						data-temp-set="vhbg_temp_set"
+						data-temp-raw-set="vhbg_temp_raw_set"></div>
+					<div class="controls">
+						<h2>MO Current & VHBG Temperature</h2>
 						<p>
 							<label>
 								Unlock controls
-								<input type="checkbox" data-safety-switch=".setup_controls input" />
+								<input type="checkbox" data-safety-switch=".mo_controls input" />
 							</label>
 						</p>
-						<div class="setup_controls">
-							<div>
-								<h3>Clock Source</h3>
-								<p>
-									Use external OCXO:
-									<span class="indicator" data-qty="rf_use_external_clock" data-text-true="external"
-										data-text-false="internal">N/A</span>
-								</p>
-								<p>
-									Set to:
-									<input type="button" class="command" value="external"
-										data-method="switch_rf_clock_source" data-arguments='["external"]' />
-									<input type="button" class="command" value="internal"
-										data-method="switch_rf_clock_source" data-arguments='["internal"]' />
-								</p>
-							</div>
-							<h3>Acousto-Optic Modulator</h3>
+						<div class="mo_controls">
+							<table>
+								<tr>
+									<td></td>
+									<th>TEC</th>
+									<th>LD Driver</th>
+								</tr>
+								<tr>
+									<th>State</th>
+									<td class="indicator" data-qty="vhbg_tec_enabled">N/A</td>
+									<td class="indicator" data-qty="mo_enabled">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="vhbg_tec_enabled">Never</td>
+									<td class="update_indicator" data-qty="mo_enabled">Never</td>
+								</tr>
+								<tr>
+									<th>Switch</th>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_tec" data-arguments='["vhbg", true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_tec" data-arguments='["vhbg", false]' />
+									</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_mo" data-arguments="[true]" />
+										<input type="button" class="command" value="Off"
+											data-method="switch_mo" data-arguments="[false]" />
+									</td>
+								</tr>
+								<tr>
+									<th>Temp OK</th>
+									<td class="indicator" data-qty="vhbg_temp_ok" data-text-true="OK"
+										data-text-false="not OK">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="vhbg_temp_ok">Never</td>
+								</tr>
+							</table>
+							<h3>Setpoints</h3>
 							<p>
-								Frequency:&emsp;
-								<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz&emsp;
-								<input type="button" class="setter" data-qty="aom_freq" value="Set" />
-							</p>
-							<p>
-								Amplitude:&emsp;
-								0 &leq;
-								<input type="number" class="source" data-qty="aom_amplitude"
-									min="0" max="1" step="0.01" />
-								&leq; 1&emsp;
-								<input type="button" class="setter" data-qty="aom_amplitude" value="Set" />
-							</p>
-							<h3>Sidebands (EOM/Mixer modulation/demodulation)</h3>
-							<p>
-								Frequency:&emsp;
-								<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz&emsp;
-							</p>
-							<p>
-								Offset:&emsp;
-								<span class="offset options">
-									<input type="number" class="source" data-qty="mixer_phase_us" min="0" step="0.1" />
-									μs (2&thinsp;π ≙ <span id="ms_per_cycle">[...]</span>&thinsp;μs)
-									<br/>
-									<input type="number" class="source"
-										data-qty="mixer_offset_freq" min="0" step="0.01" /> &thinsp;kHz
-								</span>&emsp;
-								<input type="button" id="mod_demod_settings" value="Set" />
-							</p>
-							<p>
-								EOM Amplitude:&emsp;
-								0 &leq;
-								<input type="number" class="source" data-qty="eom_amplitude"
-									min="0" max="1" step="0.01" />
-								&leq; 1&emsp;
-								<input type="button" class="setter" data-qty="eom_amplitude" value="Set" />
-							</p>
-							<p>
-								Mixer Amplitude:&emsp;
-								0 &leq;
-								<input type="number" class="source" data-qty="mixer_amplitude"
-									min="0" max="1" step="0.01" />
-								&leq; 1&emsp;
-								<input type="button" class="setter" data-qty="mixer_amplitude" value="Set" />
-							</p>
-							<p>
-								Mixer Phase:&emsp;
-								<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°&emsp;
-								<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
+								Temperature Ramp:
+								<input type="number" class="source" data-qty="vhbg_temp_set" step="0.01" />&thinsp;°C
+								<input type="button" class="setter" data-qty="vhbg_temp_set" value="Set" />
 							</p>
 							<div>
-								<div class="slider" data-qty="mixer_phase"
-									data-min="0" data-max="360" data-step="0.1" data-unit="°">
-									<div class="ui-slider-handle"></div>
-								</div>
-							</div>
-						</div>
-					</section>
-					<section id="tab_temps">
-						<div class="layout_block osc">
-							<div class="osc_plot"
-								data-title="Probe Beam SHG"
-								data-tec-current="shga_tec_current"
-								data-temp="shga_temp"
-								data-temp-set="shga_temp_set"
-								data-temp-raw-set="shga_temp_raw_set"></div>
-							<div class="controls">
-								<h2>Probe Beam SHG</h2>
+								Ramp:
+								<input type="button" class="command" value="Resume/Start"
+									data-method="switch_temp_ramp" data-arguments='[2, true]' />
+								<input type="button" class="command" value="Stop"
+									data-method="switch_temp_ramp" data-arguments='[2, false]' />
 								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch=".osc_controls.shga input" />
-									</label>
+									Temperature (raw, use caution!):
+									<input type="number" class="source" data-qty="vhbg_temp_raw_set"
+										step="0.01" />&thinsp;°C
+									<input type="button" class="setter" data-qty="vhbg_temp_raw_set" value="Set" />
 								</p>
-								<div class="osc_controls shga">
-									<table>
-										<tr>
-											<td></td>
-											<th>TEC</th>
-										</tr>
-										<tr>
-											<th>State</th>
-											<td class="indicator" data-qty="shga_tec_enabled">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="shga_tec_enabled">Never</td>
-										</tr>
-										<tr>
-											<th>Switch</th>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["shga", true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["shga", false]' />
-											</td>
-										</tr>
-										<tr>
-											<th>Temp OK</th>
-											<td class="indicator" data-qty="shga_temp_ok" data-text-true="OK"
-												data-text-false="not OK">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="shga_temp_ok">Never</td>
-										</tr>
-									</table>
-									<h3>Setpoints</h3>
-									<p>
-										Temperature Ramp:
-										<input type="number" class="source" data-qty="shga_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="shga_temp_set" value="Set" />
-									</p>
-									<div>
-										Ramp:
-										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[4, true]' />
-										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[4, false]' />
-										<p>
-											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="shga_temp_raw_set"
-												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="shga_temp_raw_set" value="Set" />
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="layout_block osc">
-							<div class="osc_plot"
-								data-title="Pump Beam SHG"
-								data-tec-current="shgb_tec_current"
-								data-temp="shgb_temp"
-								data-temp-set="shgb_temp_set"
-								data-temp-raw-set="shgb_temp_raw_set"></div>
-							<div class="controls">
-								<h2>Pump Beam SHG</h2>
 								<p>
-									<label>
-										Unlock controls
-										<input type="checkbox" data-safety-switch=".osc_controls.shgb input" />
-									</label>
+									Diode Current:
+									<input type="number" class="source" data-qty="mo_current_set" step="any" />&thinsp;mA
+									<input type="button" class="setter" data-qty="mo_current_set" value="Set" />
 								</p>
-								<div class="osc_controls shgb">
-									<table>
-										<tr>
-											<td></td>
-											<th>TEC</th>
-										</tr>
-										<tr>
-											<th>State</th>
-											<td class="indicator" data-qty="shgb_tec_enabled">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="shgb_tec_enabled">Never</td>
-										</tr>
-										<tr>
-											<th>Switch</th>
-											<td>
-												<input type="button" class="command" value="On"
-													data-method="switch_tec" data-arguments='["shgb", true]' />
-												<input type="button" class="command" value="Off"
-													data-method="switch_tec" data-arguments='["shgb", false]' />
-											</td>
-										</tr>
-										<tr>
-											<th>Temp OK</th>
-											<td class="indicator" data-qty="shgb_temp_ok" data-text-true="OK"
-												data-text-false="not OK">N/A</td>
-										</tr>
-										<tr>
-											<th>Updated</th>
-											<td class="update_indicator" data-qty="shgb_temp_ok">Never</td>
-										</tr>
-									</table>
-									<h3>Setpoints</h3>
-									<p>
-										Temperature Ramp:
-										<input type="number" class="source" data-qty="shgb_temp_set" step="0.01" />&thinsp;°C
-										<input type="button" class="setter" data-qty="shgb_temp_set" value="Set" />
-									</p>
-									<div>
-										Ramp:
-										<input type="button" class="command" value="Resume/Start"
-											data-method="switch_temp_ramp" data-arguments='[3, true]' />
-										<input type="button" class="command" value="Stop"
-											data-method="switch_temp_ramp" data-arguments='[3, false]' />
-										<p>
-											Temperature (raw, use caution!):
-											<input type="number" class="source" data-qty="shgb_temp_raw_set"
-												step="0.01" />&thinsp;°C
-											<input type="button" class="setter" data-qty="shgb_temp_raw_set" value="Set" />
-										</p>
-									</div>
-								</div>
 							</div>
 						</div>
-						<div class="layout_block temps">
-							<div class="wide plot" id="temp_monitor"></div>
+					</div>
+				</div>
+				<div class="layout_block osc">  <!-- Power amplifier -->
+					<div class="osc_plot"
+						data-title="PA Current and MiOB Temperature"
+						data-current1="pa_current"
+						data-current1-set="pa_current_set"
+						data-tec-current="miob_tec_current"
+						data-temp="miob_temp"
+						data-temp-set="miob_temp_set"
+						data-temp-raw-set="miob_temp_raw_set"></div>
+					<div class="controls">
+						<h2>PA Current & MiOB Temperature</h2>
+						<p>
+							<label>
+								Unlock controls
+								<input type="checkbox" data-safety-switch=".pa_controls input" />
+							</label>
+						</p>
+						<div class="pa_controls">
+							<table>
+								<tr>
+									<td></td>
+									<th>TEC</th>
+									<th>LD Driver</th>
+								</tr>
+								<tr>
+									<th>State</th>
+									<td class="indicator" data-qty="miob_tec_enabled">N/A</td>
+									<td class="indicator" data-qty="pa_enabled">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="miob_tec_enabled">Never</td>
+									<td class="update_indicator" data-qty="pa_enabled">Never</td>
+								</tr>
+								<tr>
+									<th>Switch</th>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_tec" data-arguments='["miob", true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_tec" data-arguments='["miob", false]' />
+									</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_pa" data-arguments="[true]" />
+										<input type="button" class="command" value="Off"
+											data-method="switch_pa" data-arguments="[false]" />
+									</td>
+								</tr>
+								<tr>
+									<th>Temp OK</th>
+									<td class="indicator" data-qty="miob_temp_ok" data-text-true="OK"
+										data-text-false="not OK">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="miob_temp_ok">Never</td>
+								</tr>
+							</table>
+							<h3>Setpoints</h3>
+							<p>
+								Temperature Ramp:
+								<input type="number" class="source" data-qty="miob_temp_set" step="0.01" />&thinsp;°C
+								<input type="button" class="setter" data-qty="miob_temp_set" value="Set" />
+							</p>
+							<div>
+								Ramp:
+								<input type="button" class="command" value="Resume/Start"
+									data-method="switch_temp_ramp" data-arguments='[1, true]' />
+								<input type="button" class="command" value="Stop"
+									data-method="switch_temp_ramp" data-arguments='[1, false]' />
+								<p>
+									Temperature (raw, use caution!):
+									<input type="number" class="source" data-qty="miob_temp_raw_set"
+										step="0.01" />&thinsp;°C
+									<input type="button" class="setter" data-qty="miob_temp_raw_set" value="Set" />
+								</p>
+								<p>
+									Diode Current:
+									<input type="number" class="source" data-qty="pa_current_set" step="any" />&thinsp;mA
+									<input type="button" class="setter" data-qty="pa_current_set" value="Set" />
+								</p>
+							</div>
 						</div>
-					</section>
+					</div>
+				</div>
+			</div>
+			<div id="tab_pii" class="flex_container">
+				<div class="layout_block pii">
+					<div class="pii plot" data-unit-name="nu"></div>
+					<div class="controls">
+						<h2>Frequency Lock</h2>
+						<p>
+							<label>
+								Unlock controls
+								<input type="checkbox" data-safety-switch=".nu_controls input" />
+							</label>
+						</p>
+						<div class="nu_controls">
+							<table>
+								<tr>
+									<td></td>
+									<th>State</th>
+									<th>Updated</th>
+									<th>Switch</th>
+								</tr>
+								<tr>
+									<th>Enable Lock</th>
+									<td class="indicator" data-qty="nu_lock_enabled">N/A</td>
+									<td class="update_indicator" data-qty="nu_lock_enabled">Never</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_nu_lock" data-arguments='[true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_nu_lock" data-arguments='[false]' />
+									</td>
+								</tr>
+								<tr>
+									<th>Integrator 1</th>
+									<td class="indicator" data-qty="nu_i1_enabled">N/A</td>
+									<td class="update_indicator" data-qty="nu_i1_enabled">Never</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_integrator" data-arguments='[1, true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_integrator" data-arguments='[1, false]' />
+									</td>
+								</tr>
+								<tr>
+									<th>Integrator 2</th>
+									<td class="indicator" data-qty="nu_i2_enabled">N/A</td>
+									<td class="update_indicator" data-qty="nu_i2_enabled">Never</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_integrator" data-arguments='[2, true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_integrator" data-arguments='[2, false]' />
+									</td>
+								</tr>
+								<tr>
+									<th>Enable Ramp</th>
+									<td class="indicator" data-qty="nu_ramp_enabled">N/A</td>
+									<td class="update_indicator" data-qty="nu_ramp_enabled">Never</td>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_nu_ramp" data-arguments='[true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_nu_ramp" data-arguments='[false]' />
+									</td>
+								</tr>
+							</table>
+							<h3>Parameters</h3>
+							<p>
+								P Gain (see Menlo spec sheet):<br />
+								<input type="number" class="source" data-qty="nu_prop" min="-2300" max="2300" step="10" />
+								<input type="button" class="setter" data-qty="nu_prop" value="Set" />
+							</p>
+							<p>
+								P Stage Offset Compensation (&minus;2300 &ndash; 2300):<br />
+								<input type="number" class="source" data-qty="nu_offset" min="-2300" max="2300" step="10" />
+								<input type="button" class="setter" data-qty="nu_offset" value="Set" />
+							</p>
+							<p>
+								Ramp Amplitude:
+								<input type="number" class="source" data-qty="nu_ramp_amplitude" step="any" />&thinsp;mV
+								<input type="button" class="setter" data-qty="nu_ramp_amplitude" value="Set" />
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="layout_block signal">
+					<p>
+						<label>
+							<input type="checkbox" id="plotVsRamp" />
+							&ensp;Use ramp value as x axis.</label>
+					</p>
+					<div id="signalPlot" class="signal plot"></div>
+				</div>
+			</div>
+			<section id="tab_rf">
+				<h2>RF Chain</h2>
+				<p>
+					<label>
+						Unlock controls
+						<input type="checkbox" data-safety-switch=".setup_controls input" />
+					</label>
+				</p>
+				<div class="setup_controls">
+					<div>
+						<h3>Clock Source</h3>
+						<p>
+							Use external OCXO:
+							<span class="indicator" data-qty="rf_use_external_clock" data-text-true="external"
+								data-text-false="internal">N/A</span>
+						</p>
+						<p>
+							Set to:
+							<input type="button" class="command" value="external"
+								data-method="switch_rf_clock_source" data-arguments='["external"]' />
+							<input type="button" class="command" value="internal"
+								data-method="switch_rf_clock_source" data-arguments='["internal"]' />
+						</p>
+					</div>
+					<h3>Acousto-Optic Modulator</h3>
+					<p>
+						Frequency:&emsp;
+						<input type="number" class="source" data-qty="aom_freq" step="0.01" />&thinsp;MHz&emsp;
+						<input type="button" class="setter" data-qty="aom_freq" value="Set" />
+					</p>
+					<p>
+						Amplitude:&emsp;
+						0 &leq;
+						<input type="number" class="source" data-qty="aom_amplitude"
+							min="0" max="1" step="0.01" />
+						&leq; 1&emsp;
+						<input type="button" class="setter" data-qty="aom_amplitude" value="Set" />
+					</p>
+					<h3>Sidebands (EOM/Mixer modulation/demodulation)</h3>
+					<p>
+						Frequency:&emsp;
+						<input type="number" class="source" data-qty="eom_freq" step="0.01" />&thinsp;MHz&emsp;
+					</p>
+					<p>
+						Offset:&emsp;
+						<span class="offset options">
+							<input type="number" class="source" data-qty="mixer_phase_us" min="0" step="0.1" />
+							μs (2&thinsp;π ≙ <span id="ms_per_cycle">[...]</span>&thinsp;μs)
+							<br/>
+							<input type="number" class="source"
+								data-qty="mixer_offset_freq" min="0" step="0.01" /> &thinsp;kHz
+						</span>&emsp;
+						<input type="button" id="mod_demod_settings" value="Set" />
+					</p>
+					<p>
+						EOM Amplitude:&emsp;
+						0 &leq;
+						<input type="number" class="source" data-qty="eom_amplitude"
+							min="0" max="1" step="0.01" />
+						&leq; 1&emsp;
+						<input type="button" class="setter" data-qty="eom_amplitude" value="Set" />
+					</p>
+					<p>
+						Mixer Amplitude:&emsp;
+						0 &leq;
+						<input type="number" class="source" data-qty="mixer_amplitude"
+							min="0" max="1" step="0.01" />
+						&leq; 1&emsp;
+						<input type="button" class="setter" data-qty="mixer_amplitude" value="Set" />
+					</p>
+					<p>
+						Mixer Phase:&emsp;
+						<input type="number" class="source" data-qty="mixer_phase" step="0.01" />&thinsp;°&emsp;
+						<input type="button" class="setter" data-qty="mixer_phase" value="Set" />
+					</p>
+					<div>
+						<div class="slider" data-qty="mixer_phase"
+							data-min="0" data-max="360" data-step="0.1" data-unit="°">
+							<div class="ui-slider-handle"></div>
+						</div>
+					</div>
+				</div>
+			</section>
+			<section id="tab_temps">
+				<div class="layout_block osc">
+					<div class="osc_plot"
+						data-title="Probe Beam SHG"
+						data-tec-current="shga_tec_current"
+						data-temp="shga_temp"
+						data-temp-set="shga_temp_set"
+						data-temp-raw-set="shga_temp_raw_set"></div>
+					<div class="controls">
+						<h2>Probe Beam SHG</h2>
+						<p>
+							<label>
+								Unlock controls
+								<input type="checkbox" data-safety-switch=".osc_controls.shga input" />
+							</label>
+						</p>
+						<div class="osc_controls shga">
+							<table>
+								<tr>
+									<td></td>
+									<th>TEC</th>
+								</tr>
+								<tr>
+									<th>State</th>
+									<td class="indicator" data-qty="shga_tec_enabled">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="shga_tec_enabled">Never</td>
+								</tr>
+								<tr>
+									<th>Switch</th>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_tec" data-arguments='["shga", true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_tec" data-arguments='["shga", false]' />
+									</td>
+								</tr>
+								<tr>
+									<th>Temp OK</th>
+									<td class="indicator" data-qty="shga_temp_ok" data-text-true="OK"
+										data-text-false="not OK">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="shga_temp_ok">Never</td>
+								</tr>
+							</table>
+							<h3>Setpoints</h3>
+							<p>
+								Temperature Ramp:
+								<input type="number" class="source" data-qty="shga_temp_set" step="0.01" />&thinsp;°C
+								<input type="button" class="setter" data-qty="shga_temp_set" value="Set" />
+							</p>
+							<div>
+								Ramp:
+								<input type="button" class="command" value="Resume/Start"
+									data-method="switch_temp_ramp" data-arguments='[4, true]' />
+								<input type="button" class="command" value="Stop"
+									data-method="switch_temp_ramp" data-arguments='[4, false]' />
+								<p>
+									Temperature (raw, use caution!):
+									<input type="number" class="source" data-qty="shga_temp_raw_set"
+										step="0.01" />&thinsp;°C
+									<input type="button" class="setter" data-qty="shga_temp_raw_set" value="Set" />
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layout_block osc">
+					<div class="osc_plot"
+						data-title="Pump Beam SHG"
+						data-tec-current="shgb_tec_current"
+						data-temp="shgb_temp"
+						data-temp-set="shgb_temp_set"
+						data-temp-raw-set="shgb_temp_raw_set"></div>
+					<div class="controls">
+						<h2>Pump Beam SHG</h2>
+						<p>
+							<label>
+								Unlock controls
+								<input type="checkbox" data-safety-switch=".osc_controls.shgb input" />
+							</label>
+						</p>
+						<div class="osc_controls shgb">
+							<table>
+								<tr>
+									<td></td>
+									<th>TEC</th>
+								</tr>
+								<tr>
+									<th>State</th>
+									<td class="indicator" data-qty="shgb_tec_enabled">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="shgb_tec_enabled">Never</td>
+								</tr>
+								<tr>
+									<th>Switch</th>
+									<td>
+										<input type="button" class="command" value="On"
+											data-method="switch_tec" data-arguments='["shgb", true]' />
+										<input type="button" class="command" value="Off"
+											data-method="switch_tec" data-arguments='["shgb", false]' />
+									</td>
+								</tr>
+								<tr>
+									<th>Temp OK</th>
+									<td class="indicator" data-qty="shgb_temp_ok" data-text-true="OK"
+										data-text-false="not OK">N/A</td>
+								</tr>
+								<tr>
+									<th>Updated</th>
+									<td class="update_indicator" data-qty="shgb_temp_ok">Never</td>
+								</tr>
+							</table>
+							<h3>Setpoints</h3>
+							<p>
+								Temperature Ramp:
+								<input type="number" class="source" data-qty="shgb_temp_set" step="0.01" />&thinsp;°C
+								<input type="button" class="setter" data-qty="shgb_temp_set" value="Set" />
+							</p>
+							<div>
+								Ramp:
+								<input type="button" class="command" value="Resume/Start"
+									data-method="switch_temp_ramp" data-arguments='[3, true]' />
+								<input type="button" class="command" value="Stop"
+									data-method="switch_temp_ramp" data-arguments='[3, false]' />
+								<p>
+									Temperature (raw, use caution!):
+									<input type="number" class="source" data-qty="shgb_temp_raw_set"
+										step="0.01" />&thinsp;°C
+									<input type="button" class="setter" data-qty="shgb_temp_raw_set" value="Set" />
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layout_block temps">
+					<div class="wide plot" id="temp_monitor"></div>
 				</div>
 			</section>
 		</div>
