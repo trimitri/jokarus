@@ -66,6 +66,16 @@ Has to be in [0, .5], as the lockbox level is normalized to [0, 1] and one
 can't deviate any further from 0.5 in this range.
 """
 
+LOCKBOX_RAIL_ZONE = 0.1
+"""The lockbox is considered railed this close to the edge of range of motion.
+
+Given relative to range of motion.  For 20V RoM, a value of 0.1 would lead to
+1V at the top and 1V at the bottom to be considered lost territory.
+"""
+
+LOCKBOX_RAIL_CHECK_INTERVAL = .84
+"""Check a running lock every ~ seconds for loss of lock."""
+
 LOCKBOX_RANGE_mV = [-10000, 10000]
 """What is the lockbox output stage able to generate?"""
 

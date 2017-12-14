@@ -22,13 +22,6 @@ match valid?
 """
 CONFIDENCE_THRESH = 0.6
 """How confident do we have to be to use and trust a match candidate? """
-LOSS_CHECK_INTERVAL = 0.3
-"""Check if the lock was lost every ~ seconds."""
-LOSS_THRESH = 0.005
-"""A lockbox this close to the edge of range of motion is considered lost.
-
-Given as a relative value [0, .5[, (.01 = 1%).
-"""
 
 # 300 MHz will always put at least two features in range. TODO: Use more brain.
 PRELOCK_SCAN_RANGE = 300.0
@@ -70,6 +63,14 @@ class Line(enum.Enum):
 class LockError(RuntimeError):
     """Something went wrong in trying to achieve a lock."""
     pass
+
+class LockStatus(enum.IntEnum):
+    ON_LINE = 0
+    """We're likely locked to a feature."""
+    RAIL = 1
+    """The lockbox has railed."""
+    OFF = 2
+    """The lockbox is not completely engaged."""
 
 class _SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
@@ -287,17 +288,17 @@ class LockBuddy:
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(cs.LOCK_SFG_FACTOR * distance)
 
-    async def is_lock_lost(self) -> bool:
-        """Has the lockbox railed, indicating lock loss?
+    async def get_lock_status(self) -> LockStatus:
+        """What status is the lock currently in?
 
-        :returns: The lock is likely to have been lost.
-        :raises RuntimeError: The lock isn't running at all.
+        :returns: The current lock status.
         """
         if not self.lock_engaged:
-            LOGGER.warning("Lock isn't running, assuming loss of lock.")
-            return True
+            return LockStatus.OFF
         level = await self._lockbox.get()
-        return abs(1 - level) <= LOSS_THRESH or level <= LOSS_THRESH
+        if level < cs.LOCKBOX_RAIL_ZONE / 2 or level > 1 - (cs.LOCKBOX_RAIL_ZONE / 2):
+            return LockStatus.RAIL
+        return LockStatus.ON_LINE
 
     async def monitor(self, when_lost: Callable[[], Optional[Awaitable[None]]]) -> None:
         """Watch an engaged lock and compensate for drifts. Runs forever.
@@ -310,8 +311,10 @@ class LockBuddy:
         LOGGER.info("Starting to track lock.")
         imbalance_poller = tools.repeat_task(self.balance, MONITOR_INTERVAL,
                                              self._locked)
-        lock_loss_poller = tools.poll_resource(self.is_lock_lost, LOSS_CHECK_INTERVAL,
-                                               on_connect=when_lost, name="Loss of lock")
+        lock_loss_poller = tools.poll_resource(
+            lambda: self.get_lock_status() == LockStatus.RAIL,
+            cs.LOCKBOX_RAIL_CHECK_INTERVAL, on_connect=when_lost,
+            name="Loss of lock")
         _, pending = await asyncio.wait([imbalance_poller, lock_loss_poller],
                                         return_when=asyncio.FIRST_COMPLETED)
         # Most of the time, the second poller will abort itself soon after the
