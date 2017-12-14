@@ -217,6 +217,7 @@ class Interfaces:
         aux_temps = await self._subs.get_aux_temps()
         human_readable = {sensor.name: aux_temps[sensor]
                           for sensor in subsystems.AuxTemp}
+        human_readable['time'] = time.time()
         await self._publish_message(packer.create_message(human_readable, 'aux_temps'),
                                     'aux_temps')
 
