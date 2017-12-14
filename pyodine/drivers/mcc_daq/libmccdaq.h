@@ -35,6 +35,7 @@ Error FetchScan(
     uint16_t *readings);
 
 // Generate a signal for analog output. It will span from zero to 2^16-1.
+// :param amplitude: Peak-to-peak amplitude in volts. Must not exceed 20.
 Error GenerateSignal(enum SignalType signal, uint n_samples, uint n_prefix,
                           double amplitude, double offset, uint16_t *samples);
 
@@ -70,6 +71,9 @@ Error SampleChannels(
     const uint8_t gains[],
     const uint n_channels,
     uint16_t * results);
+
+// Sleep `n_seconds` seconds. For debugging of locking behaviour.
+int Sleep(const uint n_seconds);
 
 // Generate continuous triangle signal using full 20 volt range.
 void Triangle(void);

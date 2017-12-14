@@ -2,6 +2,11 @@
 """
 # pylint: disable=invalid-name
 
+DAQ_ALLOWABLE_BLOCKING_TIME = 2
+"""The DAQ may be blocked this many seconds before we assume that something has
+gone wrong.
+"""
+
 DAQ_DELAY_s = 0.2
 """How long does the DAQ take to physically realize a given setting.
 
@@ -124,5 +129,20 @@ DAQ_MHz_V = LD_MO_MHz_mA * _LOCKBOX_mA_mV * 1000
 
 LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""
+
+#####################
+# MiLas laser specs #
+#####################
+
+MILAS_MO_MAX = 180
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_MO_SEED = 60
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_MAX = 1550
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_TRANSPARENCY = 200
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_BACKFIRE = 260
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 
 # pylint: enable=invalid-name
