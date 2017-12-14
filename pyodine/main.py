@@ -143,7 +143,7 @@ async def main() -> None:
     await face.init_async()
     face.start_publishing_regularly(
         readings_interval=.8, flags_interval=1.3, setup_interval=3.1,
-        signal_interval=4, status_update_interval=0, aux_temps_interval=11.7)
+        signal_interval=4, status_update_interval=0, aux_temps_interval=6.9)
 
     handler = instruction_handler.InstructionHandler(subs, face, locker)
     face.register_on_receive_callback(handler.handle_instruction)
