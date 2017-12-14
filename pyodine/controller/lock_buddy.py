@@ -65,6 +65,7 @@ class LockError(RuntimeError):
     pass
 
 class LockStatus(enum.IntEnum):
+    """(Relevant) states the lockbox can be in."""
     ON_LINE = 0
     """We're likely locked to a feature."""
     RAIL = 1
@@ -300,31 +301,28 @@ class LockBuddy:
             return LockStatus.RAIL
         return LockStatus.ON_LINE
 
-    async def monitor(self, when_lost: Callable[[], Optional[Awaitable[None]]]) -> None:
-        """Watch an engaged lock and compensate for drifts. Runs forever.
+    async def watchdog(self) -> LockStatus:
+        """Watch an engaged lock and return as soon as something goes wrong.
 
-        :param when_lost:
-        :raises RuntimeError: The lock isn't running.
+        :raises RuntimeError: The lock wasn't on line when the dog was let out.
+        :returns: The new status. Most definitely not `LockStatus.ON_LINE`.
         """
-        if not self.lock_engaged:
-            raise RuntimeError("Lock is not running.")
-        LOGGER.info("Starting to track lock.")
-        imbalance_poller = tools.repeat_task(self.balance, MONITOR_INTERVAL,
-                                             self._locked)
-        lock_loss_poller = tools.poll_resource(
-            lambda: self.get_lock_status() == LockStatus.RAIL,
-            cs.LOCKBOX_RAIL_CHECK_INTERVAL, on_connect=when_lost,
-            name="Loss of lock")
-        _, pending = await asyncio.wait([imbalance_poller, lock_loss_poller],
-                                        return_when=asyncio.FIRST_COMPLETED)
-        # Most of the time, the second poller will abort itself soon after the
-        # first one, as both check the same break condition.  In case the lock
-        # gets re-enabled swiftly after a loss and before the next iteration of
-        # the imbalance poller, we need to make sure however, that the other
-        # poller doesn't keep running in the background.
-        for future in pending:
-            future.cancel()
-        LOGGER.info("Stopped monitoring lock, as the lock was disabled.")
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is %s. Refusing to start watchdog.",
+                               status)
+        LOGGER.info("Starting to track engaged lock.")
+        async def check() -> bool:
+            """Inquire current status and save it in scope."""
+            nonlocal status
+            status = await self.get_lock_status()
+            return status != LockStatus.ON_LINE
+
+        await tools.poll_resource(check, cs.LOCKBOX_RAIL_CHECK_INTERVAL,
+                                  name="lock watchdog")
+        # For the infinite lock, this will run forever.  Otherwise we return
+        # the problem.
+        return status
 
     async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                             proximity_callback: Callable[[], Any] = lambda: None,
