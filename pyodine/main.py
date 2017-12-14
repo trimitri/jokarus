@@ -113,7 +113,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
 
     def nu_locked() -> bool:
         try:
-            return subs.nu_locked()
+            return subs.nu_locked() and subs.lockbox_integrators_enabled()
         except ConnectionError:
             logging.warning("Couldn't fetch actual frequency lockbox state. "
                             'Assuming "Locked".')

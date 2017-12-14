@@ -365,6 +365,14 @@ class Subsystems:
         except ValueError:
             raise ConnectionError("Didn't receive data from Menlo.")
 
+    def lockbox_integrators_enabled(self) -> bool:
+        """Are both lockbox integrators engaged?"""
+        stage_one = int(self._unwrap_buffer(
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 1))) == 1
+        stage_two = int(self._unwrap_buffer(
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 2))) == 1
+        return stage_one and stage_two
+
     def nu_locked(self) -> bool:
         """Is the frequency lock engaged?
 
