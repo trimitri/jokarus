@@ -28,6 +28,11 @@ DAQ_GRANULARITY_V = 20 / 2**16
 This is a 16 bit device.
 """
 
+MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
+"""Those types of messages can be sent out by pyodine.  Messages of types that
+are not in this list will be dropped and not published.
+"""
+
 MIOB_TEMP_TUNING_RANGE = [24, 26]
 """Lowest and highest MiOB temperature available to the tuner.
 
