@@ -137,6 +137,9 @@
       case 'texus':
         updateTexusFlags(message.data);
         break;
+      case 'aux_temps':
+        Plotter.updateTemperatureMonitor(document.getElementById('temp_monitor'), message.data);
+        break;
       default:
         console.warn(`Unknown message type "${message.type}".`);
     }

@@ -26,7 +26,7 @@
 						<option value="icarus.physik.hu-berlin.de" selected="selected">
 							icarus.physik.hu-berlin.de
 						</option>
-						<option value="localhost">localhost</option>
+						<option value="locarus">locarus</option>
 						<option value="">custom IP ...</option>
 					</select><br/>
 					<input type="text" name="ip" placeholder="enter custom IP" style="display: none;" />
@@ -62,19 +62,8 @@
 			<section id="tab_logging">
 				<div class="tabs">
 					<ul>
-						<li><a href="#tab_adc">ADC Chip</a></li>
 						<li><a href="#tab_texus">TEXUS Relay</a></li>
 					</ul>
-					<div id="tab_adc" class="flex_container">
-						<div data-title="ADC Channel 0 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc0"></div>
-						<div data-title="ADC Channel 1 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc1"></div>
-						<div data-title="ADC Channel 2 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc2"></div>
-						<div data-title="ADC Channel 3 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc3"></div>
-						<div data-title="ADC Channel 4 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc4"></div>
-						<div data-title="ADC Channel 5 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc5"></div>
-						<div data-title="ADC Channel 6 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc6"></div>
-						<div data-title="ADC Channel 7 Voltage" data-ylabel="Voltage in V" class="layout_block plot" id="adc7"></div>
-					</div>
 					<div id="tab_texus" class="flex_container">
 						<div class="layout_block">
 							<h2>Incoming Flags</h2>
@@ -699,6 +688,9 @@
 									</div>
 								</div>
 							</div>
+						</div>
+						<div class="layout_block temps">
+							<div class="wide plot" id="temp_monitor"></div>
 						</div>
 					</section>
 				</div>

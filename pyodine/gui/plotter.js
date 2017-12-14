@@ -328,5 +328,111 @@ class Plotter {  // eslint-disable-line no-unused-vars
       chart.render();
     }
   }
+
+  static updateTemperatureMonitor(plotDiv, data) {
+    const div = $(plotDiv);
+    const newPoints = {};
+    const dataTakenAt = new Date(1000 * data.time);
+    Object.keys(data).forEach((key) => {
+      if (key !== 'time') {
+        newPoints[key] = [{ x: dataTakenAt, y: parseFloat(data[key]) }];
+      }
+    });
+
+    if (typeof div.data('chart') === 'undefined') {
+      // Create a new plot.
+      const chart = new CanvasJS.Chart(plotDiv, {
+        data: [
+          {
+            dataPoints: newPoints.AOM_AMP,
+            legendText: "AOM Amplifier",
+            color: 'red',
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            dataPoints: newPoints.CELL,
+            legendText: "Spec. Cell",
+            color: 'green',
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            dataPoints: newPoints.HEATSINK_A,
+            legendText: "Heatsink",
+            color: 'blue',
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            color: 'grey',
+            dataPoints: newPoints.LD_MO,
+            legendText: "Master Oscillator",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            color: 'black',
+            dataPoints: newPoints.LD_PA,
+            legendText: "Power Amplifier",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            color: 'gold',
+            dataPoints: newPoints.MENLO,
+            legendText: "Menlo Stack",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+          {
+            color: 'magenta',
+            dataPoints: newPoints.SHG,
+            legendText: "SHG Mount",
+            markerType: 'none',
+            showInLegend: true,
+            type: 'line',
+          },
+        ],
+        axisX: {
+          labelAngle: 30,
+          gridThickness: 1,
+        },
+        axisY: {
+          title: "Temp. in °C",
+          gridThickness: 1,
+          includeZero: false,
+        },
+        legend: {},
+      });
+      chart.render();
+      $(plotDiv).data('chart', chart);
+    } else {  // Update the existing plot.
+      const useRemoteTime = $('#use_server_clock:checked').length;
+      const now = useRemoteTime ? dataTakenAt : new Date();
+      const chart = div.data('chart');
+      Array.prototype.push.apply(chart.options.data[0].dataPoints, newPoints.AOM_AMP);
+      Array.prototype.push.apply(chart.options.data[1].dataPoints, newPoints.CELL);
+      Array.prototype.push.apply(chart.options.data[2].dataPoints, newPoints.HEATSINK_A);
+      Array.prototype.push.apply(chart.options.data[3].dataPoints, newPoints.LD_MO);
+      Array.prototype.push.apply(chart.options.data[4].dataPoints, newPoints.LD_PA);
+      Array.prototype.push.apply(chart.options.data[5].dataPoints, newPoints.MENLO);
+      Array.prototype.push.apply(chart.options.data[6].dataPoints, newPoints.SHG);
+
+      Plotter.truncatePlotDataToSaveMemory(chart);
+
+      // Render (visually update) plot.
+      const displayTime = document.getElementById('display_time').value;
+      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
+      chart.options.axisX.maximum = now;
+      chart.render();
+    }
+  }
 }
 
