@@ -165,8 +165,8 @@ class Tuner:
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
 
-    def __init__(self, lock: Callable[[], None],
-                 unlock: Callable[[], None],
+    def __init__(self, lock: Callable[[], Optional[Awaitable[None]]],
+                 unlock: Callable[[], Optional[Awaitable[None]]],
                  locked: Callable[[], bool],
                  scanner: Callable[[float], Awaitable[np.ndarray]],
                  scanner_range: QtyUnit,

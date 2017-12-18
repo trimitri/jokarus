@@ -156,7 +156,7 @@ async def main() -> None:
     # backdoor, practically providing a powerful CLI to Pyodine.
     open_backdoor({'cs': cs,
                    'face': face,
-                   'flow': handler._flow,
+                   'flow': control_flow,
                    'locker': locker,
                    'subs': subs})
 

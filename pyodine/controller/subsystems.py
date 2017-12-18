@@ -233,8 +233,6 @@ class Subsystems:
             data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unt)
             data[name + '_temp_set'] = self._wrap_into_buffer(
                 self._temp_ramps[unt].target_temperature)
-            data[name + '_temp_ramp_active'] = self._wrap_into_buffer(
-                self._temp_ramps[unt].is_running)
             data[name + '_temp_ok'] = self._menlo.is_temp_ok(unt)
             data[name + '_tec_current'] = self._menlo.get_tec_current(unt, since)
 

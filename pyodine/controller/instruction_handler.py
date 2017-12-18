@@ -14,14 +14,14 @@ import logging
 # We use Dict in type annotations, but not in the code. Thus we need to tell
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
-from typing import Callable, Dict, List  # pylint: disable=unused-import
+from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
 from . import interfaces, subsystems, control_flow, lock_buddy
 from ..transport import texus_relay
 from ..util import asyncio_tools
 
 TecUnit = subsystems.TecUnit
 # Define custom types.
-LegalCall = Callable[..., None]  # pylint: disable=invalid-name
+LegalCall = Callable[..., Optional[Awaitable[None]]]  # pylint: disable=invalid-name
 
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
@@ -148,7 +148,7 @@ class InstructionHandler:
             if timer_state[wire]:
                 await control_flow.prelock_and_lock(self._locker)
             else:
-                await control_flow.unlock(self._locker)
+                await control_flow.release_lock(self._subs)
         else:
             LOGGER.warning("Change in unused timer wire %s detected. Ignoring.",
                            wire)

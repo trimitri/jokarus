@@ -34,7 +34,7 @@ class Interfaces:
                  locker: lock_buddy.LockBuddy,
                  start_ws_server: bool = True,
                  start_serial_server: bool = False,
-                 on_receive: Callable[[str], None] = None) -> None:
+                 on_receive: Callable[[str], Optional[Awaitable[None]]] = None) -> None:
         # pylint: disable=unsubscriptable-object
         # Callable is in subscriptable, pylint fails to detect that.
 
