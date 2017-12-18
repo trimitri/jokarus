@@ -277,16 +277,20 @@ class LockBuddy:
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 
-    async def balance(self) -> None:
+    async def balance(self, equilibrium: float = 0.5) -> None:
         """Adjust available tuners to keep lockbox well within range of motion.
 
+        :param equilibrium: Where should a perfectly balanced lockbox be
+                    resting? This should be given with respect to the [0, 1]
+                    lockbox control range interval.  Thus, the obvious (and
+                    default) choice is 0.5.
         :raises RuntimeError: Lock is not on line.
         """
         status = await self.get_lock_status()
         if not status == LockStatus.ON_LINE:
             raise RuntimeError("Lock is %s. Refusing to balance.", status)
 
-        imbalance = await self._lockbox.get() - .5
+        imbalance = await self._lockbox.get() - equilibrium
         LOGGER.info("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
         if abs(imbalance) <= cs.LOCKBOX_ALLOWABLE_IMBALANCE:
             LOGGER.debug("No need to balance lock.")
