@@ -267,7 +267,15 @@ class Subsystems:
             raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
 
     def get_lockbox_level(self) -> float:
-        return self._unwrap_buffer(self._menlo.get_pii_monitor(LOCKBOX_ID))
+        """The current lockbox control output level.
+
+        :raises ConnectionError: Couldn't get a value from Menlo.
+        """
+        try:
+            return self._unwrap_buffer(self._menlo.get_pii_monitor(LOCKBOX_ID))
+        except AttributeError as err:
+            # AttributeError because self._menlo is None.
+            raise ConnectionError("Couldn't get lockbox level from Menlo.") from err
 
     def get_ramp_offset(self) -> float:
         """The zero position of the ramp used to acquire the error signal"""
