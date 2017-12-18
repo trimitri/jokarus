@@ -361,6 +361,9 @@ class Subsystems:
         """Returns the target temperature of the unit's ramp."""
         return self._temp_ramps[unit].target_temperature
 
+    def is_lockbox_ramp_enabled(self) -> bool:
+        return self._unwrap_buffer(self._menlo.is_ramp_enabled(LOCKBOX_ID)) == 1
+
     def is_tec_enabled(self, unit: TecUnit) -> bool:
         """Is ``unit``'s TEC controller currently running?
 
@@ -371,8 +374,16 @@ class Subsystems:
         except ValueError:
             raise ConnectionError("Didn't receive data from Menlo.")
 
+    def lockbox_integrators_disabled(self) -> bool:
+        """Are all lockbox integrators disengaged?"""
+        stage_one = int(self._unwrap_buffer(
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 1))) == 1
+        stage_two = int(self._unwrap_buffer(
+            self._menlo.is_integrator_enabled(LOCKBOX_ID, 2))) == 1
+        return not stage_one and not stage_two
+
     def lockbox_integrators_enabled(self) -> bool:
-        """Are both lockbox integrators engaged?"""
+        """Are all lockbox integrators engaged?"""
         stage_one = int(self._unwrap_buffer(
             self._menlo.is_integrator_enabled(LOCKBOX_ID, 1))) == 1
         stage_two = int(self._unwrap_buffer(

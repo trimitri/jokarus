@@ -20,7 +20,8 @@ from . import logger
 from . import constants as cs
 from .controller import (control_flow, interfaces, instruction_handler,
                          lock_buddy, subsystems)
-from .util import asyncio_tools, git_adapter
+from .util import asyncio_tools as tools
+from .util import git_adapter
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -113,14 +114,13 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
             'spectroscopy_signal', data_type + '\t' + shape + '\t' + values)
 
 
-    def nu_locked() -> bool:
-        try:
-            return subs.nu_locked() and subs.lockbox_integrators_enabled()
-        except ConnectionError:
-            logging.warning("Couldn't fetch actual frequency lockbox state. "
-                            'Assuming "Locked".')
-            return True
-
+    def nu_locked() -> lock_buddy.LockboxState:
+        """What state is the lockbox in?"""
+        if subs.nu_locked() and subs.lockbox_integrators_enabled():
+            return lock_buddy.LockboxState.ENGAGED
+        if not subs.nu_locked() and subs.lockbox_integrators_disabled() and subs.is_lockbox_ramp_enabled():
+            return lock_buddy.LockboxState.DISENGAGED
+        return lock_buddy.LockboxState.DEGRADED
 
     # Assemble the actual lock buddy using the tuners above.
     locker = lock_buddy.LockBuddy(
@@ -160,7 +160,7 @@ async def main() -> None:
                    'locker': locker,
                    'subs': subs})
 
-    await asyncio_tools.watch_loop(
+    await tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
         lambda: LOGGER.debug("Event loop is healthy."))
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         # FIXME: make sure this doesn't fire unexpectedly (#123)
         raise OSError("Failed to set up logging.")
     logger.log_quantity('git_revision',
-                        asyncio_tools.safe_call(git_adapter.get_revision))
+                        tools.safe_call(git_adapter.get_revision))
 
     logger.start_flushing_regularly(7)  # Write data to disk every 7 seconds.
     try:

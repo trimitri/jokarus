@@ -65,13 +65,24 @@ class LockError(RuntimeError):
     pass
 
 class LockStatus(enum.IntEnum):
-    """(Relevant) states the lockbox can be in."""
+    """Asessment of the current lock situation."""
     ON_LINE = 0
     """We're likely locked to a feature."""
     RAIL = 1
     """The lockbox has railed."""
     OFF = 2
     """The lockbox is not completely engaged."""
+    DEGRADED = 3
+    """The lockbox is neither completely engaged nor properly switched off."""
+
+class LockboxState(enum.IntEnum):
+    """Possible states a software-configurable lockbox could be in."""
+    ENGAGED = 0
+    """The lockbox and all it's control stages are engaged."""
+    DISENGAGED = 1
+    """The lockbox and all it's control stages are disengaged."""
+    DEGRADED = 2
+    """The lockbox is neither completely engaged nor properly switched off."""
 
 class _SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
@@ -167,7 +178,7 @@ class LockBuddy:
 
     def __init__(self, lock: Callable[[], Optional[Awaitable[None]]],
                  unlock: Callable[[], Optional[Awaitable[None]]],
-                 locked: Callable[[], bool],
+                 locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
                  scanner: Callable[[float], Awaitable[np.ndarray]],
                  scanner_range: QtyUnit,
                  tuners: List[Tuner],
@@ -291,12 +302,17 @@ class LockBuddy:
 
         :returns: The current lock status.
         """
-        if not self._locked():
+        state = await tools.safe_async_call(self._locked)
+        if state == LockboxState.DISENGAGED:
             return LockStatus.OFF
-        level = await self._lockbox.get()
-        if level < cs.LOCKBOX_RAIL_ZONE / 2 or level > 1 - (cs.LOCKBOX_RAIL_ZONE / 2):
-            return LockStatus.RAIL
-        return LockStatus.ON_LINE
+        if state == LockboxState.DEGRADED:
+            return LockStatus.DEGRADED
+        if state == LockboxState.ENGAGED:
+            level = await self._lockbox.get()
+            if level < cs.LOCKBOX_RAIL_ZONE / 2 or level > 1 - (cs.LOCKBOX_RAIL_ZONE / 2):
+                return LockStatus.RAIL
+            return LockStatus.ON_LINE
+        raise RuntimeError("Couldn't get lockbox state from callback.")
 
     async def watchdog(self) -> LockStatus:
         """Watch an engaged lock and return as soon as something goes wrong.
@@ -478,7 +494,8 @@ class LockBuddy:
                     else:
                         LOGGER.debug("Imbalance wasn't the reason to skip %s.",
                                      skipped_tuner.name)
-            LOGGER.debug("Setting tuner %s to %s (was %s).", tuner.name, target + compensation, state)
+            LOGGER.debug("Setting tuner %s to %s (was %s).",
+                         tuner.name, target + compensation, state)
             if compensation > 0:
                 LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
             await tuner.set(target + compensation)
