@@ -79,6 +79,16 @@ LOCKBOX_RAIL_CHECK_INTERVAL = .84
 LOCKBOX_RANGE_mV = [-10000, 10000]
 """What is the lockbox output stage able to generate?"""
 
+LOCKBOX_P_TO_I_DELAY = .5
+"""In engaging the lock, wait this many seconds after engaging the P stage and
+before engaging the first integrator.
+"""
+
+LOCKBOX_I_TO_I_DELAY = 2
+"""In engaging the lock, wait this many seconds after engaging the first
+integrator stage and before engaging the second integrator.
+"""
+
 TEC_GRANULARITY_K = 0.0005
 """The lowest temperature step the TECs can do.
 

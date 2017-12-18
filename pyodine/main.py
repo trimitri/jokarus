@@ -9,6 +9,7 @@ way as discussed in PEP328.
 """
 import asyncio
 import base64
+from functools import partial
 import logging
 from typing import Dict, Any
 
@@ -17,7 +18,8 @@ import numpy as np
 
 from . import logger
 from . import constants as cs
-from .controller import (interfaces, instruction_handler, lock_buddy, subsystems)
+from .controller import (control_flow, interfaces, instruction_handler,
+                         lock_buddy, subsystems)
 from .util import asyncio_tools, git_adapter
 
 
@@ -119,10 +121,11 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
                             'Assuming "Locked".')
             return True
 
+
     # Assemble the actual lock buddy using the tuners above.
     locker = lock_buddy.LockBuddy(
-        lock=lambda: subs.switch_lock(True),
-        unlock=lambda: subs.switch_lock(False),
+        lock=partial(control_flow.engage_lock, subs),
+        unlock=partial(control_flow.release_lock, subs),
         locked=nu_locked,
         lockbox=lockbox,
         scanner=subs.fetch_scan,

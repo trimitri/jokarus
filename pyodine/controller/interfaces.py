@@ -7,7 +7,7 @@ import asyncio
 import base64
 import logging
 import time
-from typing import Any, Awaitable, Callable, List, Union  # pylint: disable=unused-import
+from typing import Any, Awaitable, Callable, List, Optional, Union  # pylint: disable=unused-import
 
 import numpy as np
 
@@ -228,14 +228,11 @@ class Interfaces:
                 setattr(self._texus, entity_id, value)
 
     def register_on_receive_callback(
-            self, callback: Callable[[str], None]) -> None:
+            self, callback: Callable[[str], Optional[Awaitable]]) -> None:
         """Provide a callback that is called each time a data packet arrives.
 
         The callback must take the data payload (string) as an argument.
         """
-        # pylint: disable=unsubscriptable-object
-        # Callable is indeed subscriptable, pylint fails to detect that.
-
         self._rcv_callback = callback
 
     def register_timer_handler(
@@ -261,8 +258,8 @@ class Interfaces:
             await self._ws.publish(message)
 
     def _parse_reply(self, message: str) -> None:
-        if callable(self._rcv_callback):
-            self._rcv_callback(message)
+        asyncio.ensure_future(asyncio_tools.safe_async_call(self._rcv_callback,
+                                                            message))
 
     def _on_client_connect(self) -> None:
         """Is called everytime a new client connects to the TCP/IP interface.

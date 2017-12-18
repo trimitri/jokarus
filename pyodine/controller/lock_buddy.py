@@ -227,10 +227,6 @@ class LockBuddy:
         self._tuners = sorted(tuners, key=lambda t: t.granularity)
 
     @property
-    def lock_engaged(self) -> bool:
-        return self._locked()
-
-    @property
     def min_step(self) -> QtyUnit:
         """The smallest step size (in quantity units) this class can use to do
         prelock and tuning. There is no use in trying to achieve results more
@@ -254,7 +250,7 @@ class LockBuddy:
 
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.
-        if self.lock_engaged:
+        if not await self.get_lock_status() == LockStatus.OFF:
             raise RuntimeError("Disengage lock before acquiring signals.")
 
         if not rel_range:
@@ -273,11 +269,12 @@ class LockBuddy:
     async def balance(self) -> None:
         """Adjust available tuners to keep lockbox well within range of motion.
 
-        :raises RuntimeError: Lock is not engaged, thus there's nothing to
-                    balance.
+        :raises RuntimeError: Lock is not on line.
         """
-        if not self.lock_engaged:
-            raise RuntimeError("Lock is not running.")
+        status = await self.get_lock_status()
+        if not status == LockStatus.ON_LINE:
+            raise RuntimeError("Lock is %s. Refusing to balance.", status)
+
         imbalance = await self._lockbox.get() - .5
         LOGGER.info("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
         if abs(imbalance) <= cs.LOCKBOX_ALLOWABLE_IMBALANCE:
@@ -294,7 +291,7 @@ class LockBuddy:
 
         :returns: The current lock status.
         """
-        if not self.lock_engaged:
+        if not self._locked():
             return LockStatus.OFF
         level = await self._lockbox.get()
         if level < cs.LOCKBOX_RAIL_ZONE / 2 or level > 1 - (cs.LOCKBOX_RAIL_ZONE / 2):

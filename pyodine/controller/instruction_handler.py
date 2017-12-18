@@ -7,6 +7,7 @@ must catch all possible errors itself and log and ignore the invalid
 instruction.
 """
 import enum
+from functools import partial
 import json
 import logging
 
@@ -16,6 +17,7 @@ import logging
 from typing import Callable, Dict, List  # pylint: disable=unused-import
 from . import interfaces, subsystems, control_flow, lock_buddy
 from ..transport import texus_relay
+from ..util import asyncio_tools
 
 TecUnit = subsystems.TecUnit
 # Define custom types.
@@ -41,9 +43,10 @@ class InstructionHandler:
         self._subs = subsystem_controller
         self._face = interface_controller
         self._locker = locker
-        self._flow = control_flow
 
         self._methods = {
+            'engage_lock': partial(control_flow.engage_lock, self._subs),
+            'release_lock': partial(control_flow.release_lock, self._subs),
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
             'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
             'set_mixer_freq': lambda f: self._subs.set_mixer_frequency(
@@ -88,7 +91,7 @@ class InstructionHandler:
             'switch_integrator': self._subs.switch_integrator,
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 
-    def handle_instruction(self, message: str) -> None:
+    async def handle_instruction(self, message: str) -> None:
         # Use a "meta" try to comply with class security policy. However, due
         # to the command whitelisting, we should not actually have to catch
         # anything out here.
@@ -108,12 +111,8 @@ class InstructionHandler:
                 return
 
             if method in self._methods:
-                try:
-                    LOGGER.debug("Calling method %s with arguments: %s",
-                                 method, arguments)
-                    (self._methods[method])(*arguments)
-                except TypeError:
-                    LOGGER.exception("Wrong type/number of arguments.")
+                await asyncio_tools.safe_async_call(self._methods[method],
+                                                    *arguments)
             else:
                 LOGGER.error("Unknown method name (%s). Doing nothing.",
                              method)

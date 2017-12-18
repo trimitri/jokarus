@@ -9,6 +9,7 @@ import asyncio
 import enum
 import logging
 from . import lock_buddy, subsystems
+from .. import constants as cs
 
 LOGGER = logging.getLogger('control_flow')
 
@@ -175,7 +176,19 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
         proximity_callback=lambda: LOGGER.info("Yeah!"))
 
 
+async def engage_lock(subs: subsystems.Subsystems) -> None:
+    """Run the timed procedure needed to engage the frequency lock."""
+    subs.switch_pii_ramp(False)
+    subs.switch_lock(True)
+    await asyncio.sleep(cs.LOCKBOX_P_TO_I_DELAY)
+    subs.switch_integrator(2, True)
+    await asyncio.sleep(cs.LOCKBOX_I_TO_I_DELAY)
+    subs.switch_integrator(1, True)
 
-async def unlock(_: lock_buddy.LockBuddy) -> None:
+
+async def release_lock(subs: subsystems.Subsystems) -> None:
     """Release the laser from frequency lock."""
-    LOGGER.info("unlock() called.")  # TODO Implement unlock procedure.
+    subs.switch_lock(False)
+    subs.switch_pii_ramp(True)
+    subs.switch_integrator(1, False)
+    subs.switch_integrator(2, False)
