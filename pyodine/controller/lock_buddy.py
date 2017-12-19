@@ -23,22 +23,19 @@ match valid?
 CONFIDENCE_THRESH = 0.6
 """How confident do we have to be to use and trust a match candidate? """
 
-# 300 MHz will always put at least two features in range. TODO: Use more brain.
-PRELOCK_SCAN_RANGE = 300.0
-
+BALANCE_AT = [.2, .8]
 """To maintain a high tuning precision, the tuners are balanced from time to
 time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
 It's an array [low, high] with 0 < low < high < 1.
 """
-BALANCE_AT = [.2, .8]
 
-"""Don't use tuners slower than that many seconds during prelock phase."""
 PRELOCK_SPEED_CONSTRAINT = 1.
+"""Don't use tuners slower than that many seconds during prelock phase."""
 
+QtyUnit = float
 """To make the code more readable, we differentiate between numbers that
 represent the lock system's tunable quantity (e.g. frequency) and all other
 numbers that occur in the code."""
-QtyUnit = float
 
 class Line(enum.Enum):
     """A map of where in the spectrum to find the target transitions."""
@@ -403,7 +400,7 @@ class LockBuddy:
                 raise RuntimeError("Requested more than tuners could deliver.") from err
             return False
 
-        current_range = PRELOCK_SCAN_RANGE / self._scanner_range
+        current_range = self._scanner_range
         self._prelock_running = True
         self.cancel_prelock = False
         n_tries = 0
