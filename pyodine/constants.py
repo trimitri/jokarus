@@ -58,7 +58,7 @@ LOCK_SFG_FACTOR = 2
 This is to allow for sum-frequency generation (SFG) setups.
 """
 
-LOCKBOX_ALLOWABLE_IMBALANCE = .1
+LOCKBOX_ALLOWABLE_IMBALANCE = .05
 """OK deviation of lockbox level from center position.
 
 The Lockbox will be balanced if the level is further off than this.

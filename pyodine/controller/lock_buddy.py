@@ -293,7 +293,7 @@ class LockBuddy:
         imbalance = await self._lockbox.get() - equilibrium
         LOGGER.info("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
         if abs(imbalance) <= cs.LOCKBOX_ALLOWABLE_IMBALANCE:
-            LOGGER.debug("No need to balance lock.")
+            LOGGER.info("No need to balance lock.")
             return
         # We need to manually tune the distance that is currently maintained by
         # the lockbox output.
