@@ -233,7 +233,7 @@ async def lock_balancer(locker: lock_buddy.LockBuddy) -> None:
     while True:
         status = await locker.get_lock_status()
         if status == lock_buddy.LockStatus.ON_LINE:
-            locker.balance(cs.LOCKBOX_BALANCE_POINT)
+            await locker.balance(cs.LOCKBOX_BALANCE_POINT)
         else:
             break
         await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
