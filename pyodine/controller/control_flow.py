@@ -225,6 +225,19 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
+async def lock_balancer(subs: subsystems.Subsystems,
+                        locker: lock_buddy.LockBuddy) -> None:
+    """Watch a running lock and correct for occurring drifts."""
+    status = await locker.get_lock_status()
+    if status != lock_buddy.LockStatus.ON_LINE:
+        raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
+    while True:
+        status = await locker.get_lock_status()
+        if status == lock_buddy.LockStatus.ON_LINE:
+            locker.balance(cs.LOCKBOX_BALANCE_POINT)
+    LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
+
+
 async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
     """Run the pre-lock algorithm and engage the frequency lock.
 
@@ -284,6 +297,7 @@ async def relocker(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy) ->
         else:
             break
     LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
+
 
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MiOB temperature for frequency tuning."""
