@@ -82,6 +82,9 @@ is 0.5.  However, off-center balance points could be of use for directional
 locking!
 """
 
+LOCKBOX_BALANCE_INTERVAL = 1.08
+"""Chech for lock imbalance every ~ seconds."""
+
 LOCKBOX_RAIL_ZONE = 0.1
 """The lockbox is considered railed this close to the edge of range of motion.
 

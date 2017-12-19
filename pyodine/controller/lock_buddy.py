@@ -12,10 +12,9 @@ from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
-MONITOR_INTERVAL = 22.
-"""Check for lock imbalance every ~ seconds."""
 MAX_JUMPS = 10
 """Jump ~ times before considering the pre-lock procedure failed."""
+
 MATCH_QUALITY_THRESH = 0.7
 """How well does a sample have to fit the reference for us to even consider the
 match valid?
