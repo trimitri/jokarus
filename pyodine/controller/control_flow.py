@@ -225,21 +225,6 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
-async def lock_balancer(locker: lock_buddy.LockBuddy) -> None:
-    """Watch a running lock and correct for occurring drifts."""
-    status = await locker.get_lock_status()
-    if status != lock_buddy.LockStatus.ON_LINE:
-        raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
-    while True:
-        status = await locker.get_lock_status()
-        if status == lock_buddy.LockStatus.ON_LINE:
-            await locker.balance(cs.LOCKBOX_BALANCE_POINT)
-        else:
-            break
-        await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
-    LOGGER.warning("Cancelling lock balancer, as lock is %s.", status)
-
-
 async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
     """Run the pre-lock algorithm and engage the frequency lock.
 
@@ -281,24 +266,6 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_integrator(1, False)
     subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-
-
-async def relocker(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy) -> None:
-    """Supervise a running lock and relock whenever it gets lost.
-
-    :raises RuntimeError: No sound lock to start on.
-    """
-    status = await locker.get_lock_status()
-    if status != lock_buddy.LockStatus.ON_LINE:
-        raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
-    while True:
-        problem = await locker.watchdog()
-        if problem == lock_buddy.LockStatus.RAIL:
-            await release_lock(subs)
-            await engage_lock(subs)
-        else:
-            break
-    LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
 
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:

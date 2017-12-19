@@ -224,6 +224,7 @@ class LockBuddy:
         self._lock = lock
         self._lockbox = lockbox  # type: Tuner
         self._locked = locked
+        self._loop = asyncio.get_event_loop()
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
         self._scanner = scanner  # type: Callable[[float], Awaitable[np.ndarray]]
@@ -297,6 +298,24 @@ class LockBuddy:
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(cs.LOCK_SFG_FACTOR * distance)
 
+    async def engage_and_maintain(self, balance: bool = True,
+                                  relock: bool = True) -> asyncio.Task:
+        """Engage the lock and maintain it long-term.
+
+        :param balance: Watch the established lock for imbalance (see
+                    `lock_balancer()` for details).
+        :param relock: Watch the established lock for inadvertent lock losses.
+
+        :raises LockError: The initial locking failed.
+
+        :returns: A Task that can be used to cancel the maintenance services.
+                    This task will only finish if something unexpected happens.
+                    Thus, it can also be used to be notified of problems.
+        """
+        async def runner() -> None:
+            pass
+        return self._loop.create_task(runner())
+
     async def get_lock_status(self) -> LockStatus:
         """What status is the lock currently in?
 
@@ -336,6 +355,20 @@ class LockBuddy:
         # For the infinite lock, this will run forever.  Otherwise we return
         # the problem.
         return status
+
+    async def start_balancer(self) -> None:
+        """Watch a running lock and correct for occurring drifts."""
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
+        while True:
+            status = await self.get_lock_status()
+            if status == LockStatus.ON_LINE:
+                await self.balance(cs.LOCKBOX_BALANCE_POINT)
+            else:
+                break
+            await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
+        LOGGER.warning("Cancelling lock balancer, as lock is %s.", status)
 
     async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                             proximity_callback: Callable[[], Any] = lambda: None,
@@ -413,6 +446,23 @@ class LockBuddy:
                 tools.safe_call(proximity_callback)
                 if max_tries > 0:
                     break
+
+    async def start_relocker(self) -> None:
+        """Supervise a running lock and relock whenever it gets lost.
+
+        :raises RuntimeError: No sound lock to start on.
+        """
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
+        while True:
+            problem = await self.watchdog()
+            if problem == LockStatus.RAIL:
+                await tools.safe_async_call(self._unlock)
+                await tools.safe_async_call(self._lock)
+            else:
+                break
+        LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
     async def tune(self, delta: QtyUnit, speed_constraint: float = 0) -> None:
         """Tune the system by ``delta`` quantity units and wait.
