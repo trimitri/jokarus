@@ -6,6 +6,13 @@ DAQ_ALLOWABLE_BLOCKING_TIME = 2
 """The DAQ may be blocked this many seconds before we assume that something has
 gone wrong.
 """
+MENLO_MINIMUM_WAIT = .2
+"""The Menlo stack interface roundtrip time in seconds.
+
+When sending a simple request to the menlo stack, it will take at most this
+long until the change will be reflected in the readings.  "Simple" meaning,
+that it doesn't take any hardware (current, temp.) to change.
+"""
 
 MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
 """Those types of messages can be sent out by pyodine.  Messages of types that

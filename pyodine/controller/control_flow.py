@@ -245,6 +245,7 @@ async def engage_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_integrator(2, True)
     await asyncio.sleep(cs.LOCKBOX_I_TO_I_DELAY)
     subs.switch_integrator(1, True)
+    await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -264,6 +265,7 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_pii_ramp(True)
     subs.switch_integrator(1, False)
     subs.switch_integrator(2, False)
+    await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
 async def relocker(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy) -> None:
