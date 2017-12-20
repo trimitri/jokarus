@@ -500,6 +500,7 @@ class LockBuddy:
         while True:
             problem = await self.watchdog()
             if problem == LockStatus.RAIL:
+                LOGGER.info("Lock was lost.  Relocking.")
                 await tools.safe_async_call(on_lock_lost)
                 # If this task gets cancelled during a relock attempt, make
                 # sure that we end up with a locked system:
