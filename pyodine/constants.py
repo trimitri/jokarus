@@ -73,6 +73,18 @@ Has to be in [0, .5], as the lockbox level is normalized to [0, 1] and one
 can't deviate any further from 0.5 in this range.
 """
 
+LOCKBOX_BALANCE_POINT = .45
+"""The lockbox equilibrium position.
+
+Where should a perfectly balanced lockbox be resting? This should be given with
+respect to the [0, 1] lockbox control range interval.  Thus, the obvious choice
+is 0.5.  However, off-center balance points could be of use for directional
+locking!
+"""
+
+LOCKBOX_BALANCE_INTERVAL = 1.08
+"""Chech for lock imbalance every ~ seconds."""
+
 LOCKBOX_RAIL_ZONE = 0.1
 """The lockbox is considered railed this close to the edge of range of motion.
 

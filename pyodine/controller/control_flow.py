@@ -268,23 +268,6 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
-async def relocker(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy) -> None:
-    """Supervise a running lock and relock whenever it gets lost.
-
-    :raises RuntimeError: No sound lock to start on.
-    """
-    status = await locker.get_lock_status()
-    if status != lock_buddy.LockStatus.ON_LINE:
-        raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
-    while True:
-        problem = await locker.watchdog()
-        if problem == lock_buddy.LockStatus.RAIL:
-            await release_lock(subs)
-            await engage_lock(subs)
-        else:
-            break
-    LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
-
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MiOB temperature for frequency tuning."""
     def get_miob_temp() -> float:

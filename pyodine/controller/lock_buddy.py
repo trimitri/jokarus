@@ -12,10 +12,9 @@ from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
-MONITOR_INTERVAL = 22.
-"""Check for lock imbalance every ~ seconds."""
 MAX_JUMPS = 10
 """Jump ~ times before considering the pre-lock procedure failed."""
+
 MATCH_QUALITY_THRESH = 0.7
 """How well does a sample have to fit the reference for us to even consider the
 match valid?
@@ -173,7 +172,7 @@ class Tuner:
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
 
-    def __init__(self, lock: Callable[[], Optional[Awaitable[None]]],
+    def __init__(self, lock: Callable[[], Awaitable[None]],
                  unlock: Callable[[], Optional[Awaitable[None]]],
                  locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
                  scanner: Callable[[float], Awaitable[np.ndarray]],
@@ -225,6 +224,7 @@ class LockBuddy:
         self._lock = lock
         self._lockbox = lockbox  # type: Tuner
         self._locked = locked
+        self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
         self._scanner = scanner  # type: Callable[[float], Awaitable[np.ndarray]]
@@ -288,15 +288,64 @@ class LockBuddy:
             raise RuntimeError("Lock is %s. Refusing to balance.", status)
 
         imbalance = await self._lockbox.get() - equilibrium
-        LOGGER.info("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
+        LOGGER.debug("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
         if abs(imbalance) <= cs.LOCKBOX_ALLOWABLE_IMBALANCE:
-            LOGGER.info("No need to balance lock.")
+            LOGGER.debug("No need to balance lock.")
             return
         # We need to manually tune the distance that is currently maintained by
         # the lockbox output.
         distance = imbalance * self._lockbox.scale
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(cs.LOCK_SFG_FACTOR * distance)
+
+    def engage_and_maintain(self, balance: bool = True,
+                            relock: bool = True) -> asyncio.Task:
+        """Engage the lock and maintain it long-term.
+
+        :param balance: Watch the established lock for imbalance (see
+                    `lock_balancer()` for details).
+        :param relock: Watch the established lock for inadvertent lock losses.
+
+        :raises LockError: The initial locking failed.
+
+        :returns: A Task that can be used to cancel the maintenance services.
+                    This task will only finish if something unexpected happens.
+                    Thus, it can also be used to be notified of problems.
+        """
+
+        if not relock or not balance:
+            # TODO Implement partial maintenance.
+            raise NotImplementedError("Relocker and balancer are always active.")
+
+        balancer = None  # type: asyncio.Task
+
+        def launch_balancer() -> None:
+            """Engage the balancer task in the background."""
+            nonlocal balancer
+            balancer = self._loop.create_task(self.start_balancer())
+
+        async def runner() -> None:
+            """The daemon that will be wrappen in a Task and returned.
+
+            The relocker is easy to maintain.  It just runs continuously.  The
+            balancer however, may fail during relock operations and thus needs
+            to be restarted accordingly.
+
+            This coroutine will only ever complete if something goes wrong or
+            is cancelled.
+            """
+            await self._lock()
+            try:
+                launch_balancer()
+                await self.start_relocker(on_lock_lost=balancer.cancel,
+                                          on_lock_on=launch_balancer)
+                balancer.cancel()
+            except asyncio.CancelledError:
+                LOGGER.info("Lock maintenance was cancelled.")
+                balancer.cancel()
+                raise
+
+        return self._loop.create_task(runner())
 
     async def get_lock_status(self) -> LockStatus:
         """What status is the lock currently in?
@@ -337,6 +386,20 @@ class LockBuddy:
         # For the infinite lock, this will run forever.  Otherwise we return
         # the problem.
         return status
+
+    async def start_balancer(self) -> None:
+        """Watch a running lock and correct for occurring drifts."""
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
+        while True:
+            status = await self.get_lock_status()
+            if status == LockStatus.ON_LINE:
+                await self.balance(cs.LOCKBOX_BALANCE_POINT)
+            else:
+                break
+            await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
+        LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
 
     async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                             proximity_callback: Callable[[], Any] = lambda: None,
@@ -414,6 +477,38 @@ class LockBuddy:
                 tools.safe_call(proximity_callback)
                 if max_tries > 0:
                     break
+
+    async def start_relocker(
+            self, on_lock_lost: Callable[[], Any] = lambda: None,
+            on_lock_on: Callable[[], Any] = lambda: None) -> None:
+        """Supervise a running lock and relock whenever it gets lost.
+
+        :param on_lock_lost: Will be called as soon as a lock rail event is
+                    registered.
+        :param on_lock_on: Will be called when the relock process was completed
+                    after a lock loss.
+        :raises RuntimeError: No sound lock to start on.
+        """
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
+
+        async def relock() -> None:
+            await self._unlock()
+            await self._lock()
+
+        while True:
+            problem = await self.watchdog()
+            if problem == LockStatus.RAIL:
+                LOGGER.info("Lock was lost.  Relocking.")
+                await tools.safe_async_call(on_lock_lost)
+                # If this task gets cancelled during a relock attempt, make
+                # sure that we end up with a locked system:
+                await asyncio.shield(relock())
+                await tools.safe_async_call(on_lock_on)
+            else:
+                break
+        LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
     async def tune(self, delta: QtyUnit, speed_constraint: float = 0) -> None:
         """Tune the system by ``delta`` quantity units and wait.
