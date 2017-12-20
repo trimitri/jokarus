@@ -338,7 +338,9 @@ class LockBuddy:
                                           on_lock_on=launch_balancer)
                 balancer.cancel()
             except asyncio.CancelledError:
+                LOGGER.info("Lock maintenance was cancelled.")
                 balancer.cancel()
+                raise
 
         return self._loop.create_task(runner())
 
@@ -487,12 +489,18 @@ class LockBuddy:
         status = await self.get_lock_status()
         if status != LockStatus.ON_LINE:
             raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
+
+        async def relock() -> None:
+            await tools.safe_async_call(self._unlock)
+            await tools.safe_async_call(self._lock)
+
         while True:
             problem = await self.watchdog()
             if problem == LockStatus.RAIL:
                 await tools.safe_async_call(on_lock_lost)
-                await tools.safe_async_call(self._unlock)
-                await tools.safe_async_call(self._lock)
+                # If this task gets cancelled during a relock attempt, make
+                # sure that we end up with a locked system:
+                await asyncio.shield(relock())
                 await tools.safe_async_call(on_lock_on)
             else:
                 break
