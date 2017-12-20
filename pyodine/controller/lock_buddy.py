@@ -491,7 +491,7 @@ class LockBuddy:
         """
         status = await self.get_lock_status()
         if status != LockStatus.ON_LINE:
-            raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
+            raise RuntimeError("Lock is {}. Can't invoke relocker.".format(status))
 
         async def relock() -> None:
             await self._unlock()
