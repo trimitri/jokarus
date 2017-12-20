@@ -224,7 +224,7 @@ class LockBuddy:
         self._lock = lock
         self._lockbox = lockbox  # type: Tuner
         self._locked = locked
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
         self._scanner = scanner  # type: Callable[[float], Awaitable[np.ndarray]]
@@ -312,8 +312,34 @@ class LockBuddy:
                     This task will only finish if something unexpected happens.
                     Thus, it can also be used to be notified of problems.
         """
+
+        if not relock or not balance:
+            # TODO Implement partial maintenance.
+            raise NotImplementedError("Relocker and balancer are always active.")
+        balancer = None  # type: asyncio.Task
+
+        def launch_balancer() -> None:
+            """Engage the balancer task in the background."""
+            nonlocal balancer
+            balancer = self._loop.create_task(self.start_balancer())
+
         async def runner() -> None:
-            pass
+            """The daemon that will be wrappen in a Task and returned.
+
+            The relocker is easy to maintain.  It just runs continuously.  The
+            balancer however, may fail during relock operations and thus needs
+            to be restarted accordingly.
+
+            This coroutine will only ever complete if something goes wrong or
+            is cancelled.
+            """
+            try:
+                await self.start_relocker(on_lock_lost=balancer.cancel,
+                                          on_lock_on=launch_balancer)
+                balancer.cancel()
+            except asyncio.CancelledError:
+                balancer.cancel()
+
         return self._loop.create_task(runner())
 
     async def get_lock_status(self) -> LockStatus:
@@ -447,9 +473,15 @@ class LockBuddy:
                 if max_tries > 0:
                     break
 
-    async def start_relocker(self) -> None:
+    async def start_relocker(
+            self, on_lock_lost: Callable[[], Any],
+            on_lock_on: Callable[[], Any]) -> None:
         """Supervise a running lock and relock whenever it gets lost.
 
+        :param on_lock_lost: Will be called as soon as a lock rail event is
+                    registered.
+        :param on_lock_on: Will be called when the relock process was completed
+                    after a lock loss.
         :raises RuntimeError: No sound lock to start on.
         """
         status = await self.get_lock_status()
@@ -458,8 +490,10 @@ class LockBuddy:
         while True:
             problem = await self.watchdog()
             if problem == LockStatus.RAIL:
+                await tools.safe_async_call(on_lock_lost)
                 await tools.safe_async_call(self._unlock)
                 await tools.safe_async_call(self._lock)
+                await tools.safe_async_call(on_lock_on)
             else:
                 break
         LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
