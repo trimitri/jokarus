@@ -399,7 +399,7 @@ class LockBuddy:
             else:
                 break
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
-        LOGGER.warning("Cancelling lock balancer, as lock is %s.", status)
+        LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
 
     async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
                             proximity_callback: Callable[[], Any] = lambda: None,
@@ -479,8 +479,8 @@ class LockBuddy:
                     break
 
     async def start_relocker(
-            self, on_lock_lost: Callable[[], Any],
-            on_lock_on: Callable[[], Any]) -> None:
+            self, on_lock_lost: Callable[[], Any] = lambda: None,
+            on_lock_on: Callable[[], Any] = lambda: None) -> None:
         """Supervise a running lock and relock whenever it gets lost.
 
         :param on_lock_lost: Will be called as soon as a lock rail event is
@@ -494,8 +494,8 @@ class LockBuddy:
             raise RuntimeError("Lock is %s. Can't invoke relocker.", status)
 
         async def relock() -> None:
-            await tools.safe_async_call(self._unlock)
-            await tools.safe_async_call(self._lock)
+            await self._unlock()
+            await self._lock()
 
         while True:
             problem = await self.watchdog()
