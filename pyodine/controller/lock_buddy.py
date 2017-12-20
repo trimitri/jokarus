@@ -172,7 +172,7 @@ class Tuner:
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
 
-    def __init__(self, lock: Callable[[], Optional[Awaitable[None]]],
+    def __init__(self, lock: Callable[[], Awaitable[None]],
                  unlock: Callable[[], Optional[Awaitable[None]]],
                  locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
                  scanner: Callable[[float], Awaitable[np.ndarray]],
@@ -298,8 +298,8 @@ class LockBuddy:
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(cs.LOCK_SFG_FACTOR * distance)
 
-    async def engage_and_maintain(self, balance: bool = True,
-                                  relock: bool = True) -> asyncio.Task:
+    def engage_and_maintain(self, balance: bool = True,
+                            relock: bool = True) -> asyncio.Task:
         """Engage the lock and maintain it long-term.
 
         :param balance: Watch the established lock for imbalance (see
@@ -316,6 +316,7 @@ class LockBuddy:
         if not relock or not balance:
             # TODO Implement partial maintenance.
             raise NotImplementedError("Relocker and balancer are always active.")
+
         balancer = None  # type: asyncio.Task
 
         def launch_balancer() -> None:
@@ -333,7 +334,9 @@ class LockBuddy:
             This coroutine will only ever complete if something goes wrong or
             is cancelled.
             """
+            await self._lock()
             try:
+                launch_balancer()
                 await self.start_relocker(on_lock_lost=balancer.cancel,
                                           on_lock_on=launch_balancer)
                 balancer.cancel()
