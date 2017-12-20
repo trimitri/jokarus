@@ -13,8 +13,8 @@ async def worker(what) -> None:
         print("{} got cancelled!".format(what))
 
 
-async def cancellor(what) -> None:
-    await asyncio.sleep(3)
+async def cancellor(what, wait=1) -> None:
+    await asyncio.sleep(wait)
     what.cancel()
 
 
