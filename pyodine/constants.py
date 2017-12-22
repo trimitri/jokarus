@@ -6,6 +6,17 @@ DAQ_ALLOWABLE_BLOCKING_TIME = 2
 """The DAQ may be blocked this many seconds before we assume that something has
 gone wrong.
 """
+
+DAQ_MAX_SCAN_AMPLITUDE = 20
+"""Maximum allowable peak-peak amplitude in volts when doing DAQ signal scans.
+
+As for the physical capabilities of the DAQ device, this must not exceed 20
+volts.
+"""
+
+DAQ_SCAN_TIME = 0.5
+"""The time to take for a frequency scan in seconds."""
+
 MENLO_MINIMUM_WAIT = .2
 """The Menlo stack interface roundtrip time in seconds.
 

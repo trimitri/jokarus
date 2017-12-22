@@ -8,6 +8,8 @@ from typing import List, Tuple
 
 import numpy as np
 
+from .. import constants as cs
+
 MAX_AOUT_SAMPLES = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
@@ -127,8 +129,9 @@ class MccDaq:
         # TODO:
         # - Try reading at higher sample rate than writing
         # - Validate `channels`
-        if not amplitude <= 10 or not amplitude > 0:
-            raise ValueError("Passed amplitude {} not in ]0, 10].".format(amplitude))
+        if not amplitude <= cs.DAQ_MAX_SCAN_AMPLITUDE or not amplitude > 0:
+            raise ValueError("Passed amplitude {} not in ]0, {}].".format(
+                amplitude, cs.DAQ_MAX_SCAN_AMPLITUDE))
         if not time > 0:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
         if not isinstance(shape, RampShape):

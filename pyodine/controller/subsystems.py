@@ -24,14 +24,11 @@ from .. import constants as cs
 LOGGER = logging.getLogger("pyodine.controller.subsystems")
 LOGGER.setLevel(logging.DEBUG)
 
-
 # TODO: Drop this and use `TecUnit` below instead.
 TEC_CONTROLLERS = {'miob': 1, 'vhbg': 2, 'shgb': 3, 'shga': 4}
 
 LOCKBOX_ID = 2
 DDS_PORT = '/dev/ttyUSB2'
-
-SCAN_TIME = 0.2  # The time to take for a frequency scan in seconds.
 
 # Define some custom types.
 # pylint: disable=invalid-name
@@ -167,12 +164,15 @@ class Subsystems:
         prelock.
 
         :param amplitude: The peak-to-peak amplitude to use for scanning,
-                    ranging [0, 1]. 1 corresponds to 10V peak-peak.
+                    ranging [0, 1]. 1 corresponds to
+                    `constants.DAQ_MAX_SCAN_AMPLITUDE`.
+        :returns: Numpy array of fetched data. There are three columns: "ramp
+                    monitor", "error signal" and "logarithmic port".
         :raises ConnectionError: DAQ is unavailable.
         """
         blocking_fetch = lambda: self._daq.fetch_scan(
-            amplitude * 10,  # Limit the full scan ampl. to 10V to avoid capping
-            SCAN_TIME,
+            amplitude * cs.DAQ_MAX_SCAN_AMPLITUDE,
+            cs.DAQ_SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
              (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
              (DaqInput.DETECTOR_LINEAR, mccdaq.InputRange.PM_5V)],
