@@ -7,7 +7,7 @@ DAQ_ALLOWABLE_BLOCKING_TIME = 2
 gone wrong.
 """
 
-DAQ_MAX_SCAN_AMPLITUDE = 20
+DAQ_MAX_SCAN_AMPLITUDE = 19
 """Maximum allowable peak-peak amplitude in volts when doing DAQ signal scans.
 
 As for the physical capabilities of the DAQ device, this must not exceed 20
