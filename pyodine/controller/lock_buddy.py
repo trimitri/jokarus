@@ -2,7 +2,7 @@
 import asyncio
 import enum
 import logging
-from typing import Any, Awaitable, Callable, List, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -298,6 +298,74 @@ class LockBuddy:
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(cs.LOCK_SFG_FACTOR * distance)
 
+    async def doppler_search(
+            self, scanner: Callable[[], Awaitable[np.ndarray]],
+            speed_constraint: float = 5,
+            step_size: QtyUnit = 600, max_range: QtyUnit = None) -> None:
+        """Search for a doppler-broadened line around current working point.
+
+        :param scanner: Callback coroutine function that returns the
+                    transmission spectrum around the current working point.
+                    The returned numpy array must consist of two columns; the
+                    first being the distance from the zero position in
+                    QtyUnits, the second being an arbitrary measure of
+                    transmittivity.
+        :param speed_constraint: When tuning away from the initial working
+                    point, don't use tuners that take longer than ~ seconds for
+                    a jump.
+        :param step_size: When searching, spectral sample points will be spaced
+                    this far from each other.
+        :param max_range: Don't deviate further than ~ QtyUnits from initial
+                    working point.
+        :raises ValueError: The inputs don't make sense.
+        """
+        red, blue = self.get_max_range(speed_constraint)
+        reach = max_range if max_range else max(red, blue)
+
+        if not red > step_size and not blue > step_size:
+            raise ValueError("Not enough tuning range for that step size in "
+                             "either direction.")
+        if max_range < step_size:
+            raise ValueError("Choose bigger range for this step size.")
+        if not red > step_size or not blue > step_size:
+            LOGGER.warning("Edge of tuning range. Can only search in one direction.")
+        if max_range > red or max_range > blue:
+            LOGGER.warning("Can't search requested range in both directions.")
+
+        def has_line() -> bool:
+            LOGGER.info("Searching at %s.", relative_position)
+            return False  # FIXME implement
+
+        # Zig-zag back and forth, gradually extending the distance to the
+        # origin.
+        alternate = True       # search zig-zag
+        relative_position = 0  # type: QtyUnit # distance to origin
+        sign = +1              # zig or zag?
+        counter = 1            # how far to jump with next zig resp. zag
+        found = has_line()
+        step = step_size
+        while not found:
+            try:
+                if abs(relative_position + step) > reach:
+                    raise ValueError
+                await self.tune(step, speed_constraint)  # also raises ValueError!
+                relative_position += step
+            except ValueError:
+                if alternate:
+                    # We hit a boundary in one direction.  If we still didn't
+                    # find a line, we'll now search in the remaining direction
+                    # as far as possible.
+                    alternate = False
+                    step = -1 * sign * step_size
+                else:
+                    # Even the single-sided search didn't turn anything out.
+                    break
+            found = has_line()
+            if alternate:
+                counter += 1
+                sign *= -1
+                step = sign * counter * step_size
+
     def engage_and_maintain(self, balance: bool = True,
                             relock: bool = True) -> asyncio.Task:
         """Engage the lock and maintain it long-term.
@@ -363,6 +431,13 @@ class LockBuddy:
                 return LockStatus.RAIL
             return LockStatus.ON_LINE
         raise RuntimeError("Couldn't get lockbox state from callback.")
+
+    def get_max_range(self, speed_constraint: float = None) -> Tuple[QtyUnit, QtyUnit]:
+        """How far can we tune up or down from the current working point?
+
+        :returns: Tuple like (max_red_detuning, max_blue_detuning).
+        """
+        return (3000, 2000)  # FIXME implement
 
     async def watchdog(self) -> LockStatus:
         """Watch an engaged lock and return as soon as something goes wrong.
