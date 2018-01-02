@@ -573,12 +573,12 @@ class MenloStack:
     def _get_osc_prop(self, unit: Union[int, OscCard], service_id: int,
                       since: Time = None) -> Buffer:
         node_id = self._get_osc_node_id(unit)
-        since = since if isinstance(since, float) else math.nan
+        since = since if isinstance(since, float) else None
         return self._get_latest(self._buffers[node_id][service_id], since)
 
     def _get_pii_prop(self, unit_number: int, service_id: int,
                       since: Time = None) -> Buffer:
-        since = since if isinstance(since, float) else math.nan
+        since = since if isinstance(since, float) else None
         node_id = unit_number
         if node_id in PII_NODES:
             return self._get_latest(self._buffers[node_id][service_id], since)
@@ -625,6 +625,9 @@ class MenloStack:
         asyncio.ensure_future(self._connection.send(message))
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
+        """
+        :raises ValueError: Couldn't parse value as MenloUnit.
+        """
         buffer = None
 
         # If we try to access an nonexistent service, the corresponding buffer
@@ -640,16 +643,15 @@ class MenloStack:
                              node, service, self._name_service(node, service),
                              value)
 
-            # Convert the MenloUnit-ish string to a MenloUnit (NaN on error).
-            val = math.nan
+            # Convert the MenloUnit-ish string to a MenloUnit
+            val = None  # type: MenloUnit
             try:
                 val = int(value)
             except ValueError:
                 try:
                     val = float(value)
                 except ValueError:
-                    LOGGER.error("Couldn't convert <%s> to either int or"
-                                 "float.")
+                    raise ValueError("Couldn't convert {} to either int or float.".format(value))
             self._rotate_log(self._buffers[node][service], val)
 
             # Log untouched data to disk.
@@ -707,9 +709,9 @@ class MenloStack:
         """Returns all tuples of time and value since "since" from given buffer.
         """
         if not isinstance(since, float):
-            since = math.nan
+            since = None
         if buffer:
-            if math.isnan(since):  # Get single latest data point.
+            if not since:  # Get single latest data point.
 
                 # In order to be consistent with queries using "since", we
                 # return a length-1 array.

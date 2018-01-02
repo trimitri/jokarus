@@ -749,8 +749,6 @@ class Subsystems:
 
         # TODO: Use functools.partials instead of default arguments to enforce
         # early binding.
-        # TODO: Look again at all those NaN's and if's. Maybe use exceptions
-        # instead?
         for name, unit in TEC_CONTROLLERS.items():
             def getter(bound_unit: int = unit) -> float:
                 """Get the most recent temperature reading from MenloStack."""
@@ -760,18 +758,14 @@ class Subsystems:
                 temp_readings = self._menlo.get_temperature(bound_unit)
                 if temp_readings:
                     return self._unwrap_buffer(temp_readings)
-
-                LOGGER.error("Couldn't determine temperature.")
-                return float('nan')
+                raise ConnectionError("Couldn't determine temperature.")
 
             def setpt_getter(bound_unit: int = unit) -> float:
                 """Gets the current TEC setpoint."""
                 temp_setpts = self._menlo.get_temp_setpoint(bound_unit)
                 if temp_setpts:
                     return self._unwrap_buffer(temp_setpts)
-
-                LOGGER.error("Couldn't determine temp. setpoint.")
-                return float('nan')
+                raise ConnectionError("Couldn't determine temp. setpoint.")
 
             def setter(temp: float, bound_unit: int = unit) -> None:
                 # Same here (see above).
