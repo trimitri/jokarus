@@ -262,7 +262,7 @@ class Subsystems:
         """
         try:
             return self._unwrap_buffer(
-                self._menlo.get_diode_current_setpoint(LdDriver(unit)))
+                self._menlo.get_diode_current_setpoint(_LD_CARDS[unit]))
         except (ValueError, AttributeError) as err:
             raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
 

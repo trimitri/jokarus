@@ -10,7 +10,6 @@ errors/ignores.
 import asyncio
 import enum
 import logging
-import math
 import time        # To keep track of when replies came in.
 from typing import Dict, List, Tuple, Union
 
@@ -356,7 +355,7 @@ class MenloStack:
         except (KeyError, ValueError):  # No calibration present.
             return raw
 
-    def get_diode_current_setpoint(self, unit: Union[int, OscCard],
+    def get_diode_current_setpoint(self, unit: OscCard,
                                    since: Time = None) -> Buffer:
         """The currently set current setpoint of given card."""
         raw = self._get_osc_prop(unit, 257, since)
