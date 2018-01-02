@@ -46,7 +46,7 @@ This is an estimate taken from the printed MiLas "user guide".
 """
 # TODO: Conduct better measurement of Milas MHz per mA.
 
-LD_MO_TUNING_RANGE = [80, 160]
+LD_MO_TUNING_RANGE = [85, 155]
 """Lowest and highest MO current available to the tuner.
 
 Based on FBH preliminary spec sheet.
