@@ -333,7 +333,7 @@ class LockBuddy:
         """
         red, blue = await self.get_max_range(speed_constraint)
         reach = max_range if max_range else cs.LOCK_SFG_FACTOR * max(red, blue)
-        LOGGER.info("red: %s, blue: %s, reach: %s", red, blue, reach)
+        LOGGER.debug("red: %s, blue: %s, reach: %s", red, blue, reach)
 
         if not red > step_size and not blue > step_size:
             raise ValueError("Not enough tuning range for that step size in "
@@ -348,7 +348,7 @@ class LockBuddy:
 
         async def has_line() -> bool:
             """Do we see a transition at the current position?"""
-            LOGGER.info("Searching at %s.", relative_position)
+            LOGGER.debug("Searching at %s.", relative_position)
             await asyncio.sleep(10)
             return False  # FIXME Implement line-searching.
 
@@ -362,15 +362,15 @@ class LockBuddy:
         step = step_size
         while not found:
             try:
-                LOGGER.info("Target is %s + %s = %s", relative_position, step, relative_position + step)
+                LOGGER.debug("Target is %s + %s = %s", relative_position, step, relative_position + step)
                 if abs(relative_position + step) > reach:
-                    LOGGER.info("Would exceed reach.")
+                    LOGGER.debug("Would exceed reach.")
                     raise ValueError
-                LOGGER.info("Is in reach. Tuning by %s.", step)
+                LOGGER.debug("Is in reach. Tuning by %s.", step)
                 await self.tune(step, speed_constraint)  # also raises ValueError!
                 relative_position += step
             except ValueError:
-                LOGGER.info("Couldn't tune.")
+                LOGGER.debug("Couldn't tune.")
                 if alternate:
                     # We hit a boundary in one direction.  If we still didn't
                     # find a line, we'll now search in the remaining direction
@@ -381,7 +381,7 @@ class LockBuddy:
                     continue
                 else:
                     # Even the single-sided search didn't turn anything out.
-                    LOGGER.info("Exiting single-sided mode.")
+                    LOGGER.warning("Exiting single-sided mode. No match at all.")
                     break
             found = await has_line()
             if alternate:
