@@ -332,7 +332,7 @@ class LockBuddy:
         :raises ValueError: The inputs don't make sense.
         """
         red, blue = await self.get_max_range(speed_constraint)
-        reach = max_range if max_range else max(red, blue)
+        reach = max_range if max_range else cs.LOCK_SFG_FACTOR * max(red, blue)
         LOGGER.info("red: %s, blue: %s, reach: %s", red, blue, reach)
 
         if not red > step_size and not blue > step_size:
@@ -628,7 +628,7 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
-        LOGGER.info("Tuning 2 * %s MHz...", delta)
+        LOGGER.info("Tuning %s/%s MHz...", delta, cs.LOCK_SFG_FACTOR)
         delta /= cs.LOCK_SFG_FACTOR
         # We won't tune if delta is smaller than any of the available
         # granularities.
