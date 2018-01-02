@@ -325,15 +325,17 @@ class LockBuddy:
         if not red > step_size and not blue > step_size:
             raise ValueError("Not enough tuning range for that step size in "
                              "either direction.")
-        if max_range < step_size:
-            raise ValueError("Choose bigger range for this step size.")
         if not red > step_size or not blue > step_size:
             LOGGER.warning("Edge of tuning range. Can only search in one direction.")
-        if max_range > red or max_range > blue:
-            LOGGER.warning("Can't search requested range in both directions.")
+        if max_range:
+            if max_range < step_size:
+                raise ValueError("Choose bigger range for this step size.")
+            if max_range > red or max_range > blue:
+                LOGGER.warning("Can't search requested range in both directions.")
 
-        def has_line() -> bool:
+        async def has_line() -> bool:
             LOGGER.info("Searching at %s.", relative_position)
+            await asyncio.sleep(5)
             return False  # FIXME implement
 
         # Zig-zag back and forth, gradually extending the distance to the
@@ -342,25 +344,32 @@ class LockBuddy:
         relative_position = 0  # type: QtyUnit # distance to origin
         sign = +1              # zig or zag?
         counter = 1            # how far to jump with next zig resp. zag
-        found = has_line()
+        found = await has_line()
         step = step_size
         while not found:
             try:
+                LOGGER.info("Target is %s + %s = %s", relative_position, step, relative_position + step)
                 if abs(relative_position + step) > reach:
+                    LOGGER.info("Would exceed reach.")
                     raise ValueError
+                LOGGER.info("Is in reach. Tuning by %s.", step)
                 await self.tune(step, speed_constraint)  # also raises ValueError!
                 relative_position += step
             except ValueError:
+                LOGGER.info("Couldn't tune.")
                 if alternate:
                     # We hit a boundary in one direction.  If we still didn't
                     # find a line, we'll now search in the remaining direction
                     # as far as possible.
+                    LOGGER.info("Switching to single-sided mode.")
                     alternate = False
                     step = -1 * sign * step_size
+                    continue
                 else:
                     # Even the single-sided search didn't turn anything out.
+                    LOGGER.info("Exiting single-sided mode.")
                     break
-            found = has_line()
+            found = await has_line()
             if alternate:
                 counter += 1
                 sign *= -1
@@ -602,7 +611,7 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
-        LOGGER.debug("Tuning 2 * %s MHz...", delta)
+        LOGGER.info("Tuning 2 * %s MHz...", delta)
         delta /= cs.LOCK_SFG_FACTOR
         # We won't tune if delta is smaller than any of the available
         # granularities.
