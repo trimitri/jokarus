@@ -8,6 +8,7 @@ import logging
 from typing import Awaitable, Callable, Dict, List, Union
 import serial
 
+from .. import logger
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger('pyodine.transport.texus_relay')
@@ -138,6 +139,7 @@ class TexusRelay:
         This will (async) block.
         """
         old_state = self.timer_state
+        logger.log_quantity('texus_flags', str(old_state))
         while True:
             await asyncio.sleep(POLLING_INTERVAL)
             new_state = self.timer_state
@@ -145,4 +147,5 @@ class TexusRelay:
                 if new_state[wire] != old_state[wire]:
                     await asyncio_tools.safe_async_call(on_state_change, wire,
                                                         new_state)
+                    logger.log_quantity('texus_flags', str(new_state))
             old_state = new_state
