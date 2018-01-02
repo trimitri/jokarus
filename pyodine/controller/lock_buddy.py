@@ -168,6 +168,18 @@ class Tuner:
         await tools.safe_async_call(self._setter, value)
         await asyncio.sleep(self.delay)
 
+    async def get_max_jumps(self) -> Tuple[QtyUnit, QtyUnit]:
+        """How far can we tune up or down from the current working point?
+
+        :returns: Tuple like (low, high).  Tuning by +high will have you end up
+                    at the upper boundary of the tuning range.  Tuning by -low
+                    goes to the lower end.
+        """
+        current = await self.get()
+        high = (1 - current) * self.scale
+        low = current * self.scale
+        return (low, high)
+
 
 class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
@@ -212,7 +224,7 @@ class LockBuddy:
         for name, callback in (("lock", lock), ("unlock", unlock),
                                ("scanner", scanner), ("locked", locked)):
             if not callable(callback):
-                raise TypeError('Callback "%s" is not callable.', name)
+                raise TypeError('Callback "{}" is not callable.'.format(name))
         if not tuners:
             raise ValueError("No tuners passed.")
 
@@ -285,7 +297,7 @@ class LockBuddy:
         """
         status = await self.get_lock_status()
         if not status == LockStatus.ON_LINE:
-            raise RuntimeError("Lock is %s. Refusing to balance.", status)
+            raise RuntimeError("Lock is {}. Refusing to balance.".format(status))
 
         imbalance = await self._lockbox.get() - equilibrium
         LOGGER.debug("Imbalance is %s of %s", imbalance, cs.LOCKBOX_ALLOWABLE_IMBALANCE)
@@ -319,7 +331,7 @@ class LockBuddy:
                     working point.
         :raises ValueError: The inputs don't make sense.
         """
-        red, blue = self.get_max_range(speed_constraint)
+        red, blue = await self.get_max_range(speed_constraint)
         reach = max_range if max_range else max(red, blue)
 
         if not red > step_size and not blue > step_size:
@@ -334,9 +346,10 @@ class LockBuddy:
                 LOGGER.warning("Can't search requested range in both directions.")
 
         async def has_line() -> bool:
+            """Do we see a transition at the current position?"""
             LOGGER.info("Searching at %s.", relative_position)
-            await asyncio.sleep(5)
-            return False  # FIXME implement
+            await asyncio.sleep(10)
+            return False  # FIXME Implement line-searching.
 
         # Zig-zag back and forth, gradually extending the distance to the
         # origin.
@@ -441,12 +454,16 @@ class LockBuddy:
             return LockStatus.ON_LINE
         raise RuntimeError("Couldn't get lockbox state from callback.")
 
-    def get_max_range(self, speed_constraint: float = None) -> Tuple[QtyUnit, QtyUnit]:
+    async def get_max_range(self, speed_constraint: float = None) -> Tuple[QtyUnit, QtyUnit]:
         """How far can we tune up or down from the current working point?
 
         :returns: Tuple like (max_red_detuning, max_blue_detuning).
+        :raises ValueError: `speed_constraint` disqualifies all tuners.
         """
-        return (3000, 2000)  # FIXME implement
+        fast_tuners = self._only_fast_tuners(speed_constraint)
+        if fast_tuners:
+            return await fast_tuners[0].get_max_jumps()
+        raise ValueError("speed_constraint {} disqualifies all tuners.".format(speed_constraint))
 
     async def watchdog(self) -> LockStatus:
         """Watch an engaged lock and return as soon as something goes wrong.
@@ -456,8 +473,7 @@ class LockBuddy:
         """
         status = await self.get_lock_status()
         if status != LockStatus.ON_LINE:
-            raise RuntimeError("Lock is %s. Refusing to start watchdog.",
-                               status)
+            raise RuntimeError("Lock is {}. Refusing to start watchdog.".format(status))
         LOGGER.info("Starting to track engaged lock.")
         async def check() -> bool:
             """Inquire current status and save it in scope."""
@@ -554,8 +570,8 @@ class LockBuddy:
         while not self.cancel_prelock:
             n_tries += 1
             if max_tries > 0 and n_tries > max_tries:
-                raise RuntimeError("Couldn't reach requested proximity in %s tries",
-                                   max_tries)
+                raise RuntimeError("Couldn't reach requested proximity in "
+                                   "{} tries".format(max_tries))
             if await iterate():  # raises!
                 LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
                 tools.safe_call(proximity_callback)
@@ -618,8 +634,7 @@ class LockBuddy:
         if not abs(delta) >= self.min_step:
             LOGGER.warning("Can't tune this fine %s %s. Ignoring.", delta, self.min_step)
             return
-        tuners = [t for t in self._tuners
-                  if speed_constraint == 0 or t.delay < speed_constraint]
+        tuners = self._only_fast_tuners(speed_constraint)
         if not tuners:
             raise ValueError("Speed constraint of {} disqualifies all tuners"
                              .format(speed_constraint))
@@ -726,3 +741,8 @@ class LockBuddy:
                 "poor quality and is probably not a real hit.")
         raise _RivalryError("There were suitable matches, but they're too "
                             "similar.")
+
+    def _only_fast_tuners(self, speed_constraint: float = None) -> List[Tuner]:
+        """Filter tuners and return only the ones fast enough."""
+        return [t for t in self._tuners
+                if not speed_constraint or t.delay < speed_constraint]

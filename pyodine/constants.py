@@ -175,5 +175,11 @@ MILAS_PA_TRANSPARENCY = 200
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 MILAS_PA_BACKFIRE = 260
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_FREE_SPECTRAL_RANGE = 8000
+"""When searching stuff, it makes no sense to span a larger tuning range than
+this. In MHz.
+
+This is a conservative (read: high) value, as we don't wan't to miss anything.
+"""
 
 # pylint: enable=invalid-name
