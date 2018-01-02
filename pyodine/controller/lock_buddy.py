@@ -333,6 +333,7 @@ class LockBuddy:
         """
         red, blue = await self.get_max_range(speed_constraint)
         reach = max_range if max_range else max(red, blue)
+        LOGGER.info("red: %s, blue: %s, reach: %s", red, blue, reach)
 
         if not red > step_size and not blue > step_size:
             raise ValueError("Not enough tuning range for that step size in "
