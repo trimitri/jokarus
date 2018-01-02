@@ -251,7 +251,7 @@ class Subsystems:
                                                          since=since)
         return data
 
-    def get_ld_current(self, unit: LdDriver) -> float:
+    def get_ld_current_setpt(self, unit: LdDriver) -> float:
         """Return the latest laser diode current in milliamperes.
 
         :param unit: The LD driver unit to act on. Either an `LdDriver` enum
@@ -262,7 +262,7 @@ class Subsystems:
         """
         try:
             return self._unwrap_buffer(
-                self._menlo.get_diode_current(LdDriver(unit)))
+                self._menlo.get_diode_current_setpoint(_LD_CARDS[unit]))
         except (ValueError, AttributeError) as err:
             raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
 

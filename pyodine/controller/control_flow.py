@@ -306,10 +306,17 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MO current for frequency tuning."""
     mo_rng = cs.LD_MO_TUNING_RANGE
     def mo_getter() -> float:
-        return (mo_rng[1] - subs.laser.get_mo_current()) / (mo_rng[1] - mo_rng[0])
+        """Returns the normalized MO current setpoint."""
+        setpoint = subs.get_ld_current_setpt(subsystems.LdDriver.MASTER_OSCILLATOR)
+        normalized = (mo_rng[1] - setpoint) / (mo_rng[1] - mo_rng[0])
+        LOGGER.debug("Got %s for current setpoint (normalized %s).", setpoint, normalized)
+        return normalized
 
     def mo_setter(value: float) -> None:
-        subs.laser.set_mo_current(mo_rng[1] - (value * (mo_rng[1] - mo_rng[0])))
+        """Set MO current based on normalized `value`."""
+        current = mo_rng[1] - (value * (mo_rng[1] - mo_rng[0]))
+        LOGGER.debug("Setting MO current to %s mA (%s normalized).", current, value)
+        subs.laser.set_mo_current(current)
 
     return lock_buddy.Tuner(
         scale=abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA),
