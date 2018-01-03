@@ -22,7 +22,7 @@ class Decoder:
     def feed(self, data: bytes) -> None:
         """Feed the next chunk of bytes into the collecting mechanism."""
         LOGGER.debug("Feeding data into collector: %s",
-                     logger.ellipsicate(data.decode()))
+                     logger.ellipsicate(str(data)))
         self._rcv_buffer += data
 
         if len(self._rcv_buffer) > MAX_MESSAGE_LENGTH:
