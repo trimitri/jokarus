@@ -5,6 +5,7 @@ import logging
 import serial
 from ..transport.websocket_server import WebsocketServer
 from ..transport.decoder import Decoder
+from .. import logger
 
 WS_PORT = 56320
 BAUDRATE = 19200
@@ -53,8 +54,7 @@ class SerialWebsocket():
                 if collector.n_pending() > 0:
                     messages = collector.harvest()
                     for msg in messages:
-                        LOGGER.debug("Forwarding message: %s ... %s",
-                                     msg[:11], msg[-10:])
+                        LOGGER.debug("Forwarding message: %s", logger.ellipsicate(msg))
                         asyncio.ensure_future(self._ws_server.publish(msg))
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.
@@ -66,7 +66,7 @@ async def launch():
     socket.start_server()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     asyncio.ensure_future(launch())
     LOOP = asyncio.get_event_loop()
     LOOP.run_forever()
