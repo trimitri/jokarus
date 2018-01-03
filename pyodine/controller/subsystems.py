@@ -7,6 +7,7 @@ SAFETY POLICY: This class silently assumes all passed arguments to be of
 correct type. The values are allowed to be wrong, though.
 """
 import asyncio
+from collections import namedtuple
 import enum
 from functools import partial
 import logging
@@ -55,7 +56,7 @@ class DaqInput:  # pylint: disable=too-few-public-methods
     """The MCC USB1608G-2AO features 16 analog inputs.
 
     Static constants container. Don't instanciate."""
-    DETECTOR_LINEAR = mccdaq.DaqChannel.C_6
+    DETECTOR_LOG = mccdaq.DaqChannel.C_6
     DETECTOR_PUMP = mccdaq.DaqChannel.C_14
     ERR_SIGNAL = mccdaq.DaqChannel.C_7
     NTC_AOM_AMP = mccdaq.DaqChannel.C_10
@@ -87,6 +88,11 @@ class LdDriver(enum.IntEnum):
     """
     MASTER_OSCILLATOR = 1
     POWER_AMPLIFIER = 3
+
+LightSensors = namedtuple('LightSensors', 'MIOB ISOLATOR PUMP LOG')
+LIGHT_SENSOR_CHANNELS = LightSensors(DaqInput.PD_MIOB, DaqInput.PD_ISOLATOR,
+                                     DaqInput.DETECTOR_PUMP, DaqInput.DETECTOR_LOG)
+LIGHT_SENSOR_GAINS = LightSensors(*(mccdaq.InputRange.PM_5V for _ in range(4)))
 
 _LD_CARDS = {
     LdDriver.MASTER_OSCILLATOR: menlo_stack.OscCard.OSC1A,
@@ -175,7 +181,7 @@ class Subsystems:
             cs.DAQ_SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
              (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
-             (DaqInput.DETECTOR_LINEAR, mccdaq.InputRange.PM_5V)],
+             (DaqInput.DETECTOR_LOG, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:
             return await asyncio.get_event_loop().run_in_executor(None, blocking_fetch)
@@ -265,6 +271,20 @@ class Subsystems:
                 self._menlo.get_diode_current_setpoint(_LD_CARDS[unit]))
         except (ValueError, AttributeError) as err:
             raise ConnectionError("Couldn't fetch diode current from Menlo.") from err
+
+    async def get_light_levels(self) -> LightSensors:
+        """Read levels of auxiliary photodiodes.
+
+        :raises ConnectionError: Couldn't convince the DAQ to send us data.
+        """
+        channels = [(getattr(LIGHT_SENSOR_CHANNELS, key),
+                     getattr(LIGHT_SENSOR_GAINS, key))
+                    for key in LightSensors._fields]
+        def fetch_readings() -> List[int]:
+            return self._daq.sample_channels(channels).tolist()[0]  # may raise!
+        readings = await self._loop.run_in_executor(None, fetch_readings)
+        levels = [counts / 2**16 * 10 - 5 for counts in readings]
+        return LightSensors._make(levels)
 
     def get_lockbox_level(self) -> float:
         """The current lockbox control output level.
