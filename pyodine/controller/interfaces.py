@@ -74,7 +74,7 @@ class Interfaces:
                              "Switching off serial server.")
                 self._use_rs232 = False
             else:
-                asyncio.ensure_future(self._rs232.async_serve())
+                self._loop.create_task(self._rs232.async_serve())
 
         # TEXUS flags relay
         LOGGER.info("Starting TEXUS relay...")
@@ -90,7 +90,7 @@ class Interfaces:
             # function" into this class's scope.
             async def scope_window(wire: texus_relay.TimerWire, state: List[bool]) -> None:
                 await self._timer_callback(wire, state)
-            asyncio.ensure_future(self._texus.poll_for_change(scope_window))
+            self._loop.create_task(self._texus.poll_for_change(scope_window))
             LOGGER.info("Started TEXUS relay.")
 
     def start_publishing_regularly(self, readings_interval: float,
@@ -258,13 +258,13 @@ class Interfaces:
             await self._ws.publish(message)
 
     def _parse_reply(self, message: str) -> None:
-        asyncio.ensure_future(asyncio_tools.safe_async_call(self._rcv_callback,
-                                                            message))
+        self._loop.create_task(
+            asyncio_tools.safe_async_call(self._rcv_callback, message))
 
     def _on_client_connect(self) -> None:
         """Is called everytime a new client connects to the TCP/IP interface.
 
         Attention: As there might be RS232 clients as well, this might not get
         called at all."""
-        asyncio.ensure_future(self.publish_setup_parameters())
-        asyncio.ensure_future(self.publish_flags())
+        self._loop.create_task(self.publish_setup_parameters())
+        self._loop.create_task(self.publish_flags())

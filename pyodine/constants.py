@@ -62,7 +62,7 @@ This is an estimate taken from the printed MiLas "user guide".
 """
 # TODO: Conduct better measurement of Milas MHz per mA.
 
-LD_MO_TUNING_RANGE = [80, 160]
+LD_MO_TUNING_RANGE = [85, 155]
 """Lowest and highest MO current available to the tuner.
 
 Based on FBH preliminary spec sheet.
@@ -177,10 +177,6 @@ MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""
 
-#####################
-# MiLas laser specs #
-#####################
-
 MILAS_MO_MAX = 180
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 MILAS_MO_SEED = 60
@@ -191,5 +187,8 @@ MILAS_PA_TRANSPARENCY = 200
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 MILAS_PA_BACKFIRE = 260
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+
+RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
+"""Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
 # pylint: enable=invalid-name

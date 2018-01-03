@@ -5,6 +5,7 @@ import logging
 import serial
 from ..transport.websocket_server import WebsocketServer
 from ..transport.decoder import Decoder
+from .. import logger
 
 WS_PORT = 56320
 BAUDRATE = 19200
@@ -37,8 +38,7 @@ class SerialWebsocket():
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
         if n_transmitted_bytes == n_bytes:
-            LOGGER.debug("Transmitted Message: %s ... %s",
-                         message[:11], message[-11:])
+            LOGGER.info("Transmitted Message: %s", logger.ellipsicate(message))
         else:
             LOGGER.warning("Error transmitting Message.")
 
@@ -53,8 +53,7 @@ class SerialWebsocket():
                 if collector.n_pending() > 0:
                     messages = collector.harvest()
                     for msg in messages:
-                        LOGGER.debug("Forwarding message: %s ... %s",
-                                     msg[:11], msg[-10:])
+                        LOGGER.info("Forwarding message: %s", logger.ellipsicate(msg))
                         asyncio.ensure_future(self._ws_server.publish(msg))
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.

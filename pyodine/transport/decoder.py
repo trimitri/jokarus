@@ -3,10 +3,11 @@
 import logging
 from typing import List
 from . import packer
+from .. import logger
+from .. import constants as cs
 
 LOGGER = logging.getLogger("pyodine.transport.decoder")
 END_TOKEN = b'}\n\n\n'
-MAX_MESSAGE_LENGTH = 10240  # in bytes
 
 
 class Decoder:
@@ -20,11 +21,11 @@ class Decoder:
 
     def feed(self, data: bytes) -> None:
         """Feed the next chunk of bytes into the collecting mechanism."""
-        LOGGER.debug('Feeding data into collector: %s ... %s',
-                     data[:17], data[-16:])
+        LOGGER.debug("Feeding data into collector: %s",
+                     logger.ellipsicate(str(data)))
         self._rcv_buffer += data
 
-        if len(self._rcv_buffer) > MAX_MESSAGE_LENGTH:
+        if len(self._rcv_buffer) > cs.RS232_MAX_MESSAGE_BYTES:
             LOGGER.error("Receive buffer overflow. Message too long? "
                          "Resetting receive buffer.")
             self._rcv_buffer = b''
@@ -42,10 +43,9 @@ class Decoder:
                 # Pop candidate from buffer.
 
                 msg_candidate = (
-
-                        # Get full message, including token.
-                        self._rcv_buffer[:msg_boundary+len(END_TOKEN)]
-                        ).decode(encoding='utf-8', errors='ignore')
+                    # Get full message, including token.
+                    self._rcv_buffer[:msg_boundary+len(END_TOKEN)]
+                    ).decode(encoding='utf-8', errors='ignore')
 
                 # Delete it from buffer.
                 self._rcv_buffer = self._rcv_buffer[msg_boundary +
@@ -59,8 +59,9 @@ class Decoder:
                 else:
                     LOGGER.warning("Received invalid or incomplete message.")
 
-    def _is_message(self, msg: str) -> bool:
-        LOGGER.debug("Checking for validity: %s ... %s", msg[:17], msg[-16:])
+    @staticmethod
+    def _is_message(msg: str) -> bool:
+        LOGGER.debug("Checking for validity: %s", logger.ellipsicate(msg))
         return packer.is_valid_message(msg)
 
     def n_pending(self) -> int:

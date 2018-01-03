@@ -138,12 +138,14 @@ def start_new_files() -> None:
         handler.doRollover()
 
 
-def ellipsicate(message: str, max_length: int = 40) -> str:
+def ellipsicate(message: str, max_length: int = 40, strip: bool = True) -> str:
     """Return a shortened version of a string if it exceeds max_length.
 
     This will turn 'bizbazfrobnicator' into "biz ... tor".
     """
     msg = re.sub(r'\s+', ' ', str(message))  # only allow ' ' for whitespace
+    if strip:
+        msg = msg.strip()
     if len(msg) <= max_length:
         return msg
     snip_length = int((max_length - 5) / 2)  # ellipsis padded with spaces
