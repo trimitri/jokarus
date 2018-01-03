@@ -38,8 +38,7 @@ class SerialWebsocket():
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
         if n_transmitted_bytes == n_bytes:
-            LOGGER.debug("Transmitted Message: %s ... %s",
-                         message[:11], message[-11:])
+            LOGGER.info("Transmitted Message: %s", logger.ellipsicate(message))
         else:
             LOGGER.warning("Error transmitting Message.")
 
