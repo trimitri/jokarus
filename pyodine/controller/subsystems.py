@@ -92,7 +92,8 @@ class LdDriver(enum.IntEnum):
 LightSensors = namedtuple('LightSensors', 'MIOB ISOLATOR PUMP LOG')
 LIGHT_SENSOR_CHANNELS = LightSensors(DaqInput.PD_MIOB, DaqInput.PD_ISOLATOR,
                                      DaqInput.DETECTOR_PUMP, DaqInput.DETECTOR_LOG)
-LIGHT_SENSOR_GAINS = LightSensors(*(mccdaq.InputRange.PM_5V for _ in range(4)))
+LIGHT_SENSOR_GAINS = LightSensors(mccdaq.InputRange.PM_2V, mccdaq.InputRange.PM_10V,
+                                  mccdaq.InputRange.PM_5V, mccdaq.InputRange.PM_5V)
 
 _LD_CARDS = {
     LdDriver.MASTER_OSCILLATOR: menlo_stack.OscCard.OSC1A,
@@ -283,7 +284,7 @@ class Subsystems:
         def fetch_readings() -> List[int]:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
         readings = await self._loop.run_in_executor(None, fetch_readings)
-        levels = [counts / 2**16 * 10 - 5 for counts in readings]
+        levels = [counts / 2**15 - 1 for counts in readings]
         return LightSensors._make(levels)
 
     def get_lockbox_level(self) -> float:
