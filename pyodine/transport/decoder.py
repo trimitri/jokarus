@@ -4,10 +4,10 @@ import logging
 from typing import List
 from . import packer
 from .. import logger
+from .. import constants as cs
 
 LOGGER = logging.getLogger("pyodine.transport.decoder")
 END_TOKEN = b'}\n\n\n'
-MAX_MESSAGE_LENGTH = 10240  # in bytes
 
 
 class Decoder:
@@ -25,7 +25,7 @@ class Decoder:
                      logger.ellipsicate(str(data)))
         self._rcv_buffer += data
 
-        if len(self._rcv_buffer) > MAX_MESSAGE_LENGTH:
+        if len(self._rcv_buffer) > cs.RS232_MAX_MESSAGE_BYTES:
             LOGGER.error("Receive buffer overflow. Message too long? "
                          "Resetting receive buffer.")
             self._rcv_buffer = b''
