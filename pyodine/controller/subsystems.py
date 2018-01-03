@@ -285,6 +285,7 @@ class Subsystems:
             return self._daq.sample_channels(channels).tolist()[0]  # may raise!
         readings = await self._loop.run_in_executor(None, fetch_readings)
         levels = [counts / 2**15 - 1 for counts in readings]
+        logger.log_quantity('light_levels', '\t'.join([str(l) for l in levels]))
         return LightSensors._make(levels)
 
     def get_lockbox_level(self) -> float:
