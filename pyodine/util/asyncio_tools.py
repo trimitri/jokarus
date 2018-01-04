@@ -26,7 +26,7 @@ def safe_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
         LOGGER.error("Callback %s returned a coroutine.  This is very "
                      "likely to be a mistake.", callback.__name__)
         LOGGER.info("Consider using safe_async_call() for async calls.")
-        return
+    return rval
 
 
 async def async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
