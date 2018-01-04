@@ -5,12 +5,14 @@ control requests they might transmit.
 """
 import asyncio
 import base64
+from functools import partial
 import logging
 import time
 from typing import Any, Awaitable, Callable, List, Optional, Union  # pylint: disable=unused-import
 
 import numpy as np
 
+from .. import constants as cs
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
@@ -148,6 +150,12 @@ class Interfaces:
         if aux_temps_interval > 0:
             services.append(asyncio_tools.repeat_task(self.publish_aux_temps,
                                                       aux_temps_interval))
+
+        # Log and possibly publish photodiode levels.
+        services.append(asyncio_tools.repeat_task(
+            partial(self.publish_light_levels, do_publish=cs.PD_DO_PUBLISH),
+            cs.PD_LOG_INTERVAL))
+
         return asyncio.gather(*services)
 
     async def publish_error_signal(self) -> None:
@@ -188,6 +196,7 @@ class Interfaces:
         LOGGER.debug("Published error signal.")
 
     async def publish_flags(self) -> None:
+        """Inquire and publish TEXUS status flags."""
         if isinstance(self._texus, texus_relay.TexusRelay):
             data = self._texus.get_full_set()
             await self._publish_message(packer.create_message(data, 'texus'), 'texus')
@@ -220,6 +229,19 @@ class Interfaces:
         human_readable['time'] = time.time()
         await self._publish_message(packer.create_message(human_readable, 'aux_temps'),
                                     'aux_temps')
+
+    async def publish_light_levels(self, do_publish: bool = True) -> None:
+        """Acquire and publish photodiode levels in arbitrary units.
+
+        :param do_publish: Set to false to just measure but not publish the
+                    data.  Useful for logging.
+        """
+        levels = await self._subs.get_light_levels()
+        if do_publish:
+            asdict = levels._asdict()
+            asdict['time'] = time.time()
+            await self._publish_message(
+                packer.create_message(asdict, 'light_levels'), 'light_levels')
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         """Set an outgoing "Jokarus" flag."""

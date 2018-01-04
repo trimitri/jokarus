@@ -188,6 +188,11 @@ MILAS_PA_TRANSPARENCY = 200
 MILAS_PA_BACKFIRE = 260
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 
+PD_DO_PUBLISH = False
+"""Publish photodiode readings every time they're inquired."""
+PD_LOG_INTERVAL = 2.7
+"""Interval [s] at which the auxiliary photodiode readings are acquired."""
+
 RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
 """Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
