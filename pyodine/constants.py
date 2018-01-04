@@ -14,20 +14,26 @@ As for the physical capabilities of the DAQ device, this must not exceed 20
 volts.
 """
 
-DAQ_ERR_RAMP_TRIM_FACTORS = [0.1, 0.05]  # FIXME Use real trim factors here.
+DAQ_MIN_RAMP_AMPLITUDE = .01  # Don't use less than 2 * 100mV peak-peak
+"""When evaluating DAQ scans, don't consider anything with less amplitude than
+~ * 10V to be a valid ramp.
+"""
+
+DAQ_ERR_RAMP_TRIM_FACTORS = [0.05, 0.02]
 """Trim these percentages (begin, end) off a ramp scan for err. sig. readings.
 
 As the DAQ uses a Z-shaped signal for ramp scanning, there is mostly
 useless and potentially misleading data at the beginning and end of the scan.
 """
 
-DAQ_LOG_RAMP_TRIM_FACTORS = [0.2, 0.05]  # FIXME Use real trim factors from notes here.
+DAQ_LOG_RAMP_TRIM_FACTORS = [0.1, 0.05]
 """Trim these percentages (begin, end) off a ramp scan for log port readings.
 
 As the DAQ uses a Z-shaped signal for ramp scanning, there is mostly
 useless and potentially misleading data at the beginning and end of the scan.
 This is especially true for the logarithmic output port of the spectroscopy
-module, as it has some low-pass behaviour.
+module, as it has some low-pass behaviour.  Furthermore, the "LOG scan" is done
+with max. amplitude, leading to some capping at the beginning and end.
 """
 
 DAQ_SCAN_TIME = 0.5
