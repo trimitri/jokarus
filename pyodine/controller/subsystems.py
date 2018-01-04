@@ -233,8 +233,8 @@ class Subsystems:
             data[name + '_current_set'] = self._menlo.get_diode_current_setpoint(_LD_CARDS[unit])
 
         # TEC controllers
-        for name, unit in TEC_CONTROLLERS.items():
-            unt = TecUnit(unit)
+        for name, unit2 in TEC_CONTROLLERS.items():  # unit != unit2 (typing)
+            unt = TecUnit(unit2)
             data[name + '_tec_enabled'] = self._menlo.is_tec_enabled(unt)
             data[name + '_temp'] = self._menlo.get_temperature(unt, since)
             data[name + '_temp_raw_set'] = self._menlo.get_temp_setpoint(unt)

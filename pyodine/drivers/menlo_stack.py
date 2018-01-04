@@ -348,6 +348,8 @@ class MenloStack:
                 for (time, val) in self._get_osc_prop(unit_number, 256)]
 
     def get_diode_current(self, unit: Union[OscCard, int], since: Time = None) -> Buffer:
+        """Get actual measured diode current, applying calibration if present.
+        """
         raw = self._get_osc_prop(unit, 275, since)
         try:  # Use calibration.
             return [(time, _Cal.LD_CURRENT_GETTER[OscCard(unit)](val))
@@ -399,7 +401,7 @@ class MenloStack:
         """
         # Apply calibration data if present.
         if unit in _Cal.LD_CURRENT_SETTER:
-            milliamps = _Cal.LD_CURRENT_SETTER[unit](milliamps)
+            milliamps = _Cal.LD_CURRENT_SETTER[OscCard(unit)](milliamps)
 
         # Enforce argument types.
         try:
