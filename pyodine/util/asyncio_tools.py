@@ -18,15 +18,15 @@ def safe_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
                 arguments, as long as they are passed to me. It's return value
                 is returned if the call succeeds.
     """
-    if asyncio.iscoroutinefunction(callback):
-        LOGGER.error("Callback %s is a coroutine function.  This is very "
-                     "likely to be a mistake.", callback.__name__)
-        LOGGER.debug("Consider using safe_async_call() for async calls.")
-        return
     try:
-        return callback(*args, **kwargs)
+        rval = callback(*args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
+    if asyncio.iscoroutine(rval):
+        LOGGER.error("Callback %s returned a coroutine.  This is very "
+                     "likely to be a mistake.", callback.__name__)
+        LOGGER.info("Consider using safe_async_call() for async calls.")
+        return
 
 
 async def async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -36,14 +36,22 @@ async def async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
     function or not. It passes on additional arguments to the callee, just
     like functools.partial does.
 
+    **Disclaimer on false-positive coroutine function detection**
+
+    Note that, if callback returns a coroutine despite not being a coroutine
+    function, the returned coroutine will be awaited instead of returned
+    anyway.  Thus anything that returns a coroutine is indifferently treated
+    like a coroutine function by this method.
+
     :param callback: The function to call. May expect arbitrary combination of
                 arguments. It's return value is returned if the call succeeds.
                 Can be a regular or a coroutine function.
     :raises Exception: Whatever the challback might raise.
     """
-    if asyncio.iscoroutinefunction(callback):
-        return await callback(*args, **kwargs)
-    return callback(*args, **kwargs)
+    rval = callback(*args, **kwargs)
+    if asyncio.iscoroutine(rval):
+        return await rval
+    return rval
 
 
 async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -53,14 +61,19 @@ async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
     function or not. It passes on additional arguments to the callee, just
     like functools.partial does.
 
+    **Disclaimer on false-positive coroutine function detection**
+
+    Note that, if callback returns a coroutine despite not being a coroutine
+    function, the returned coroutine will be awaited instead of returned
+    anyway.  Thus anything that returns a coroutine is indifferently treated
+    like a coroutine function by this method.
+
     :param callback: The function to call. May expect arbitrary combination of
                 arguments. It's return value is returned if the call succeeds.
                 Can be a regular or a coroutine function.
     """
     try:
-        if asyncio.iscoroutinefunction(callback):
-            return await callback(*args, **kwargs)
-        return callback(*args, **kwargs)
+        return await async_call(callback, *args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
         LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
 
@@ -133,16 +146,19 @@ async def repeat_task(
         reps: int = 0, min_wait_time: float = 0.1) -> None:
     """Repeat a task at given time intervals forever or ``reps`` times.
 
+    **Disclaimer on false-positive coroutine function detection**
+
+    Note that, if coro returns a coroutine despite not being a coroutine
+    function, the returned coroutine will be awaited instead of returned
+    anyway.  Thus anything that returns a coroutine is indifferently treated
+    like a coroutine function by this method.
+
     :param coro: The coroutine object (not coroutine function!) to await
     """
     async def run_once() -> None:
         """Run one loop iteration."""
         start = time.time()
-        # Do things the caller wants to be done.
-        if asyncio.iscoroutinefunction(coro):
-            await coro()
-        else:
-            coro()
+        await async_call(coro)
         remaining_wait_time = period - (time.time() - start)
         if remaining_wait_time > 0:
             await asyncio.sleep(remaining_wait_time)
