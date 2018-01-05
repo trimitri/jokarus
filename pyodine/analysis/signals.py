@@ -19,12 +19,24 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
     shape = ast.literal_eval(shape)
     assert isinstance(shape, tuple) and len(shape) == 2
     data = base64.b64decode(base64_data, validate=True)
-    values = np.frombuffer(data, dtype=dtype).reshape(shape)
+    values = np.frombuffer(data, dtype=dtype).reshape(shape).transpose()
     return values
+
+
+def format_daq_scan(data: np.ndarray) -> np.ndarray:
+    """Scale ramp value to be in MHz and sort data by ramp value."""
+    ramp = data[0]  # Ramp values are in ADC counts.
+    ramp = ramp * 2**-16 * 20 - 10  # ramp values in volts
+    ramp *= cs.LOCKBOX_MHz_mV * cs.LOCK_SFG_FACTOR * 1000  # ramp values in MHz
+
+    # We only touched the ramp values, the rest gets returned as-is. The whole
+    # scan is sorted by ramp value, however.
+    return np.array([ramp, *data[1:]])[:, ramp.argsort()]
 
 
 def locate_doppler_line() -> Optional[float]:
     pass
+
 
 def trim_daq_scan(data: np.ndarray) -> np.ndarray:
     """Extract and return the reliable part of a full DAQ scan.
@@ -43,28 +55,30 @@ def trim_daq_scan(data: np.ndarray) -> np.ndarray:
         ramp, _, log = data
     except ValueError:
         ramp, _ = data
+        log = None
 
     # Due to the nature of the hack around the DAQ asynchronicity, time (read:
     # sample index) is an unsafe base to rely calculations on.  We use the
     # amplitude of the loopback-ed ramp instead.
     # First, we extract the full ramp from the data.
-    start = find_first_max(ramp, cs.DAQ_MIN_RAMP_AMPLITUDE)
-    stop = find_first_max(ramp, cs.DAQ_MIN_RAMP_AMPLITUDE, start=len(ramp),
-                          reverse=True)
+    start = find_flank(ramp, cs.DAQ_MIN_RAMP_AMPLITUDE)
+    stop = find_flank(-ramp, cs.DAQ_MIN_RAMP_AMPLITUDE,
+                      start=len(ramp) - 1, reverse=True)
     span = stop - start
 
     # Then we further trim off values that _are_ actual readings but that we
     # believe to be unreliable.
-    shave_marks = (cs.DAQ_LOG_RAMP_TRIM_FACTORS if log
-                   else cs.DAQ_ERR_RAMP_TRIM_FACTORS)
-    lower = start + (shave_marks[1] * span)
-    upper = stop - (shave_marks[0] * span)
+    shave_marks = (cs.DAQ_ERR_RAMP_TRIM_FACTORS if log is None
+                   else cs.DAQ_LOG_RAMP_TRIM_FACTORS)
+    lower = int(start + (shave_marks[1] * span))
+    upper = int(stop - (shave_marks[0] * span))
 
     return data[:, lower:upper]
 
-def find_first_max(series: np.ndarray, min_height: float, start: int = 0,
-                   reverse: bool = False, plunge_depth: float = 0.9,
-                   trigger_level: float = 0.9) -> int:
+
+def find_flank(series: np.ndarray, min_height: float, start: int = 0,
+               reverse: bool = False, plunge_depth: float = 0.9,
+               trigger_level: float = 0.9) -> int:
     """Find the first flank that occurs after `start` and return its index.
 
     :param series: The one-dimensional numpy array to search in.

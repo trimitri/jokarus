@@ -14,9 +14,10 @@ As for the physical capabilities of the DAQ device, this must not exceed 20
 volts.
 """
 
-DAQ_MIN_RAMP_AMPLITUDE = .01  # Don't use less than 2 * 100mV peak-peak
+DAQ_MIN_RAMP_AMPLITUDE = 1000
 """When evaluating DAQ scans, don't consider anything with less amplitude than
-~ * 10V to be a valid ramp.
+this many ADC counts to be a valid ramp.  Consider that the DAQ is a 16 bit
+device.
 """
 
 DAQ_ERR_RAMP_TRIM_FACTORS = [0.05, 0.02]
