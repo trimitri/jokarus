@@ -1,9 +1,27 @@
 """Extract information from various spectroscopy signals."""
 
+import ast
+import base64
 from typing import Optional
 import numpy as np
 
 from .. import constants as cs
+from .. import logger
+
+def decode_daq_scan(log_file: str) -> np.ndarray:
+    """Read the latest archived DAQ scan from the log file.
+
+    :param log_file: Path to log file.
+    :returns: The raw data as initially read.
+    """
+    last_line = logger.get_last_line(log_file, max_line_length=2e5)
+    _, dtype, shape, base64_data = last_line.decode().strip().split('\t')
+    shape = ast.literal_eval(shape)
+    assert isinstance(shape, tuple) and len(shape) == 2
+    data = base64.b64decode(base64_data, validate=True)
+    values = np.frombuffer(data, dtype=dtype).reshape(shape)
+    return values
+
 
 def locate_doppler_line() -> Optional[float]:
     pass
