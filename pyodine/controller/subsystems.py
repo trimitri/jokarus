@@ -67,8 +67,8 @@ class DaqInput:  # pylint: disable=too-few-public-methods
     NTC_MO = mccdaq.DaqChannel.C_12
     NTC_PA = mccdaq.DaqChannel.C_2
     NTC_SHG = mccdaq.DaqChannel.C_8
-    PD_ISOLATOR = mccdaq.DaqChannel.C_13
-    PD_MIOB = mccdaq.DaqChannel.C_5
+    PD_AUX = mccdaq.DaqChannel.C_13  # MiLas aux. output (MO basically)
+    PD_MIOB = mccdaq.DaqChannel.C_5  # MiLas power tap on MiOB
     RAMP_MONITOR = mccdaq.DaqChannel.C_11
     REF_5V = mccdaq.DaqChannel.C_4
 
@@ -89,10 +89,10 @@ class LdDriver(enum.IntEnum):
     MASTER_OSCILLATOR = 1
     POWER_AMPLIFIER = 3
 
-LightSensors = namedtuple('LightSensors', 'MIOB ISOLATOR PUMP LOG')
-LIGHT_SENSOR_CHANNELS = LightSensors(DaqInput.PD_MIOB, DaqInput.PD_ISOLATOR,
+LightSensors = namedtuple('LightSensors', 'MIOB AUX PUMP LOG')
+LIGHT_SENSOR_CHANNELS = LightSensors(DaqInput.PD_MIOB, DaqInput.PD_AUX,
                                      DaqInput.DETECTOR_PUMP, DaqInput.DETECTOR_LOG)
-LIGHT_SENSOR_GAINS = LightSensors(mccdaq.InputRange.PM_2V, mccdaq.InputRange.PM_10V,
+LIGHT_SENSOR_GAINS = LightSensors(mccdaq.InputRange.PM_2V, mccdaq.InputRange.PM_2V,
                                   mccdaq.InputRange.PM_5V, mccdaq.InputRange.PM_5V)
 
 _LD_CARDS = {
