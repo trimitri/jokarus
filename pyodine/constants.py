@@ -1,3 +1,37 @@
+"""Various constants and common objects used throughout pyodine."""
+import numpy
+
+
+#########
+# Types #  Type definitions used in multiple places.
+#########
+
+SpecScan = numpy.ndarray  # pylint: disable=invalid-name
+"""The readings from a frequency scan.
+
+This must be a numpy array of (3, `n`) shape, where `n` is the number of
+samples per channel.  The first column must contain the loopback ramp readings,
+the second column contains the error signal and the third column contains a
+measure of the magnitude of absorbtion inside the cell (the "log" detector).
+"""
+# The following two classes are actually just floats. We differentiate them for
+# the sake of MyPy type checking, as they are easy to confuse when programming.
+class SpecMhz(float):
+    """MHz of frequency as used in the spectroscopy part of the setup.  May
+    differ by LOCK_SFG_FACTOR from LaserMHz!
+    """
+    pass
+
+class LaserMhz(float):
+    """MHz of frequency from the laser.  May differ by LOCK_SFG_FACTOR from
+    SpecMhz!
+    """
+    pass
+
+##################
+# Base Constants #  Those are not tied to others in a direct, arithmetical way.
+##################
+
 """Various constants determining the peculiarities and behaviour of JOKARUS.
 """
 # pylint: disable=invalid-name
@@ -6,27 +40,23 @@ DAQ_ALLOWABLE_BLOCKING_TIME = 2
 """The DAQ may be blocked this many seconds before we assume that something has
 gone wrong.
 """
-
 DAQ_MAX_SCAN_AMPLITUDE = 19
 """Maximum allowable peak-peak amplitude in volts when doing DAQ signal scans.
 
 As for the physical capabilities of the DAQ device, this must not exceed 20
 volts.
 """
-
 DAQ_MIN_RAMP_AMPLITUDE = 1000
 """When evaluating DAQ scans, don't consider anything with less amplitude than
 this many ADC counts to be a valid ramp.  Consider that the DAQ is a 16 bit
 device.
 """
-
 DAQ_ERR_RAMP_TRIM_FACTORS = [0.05, 0.02]
 """Trim these percentages (begin, end) off a ramp scan for err. sig. readings.
 
 As the DAQ uses a Z-shaped signal for ramp scanning, there is mostly
 useless and potentially misleading data at the beginning and end of the scan.
 """
-
 DAQ_LOG_RAMP_TRIM_FACTORS = [0.1, 0.05]
 """Trim these percentages (begin, end) off a ramp scan for log port readings.
 
@@ -36,11 +66,12 @@ This is especially true for the logarithmic output port of the spectroscopy
 module, as it has some low-pass behaviour.  Furthermore, the "LOG scan" is done
 with max. amplitude, leading to some capping at the beginning and end.
 """
-
 DAQ_LOG_SIGNAL_SMOOTHING_WINDOW_WIDTH = 301
 """Will be fed to scipy.signal.savgol_filter() to smooth the log diode signal.
 Should probably be changed when changing other DAQ scanning parameters.
 """
+DAQ_MAX_SPEC_SCAN_BYTES = int(100e3)
+"""A DAQ spectroscopy scan will never be more data than this."""
 
 DAQ_SCAN_TIME = 0.5
 """The time to take for a frequency scan in seconds."""
@@ -133,15 +164,12 @@ Given relative to range of motion.  For 20V RoM, a value of 0.1 would lead to
 
 LOCKBOX_RAIL_CHECK_INTERVAL = .84
 """Check a running lock every ~ seconds for loss of lock."""
-
 LOCKBOX_RANGE_mV = [-10000, 10000]
 """What is the lockbox output stage able to generate?"""
-
 LOCKBOX_P_TO_I_DELAY = .5
 """In engaging the lock, wait this many seconds after engaging the P stage and
 before engaging the first integrator.
 """
-
 LOCKBOX_I_TO_I_DELAY = 2
 """In engaging the lock, wait this many seconds after engaging the first
 integrator stage and before engaging the second integrator.
@@ -163,6 +191,15 @@ PD_DO_PUBLISH = False
 PD_LOG_INTERVAL = 2.7
 """Interval [s] at which the auxiliary photodiode readings are acquired."""
 
+PRELOCK_STEP_SIZE = SpecMhz(600)
+"""Step size to take when searching for doppler-broadened lines."""
+PRELOCK_MAX_RANGE = LaserMhz(10000)
+"""There is no point in "tuning" the laser further than this, as there will be
+mode hops anyway.
+"""
+PRELOCK_TUNER_SPEED_CONSTRAINT = 5
+"""Don't use tuners slower than this during prelock.  In seconds."""
+
 RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
 """Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
@@ -178,9 +215,10 @@ This is an approximate number empirically tested on 2017-11-09 to work at room
 temp.
 """
 
-###
-# Private quantities only used for calculation
-###
+
+##########################
+# Transitional Constants #  Those are only used to calculate other constants.
+##########################
 
 _LOCKBOX_mA_mV = 0.00079119970889856704
 """Actual LD current change in mA per applied ramp input (mV) into lockbox.
@@ -200,9 +238,10 @@ _MIOB_mV_K = 95821.785132407866
 Acquired 2017-11-08 from a fit to a measurement taken 2017-11-07.
 """
 
-###
-# Calculated Quantities
-###
+
+#####################
+# Derived Constants #  Arithmetically based on other constants above.
+#####################
 
 MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 """Laser tuning in MHz per Kelvin of MiOB temperature change."""

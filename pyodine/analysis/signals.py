@@ -11,8 +11,6 @@ from .. import logger
 
 LOGGER = logging.getLogger('signals')
 
-GreenMhz = float
-"""MHz of light frequency in the green path."""
 
 def decode_daq_scan(log_file: str) -> np.ndarray:
     """Read the latest archived DAQ scan from the log file.
@@ -20,7 +18,7 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
     :param log_file: Path to log file.
     :returns: The raw data as initially read.
     """
-    last_line = logger.get_last_line(log_file, max_line_length=2e5)
+    last_line = logger.get_last_line(log_file, max_line_length=cs.DAQ_MAX_SPEC_SCAN_BYTES)
     _, dtype, shape, base64_data = last_line.decode().strip().split('\t')
     shape = ast.literal_eval(shape)
     assert isinstance(shape, tuple) and len(shape) == 2
@@ -31,7 +29,7 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
 
 def format_daq_scan(data: np.ndarray) -> np.ndarray:
     """Scale ramp value to be in MHz and sort data by ramp value.
-   
+
     This procedure is not idempotent!  Only call this once on a given data set.
     """
     assert len(data.shape) == 2 and data.shape[0] == 3
@@ -49,7 +47,7 @@ def format_daq_scan(data: np.ndarray) -> np.ndarray:
 
 def locate_doppler_line(data: np.ndarray,
                         min_depth: float = cs.SPEC_MIN_LOG_DIP_DEPTH,
-                        preprocess_data: bool = True) -> GreenMhz:
+                        preprocess_data: bool = True) -> cs.SpecMhz:
     """Locate a line in the "log" photodiode signal.
 
     This method basically returns the location of the absolute minimum of the
@@ -65,7 +63,7 @@ def locate_doppler_line(data: np.ndarray,
                 before.
     :raises ValueError: Didn't find a line.
     :returns: The directional distance of the dip minimum from current spectral
-                position in GreenMhz.
+                position in SpecMHz.
     """
     assert len(data.shape) == 2 and data.shape[0] == 3
     if preprocess_data:
@@ -144,7 +142,7 @@ def find_flank(series: np.ndarray, min_height: float, start: int = 0,
     """
     assert len(series.shape) == 1  # Only accept one-dimensional arrays.
 
-    def build_range(origin: int, backwards: bool = False):
+    def build_range(origin: int, backwards: bool = False) -> range:
         """Provide an iterator starting from a point to the left or right."""
         if backwards:
             return range(origin, -1, -1)

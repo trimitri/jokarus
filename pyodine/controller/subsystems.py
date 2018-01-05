@@ -164,7 +164,7 @@ class Subsystems:
             return True
         return False
 
-    async def fetch_scan(self, amplitude: float = 1) -> np.ndarray:
+    async def fetch_scan(self, amplitude: float = 1) -> cs.SpecScan:
         """Scan the frequency once and return the readings acquired.
 
         This is the main method used by the `lock_buddy` module to perform

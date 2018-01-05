@@ -8,7 +8,9 @@ import numpy as np
 
 from . import feature_locator
 from .. import constants as cs
+from ..constants import SpecMhz, LaserMhz
 from ..util import asyncio_tools as tools
+from ..analysis import signals
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
 
@@ -27,14 +29,6 @@ BALANCE_AT = [.2, .8]
 time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
 It's an array [low, high] with 0 < low < high < 1.
 """
-
-PRELOCK_SPEED_CONSTRAINT = 1.
-"""Don't use tuners slower than that many seconds during prelock phase."""
-
-QtyUnit = float
-"""To make the code more readable, we differentiate between numbers that
-represent the lock system's tunable quantity (e.g. frequency) and all other
-numbers that occur in the code."""
 
 class Line(enum.Enum):
     """A map of where in the spectrum to find the target transitions."""
@@ -80,7 +74,7 @@ class LockboxState(enum.IntEnum):
     DEGRADED = 2
     """The lockbox is neither completely engaged nor properly switched off."""
 
-class _SnowblindError(LockError):
+class SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
 
     This is a common problem with MTS spectra, as they are very "clean" and
@@ -110,7 +104,7 @@ class Tuner:
     respective ranges of motion to [0, 1]. A setting of 1 must produce the
     highest possible quantity, 0 the lowest.
     """
-    def __init__(self, scale: QtyUnit, granularity: float, delay: float,
+    def __init__(self, scale: LaserMhz, granularity: float, delay: float,
                  getter: Callable[[], Union[float, Awaitable[float]]],
                  setter: Callable[[float], Union[None, Awaitable[None]]],
                  name: str = "") -> None:
@@ -141,7 +135,7 @@ class Tuner:
         self.delay = float(delay)
         self.granularity = float(granularity)
         self.name = name
-        self.scale = float(scale)
+        self.scale = LaserMhz(scale)
         self._setter = setter
         self._getter = getter
 
@@ -168,7 +162,7 @@ class Tuner:
         await tools.safe_async_call(self._setter, value)
         await asyncio.sleep(self.delay)
 
-    async def get_max_jumps(self) -> Tuple[QtyUnit, QtyUnit]:
+    async def get_max_jumps(self) -> Tuple[LaserMhz, LaserMhz]:
         """How far can we tune up or down from the current working point?
 
         :returns: Tuple like (low, high).  Tuning by +high will have you end up
@@ -178,7 +172,7 @@ class Tuner:
         current = await self.get()
         high = (1 - current) * self.scale
         low = current * self.scale
-        return (low, high)
+        return (LaserMhz(low), LaserMhz(high))
 
 
 class LockBuddy:
@@ -187,12 +181,12 @@ class LockBuddy:
     def __init__(self, lock: Callable[[], Awaitable[None]],
                  unlock: Callable[[], Optional[Awaitable[None]]],
                  locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
-                 scanner: Callable[[float], Awaitable[np.ndarray]],
-                 scanner_range: QtyUnit,
+                 scanner: Callable[[float], Awaitable[cs.SpecScan]],
+                 scanner_range: LaserMhz,
                  tuners: List[Tuner],
                  lockbox: Tuner,
                  on_new_signal: Callable[
-                     [np.ndarray], Optional[Awaitable[None]]]=lambda _: None) -> None:
+                     [cs.SpecScan], Optional[Awaitable[None]]]=lambda _: None) -> None:
         """
         :param lock: Callback that engages the hardware lock. No params.
         :param unlock: Callback that disengages the hardware lock. No params.
@@ -215,7 +209,7 @@ class LockBuddy:
                     as well as it's scale. This is needed for balancing during
                     prolonged locks. The Tuner's .set() is not used.
         :param on_new_signal: Is called with every new signal acquired. It gets
-                    passed the acquired data as np.ndarray.
+                    passed the acquired data as cs.SpecScan.
 
         :raises TypeError: At least one callback is not callable.
         :raises ValueError: List of tuners is empty.
@@ -239,7 +233,7 @@ class LockBuddy:
         self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
         self._on_new_signal = on_new_signal
         self._prelock_running = False  # The prelock algorithm is running.
-        self._scanner = scanner  # type: Callable[[float], Awaitable[np.ndarray]]
+        self._scanner = scanner  # type: Callable[[float], Awaitable[cs.SpecScan]]
         self._scanner_range = scanner_range
         self._unlock = unlock
 
@@ -247,18 +241,18 @@ class LockBuddy:
         self._tuners = sorted(tuners, key=lambda t: t.granularity)
 
     @property
-    def min_step(self) -> QtyUnit:
+    def min_step(self) -> LaserMhz:
         """The smallest step size (in quantity units) this class can use to do
         prelock and tuning. There is no use in trying to achieve results more
         precise than this for a given set of tuners.
         """
-        return min([t.granularity * t.scale for t in self._tuners])
+        return min([LaserMhz(t.granularity * t.scale) for t in self._tuners])
 
     @property
     def prelock_running(self) -> bool:
         return self._prelock_running
 
-    async def acquire_signal(self, rel_range: float = None) -> np.ndarray:
+    async def acquire_signal(self, rel_range: float = None) -> cs.SpecScan:
         """Run one scan and store the result. Lock must be disengaged.
 
         :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
@@ -308,31 +302,30 @@ class LockBuddy:
         # the lockbox output.
         distance = imbalance * self._lockbox.scale
         LOGGER.info("Balancing lock by %s units.", distance)
-        await self.tune(cs.LOCK_SFG_FACTOR * distance)
+        await self.tune(SpecMhz(cs.LOCK_SFG_FACTOR * distance))
 
-    async def doppler_search(
-            self, scanner: Callable[[], Awaitable[np.ndarray]],
-            speed_constraint: float = 5,
-            step_size: QtyUnit = 600, max_range: QtyUnit = None) -> None:
+    async def doppler_search(self, speed_constraint: float = 5,
+                             step_size: SpecMhz = cs.PRELOCK_STEP_SIZE,
+                             max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> SpecMhz:
         """Search for a doppler-broadened line around current working point.
 
-        :param scanner: Callback coroutine function that returns the
-                    transmission spectrum around the current working point.
-                    The returned numpy array must consist of two columns; the
-                    first being the distance from the zero position in
-                    QtyUnits, the second being an arbitrary measure of
-                    transmittivity.
         :param speed_constraint: When tuning away from the initial working
                     point, don't use tuners that take longer than ~ seconds for
                     a jump.
         :param step_size: When searching, spectral sample points will be spaced
                     this far from each other.
-        :param max_range: Don't deviate further than ~ QtyUnits from initial
-                    working point.
+        :param max_range: Don't deviate further than ~ LaserMhz from initial
+                    working point.  Useful in avoiding to graze through
+                    multiple mode hops.
+        :returns: The distance of the found line from the last active search
+                    position in MHz.
         :raises ValueError: The inputs don't make sense.
+        :raises SnowblindError: Didn't find a line.  Staying at last active
+                    search position.  TODO: Go back where we came from.
         """
         red, blue = await self.get_max_range(speed_constraint)
-        reach = max_range if max_range else cs.LOCK_SFG_FACTOR * max(red, blue)
+        reach = (max_range if max_range
+                 else cs.LOCK_SFG_FACTOR * min(max_range, max(red, blue)))
         LOGGER.debug("red: %s, blue: %s, reach: %s", red, blue, reach)
 
         if not red > step_size and not blue > step_size:
@@ -346,21 +339,28 @@ class LockBuddy:
             if max_range > red or max_range > blue:
                 LOGGER.warning("Can't search requested range in both directions.")
 
-        async def has_line() -> bool:
-            """Do we see a transition at the current position?"""
-            LOGGER.debug("Searching at %s.", relative_position)
-            await asyncio.sleep(10)
-            return False  # FIXME Implement line-searching.
+        async def distance_to_line() -> Optional[SpecMhz]:
+            """Do we see a transition at the current position?
+
+            :returns: Distance to dip minimum if we found one.  None otherwise.
+            """
+            LOGGER.info("Searching at %s.", relative_position)
+            signal = await tools.async_call(self._scanner)
+            try:
+                return signals.locate_doppler_line(signal)
+            except ValueError:
+                LOGGER.debug("Didn't find a line.")
+                return None
 
         # Zig-zag back and forth, gradually extending the distance to the
         # origin.
         alternate = True       # search zig-zag
-        relative_position = 0  # type: QtyUnit # distance to origin
+        relative_position = SpecMhz(0) # distance to origin
         sign = +1              # zig or zag?
         counter = 1            # how far to jump with next zig resp. zag
-        found = await has_line()
+        distance = await distance_to_line()
         step = step_size
-        while not found:
+        while not isinstance(distance, SpecMhz):
             try:
                 LOGGER.debug("Target is %s + %s = %s", relative_position, step, relative_position + step)
                 if abs(relative_position + step) > reach:
@@ -383,11 +383,17 @@ class LockBuddy:
                     # Even the single-sided search didn't turn anything out.
                     LOGGER.warning("Exiting single-sided mode. No match at all.")
                     break
-            found = await has_line()
+            distance = await distance_to_line()
             if alternate:
                 counter += 1
                 sign *= -1
                 step = sign * counter * step_size
+        else:
+            LOGGER.info("Found a doppler dip %s MHz from here.", distance)
+            return distance
+
+        raise SnowblindError("Didn't find a doppler dip.")
+
 
     def engage_and_maintain(self, balance: bool = True,
                             relock: bool = True) -> asyncio.Task:
@@ -455,7 +461,7 @@ class LockBuddy:
             return LockStatus.ON_LINE
         raise RuntimeError("Couldn't get lockbox state from callback.")
 
-    async def get_max_range(self, speed_constraint: float = None) -> Tuple[QtyUnit, QtyUnit]:
+    async def get_max_range(self, speed_constraint: float = None) -> Tuple[LaserMhz, LaserMhz]:
         """How far can we tune up or down from the current working point?
 
         :returns: Tuple like (max_red_detuning, max_blue_detuning).
@@ -502,7 +508,7 @@ class LockBuddy:
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
         LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
 
-    async def start_prelock(self, threshold: QtyUnit, target_position: QtyUnit,
+    async def start_prelock(self, threshold: SpecMhz, target_position: SpecMhz,
                             proximity_callback: Callable[[], Any] = lambda: None,
                             max_tries: int = MAX_JUMPS) -> None:
         """Start the prelock algorithm and get as close as possible to target.
@@ -544,7 +550,7 @@ class LockBuddy:
             :raises RuntimeError: None of the tuners where able to compensate
                         for the measured detuning. Maybe check overall system
                         setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
-            :raises _SnowblindError: There was no usable feature in
+            :raises SnowblindError: There was no usable feature in
                         the scanned range. Consider raising the scan range.
             :raises _RivalryError: Couldn't decide for a match, as
                         options are too similar. Consider raising the scan
@@ -559,7 +565,7 @@ class LockBuddy:
                 return True
             LOGGER.debug("Jumping by %s units.", detuning)
             try:
-                await self.tune(detuning, PRELOCK_SPEED_CONSTRAINT)
+                await self.tune(SpecMhz(detuning), cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
             except ValueError as err:
                 raise RuntimeError("Requested more than tuners could deliver.") from err
             return False
@@ -611,14 +617,14 @@ class LockBuddy:
                 break
         LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
-    async def tune(self, delta: QtyUnit, speed_constraint: float = 0) -> None:
-        """Tune the system by ``delta`` quantity units and wait.
+    async def tune(self, distance: SpecMhz, speed_constraint: float = 0) -> None:
+        """Tune the system by ``distance`` quantity units and wait.
 
         This will choose the most appropriate tuner by itself, invoke it and
         then wait for as long as it usually takes the chosen tuner to reflect
         the change in the actual physical system.
 
-        :param delta: The amount of quantity units to jump. Any float number
+        :param distance: The amount of quantity units to jump. Any float number
                     is legal input, although the system might reject bold
                     requests with a ValueError.
         :param speed_constraint: Don't use tuners that have delays larger than
@@ -628,8 +634,8 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
-        LOGGER.info("Tuning %s/%s MHz...", delta, cs.LOCK_SFG_FACTOR)
-        delta /= cs.LOCK_SFG_FACTOR
+        LOGGER.info("Tuning %s/%s MHz...", distance, cs.LOCK_SFG_FACTOR)
+        delta = LaserMhz(distance / cs.LOCK_SFG_FACTOR)
         # We won't tune if delta is smaller than any of the available
         # granularities.
         if not abs(delta) >= self.min_step:
@@ -706,7 +712,7 @@ class LockBuddy:
         # FEATURE
 
     @staticmethod
-    def _pick_match(candidates: List[List[float]], near: QtyUnit = None) -> QtyUnit:
+    def _pick_match(candidates: List[List[float]], near: SpecMhz = None) -> SpecMhz:
         """Evaluate a list of match candidates and pick the correct one.
 
         This won't always work. If no match or too many too similar matches are
@@ -720,24 +726,24 @@ class LockBuddy:
         :returns: The position of the hopefully correct match (in quantity
                     units).
 
-        :raises _SnowblindError: The provided candidates didn't include any
+        :raises SnowblindError: The provided candidates didn't include any
                     decent match or the list was empty.
         :raises _RivalryError: The matches were to similar to determine the
                     correct one.
         """
         candy = [c for c in candidates if c[1] > MATCH_QUALITY_THRESH]
         if not candy:
-            raise _SnowblindError("No candidates have sufficient match quality.")
+            raise SnowblindError("No candidates have sufficient match quality.")
         if near:
             # Prefer matches close the anticipated position.
             candy.sort(key=lambda c: abs(c[1] - near))
         for candidate in candy:
             if candidate[2] > CONFIDENCE_THRESH:
-                return candidate[0]
+                return SpecMhz(candidate[0])
 
         # We couldn't determine the correct match. Why?
         if len(candidates) == 1:
-            raise _SnowblindError(
+            raise SnowblindError(
                 "There was only one match proposed and this match was of "
                 "poor quality and is probably not a real hit.")
         raise _RivalryError("There were suitable matches, but they're too "

@@ -123,7 +123,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         return (lock[1] - subs.get_lockbox_level()) / lock_range
 
     lockbox = lock_buddy.Tuner(
-        scale=abs(lock_range * cs.LOCKBOX_MHz_mV),
+        scale=cs.LaserMhz(abs(lock_range * cs.LOCKBOX_MHz_mV)),
         granularity=.42,  # not used
         delay=42,  # not used
         getter=lockbox_getter,
@@ -159,7 +159,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         locked=nu_locked,
         lockbox=lockbox,
         scanner=subs.fetch_scan,
-        scanner_range=700.,  # FIXME measure correct scaling coefficient.
+        scanner_range=cs.LaserMhz(700),  # FIXME measure correct scaling coefficient.
         tuners=[_spawn_miob_tuner(subs), _spawn_current_tuner(subs)],
         on_new_signal=on_new_signal)
     return locker
@@ -294,7 +294,7 @@ def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
 
     abs_range = cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]
     return lock_buddy.Tuner(
-        scale=abs(abs_range * cs.MIOB_MHz_K),
+        scale=cs.LaserMhz(abs(abs_range * cs.MIOB_MHz_K)),
         granularity=cs.TEC_GRANULARITY_K / abs_range,
         delay=90,
         getter=get_miob_temp,
@@ -319,7 +319,7 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         subs.laser.set_mo_current(current)
 
     return lock_buddy.Tuner(
-        scale=abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA),
+        scale=cs.LaserMhz(abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA)),
         granularity=abs(cs.LD_MO_GRANULARITY_mA / (mo_rng[1] - mo_rng[0])),
         delay=cs.LD_MO_DELAY_s,
         getter=mo_getter,
