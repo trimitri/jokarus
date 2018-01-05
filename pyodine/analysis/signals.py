@@ -2,11 +2,15 @@
 
 import ast
 import base64
+import logging
 from typing import Optional
 import numpy as np
+from scipy import signal
 
 from .. import constants as cs
 from .. import logger
+
+LOGGER = logging.getLogger('signals')
 
 def decode_daq_scan(log_file: str) -> np.ndarray:
     """Read the latest archived DAQ scan from the log file.
@@ -25,17 +29,41 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
 
 def format_daq_scan(data: np.ndarray) -> np.ndarray:
     """Scale ramp value to be in MHz and sort data by ramp value."""
+    assert len(data.shape) == 2 and data.shape[0] == 3
     ramp = data[0]  # Ramp values are in ADC counts.
-    ramp = ramp * 2**-16 * 20 - 10  # ramp values in volts
+    ramp = ramp / 2**16 * 20 - 10  # ramp values in volts
     ramp *= cs.LOCKBOX_MHz_mV * cs.LOCK_SFG_FACTOR * 1000  # ramp values in MHz
+
+    error = data[1] / 2**16 * 2 - 1
+    log = data[2] / 2**16 * 10 - 5
 
     # We only touched the ramp values, the rest gets returned as-is. The whole
     # scan is sorted by ramp value, however.
-    return np.array([ramp, *data[1:]])[:, ramp.argsort()]
+    return np.array([ramp, error, log])[:, ramp.argsort()]
 
 
-def locate_doppler_line() -> Optional[float]:
-    pass
+def locate_doppler_line(data: np.ndarray,
+                        min_depth: float = cs.SPEC_MIN_LOG_DIP_DEPTH) -> int:
+    """Locate a line in the "log" photodiode signal.
+
+    This method basically returns the location of the absolute minimum of the
+    data, given that the distance of this minimum compared to the maximum is
+    reasonably large.  Otherwise it will raise.  As we sample quite evenly, we
+    don't need to consider the x values here and just work by indices instead.
+
+    :param signal: The one-dimensional numpy array to search in.
+    :raises ValueError: Didn't find a line.
+    :returns: The index at which the maximum sits.
+    """
+    assert len(data.shape) == 1
+    smooth = signal.savgol_filter(data, cs.DAQ_LOG_SIGNAL_SMOOTHING_WINDOW_WIDTH, 3)
+    argmin, argmax = np.argmin(smooth), np.argmax(smooth)
+    depth = smooth[argmax] - smooth[argmin]
+    if depth > min_depth:
+        LOGGER.info("Found a %s V deep dip.", depth)
+        return argmin
+    raise ValueError("Didn't find a dip.")
+
 
 
 def trim_daq_scan(data: np.ndarray) -> np.ndarray:

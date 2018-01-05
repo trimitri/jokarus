@@ -181,7 +181,7 @@ class Subsystems:
             amplitude * cs.DAQ_MAX_SCAN_AMPLITUDE,
             cs.DAQ_SCAN_TIME,
             [(DaqInput.RAMP_MONITOR, mccdaq.InputRange.PM_10V),
-             (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_2V),
+             (DaqInput.ERR_SIGNAL, mccdaq.InputRange.PM_1V),
              (DaqInput.DETECTOR_LOG, mccdaq.InputRange.PM_5V)],
             mccdaq.RampShape.DESCENT)
         try:

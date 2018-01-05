@@ -37,6 +37,11 @@ module, as it has some low-pass behaviour.  Furthermore, the "LOG scan" is done
 with max. amplitude, leading to some capping at the beginning and end.
 """
 
+DAQ_LOG_SIGNAL_SMOOTHING_WINDOW_WIDTH = 301
+"""Will be fed to scipy.signal.savgol_filter() to smooth the log diode signal.
+Should probably be changed when changing other DAQ scanning parameters.
+"""
+
 DAQ_SCAN_TIME = 0.5
 """The time to take for a frequency scan in seconds."""
 
@@ -142,6 +147,30 @@ LOCKBOX_I_TO_I_DELAY = 2
 integrator stage and before engaging the second integrator.
 """
 
+MILAS_MO_MAX = 180
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_MO_SEED = 60
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_MAX = 1550
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_TRANSPARENCY = 200
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_BACKFIRE = 260
+"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+
+PD_DO_PUBLISH = False
+"""Publish photodiode readings every time they're inquired."""
+PD_LOG_INTERVAL = 2.7
+"""Interval [s] at which the auxiliary photodiode readings are acquired."""
+
+RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
+"""Maximum message size in bytes the RS232 relay has to expect from pyodine."""
+
+SPEC_MIN_LOG_DIP_DEPTH = 0.1
+"""How deep has a dip in the "log" photodiode signal to be to be considered
+valid?  In Volts.
+"""
+
 TEC_GRANULARITY_K = 0.0005
 """The lowest temperature step the TECs can do.
 
@@ -183,24 +212,5 @@ MIOB_MHz_K = LD_MO_MHz_mA * _LOCKBOX_mA_mV * _MIOB_mV_K
 
 LOCKBOX_MHz_mV = LD_MO_MHz_mA * _LOCKBOX_mA_mV
 """Tuning coefficient of lockbox control output in MHz per Volt."""
-
-MILAS_MO_MAX = 180
-"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
-MILAS_MO_SEED = 60
-"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
-MILAS_PA_MAX = 1550
-"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
-MILAS_PA_TRANSPARENCY = 200
-"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
-MILAS_PA_BACKFIRE = 260
-"""MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
-
-PD_DO_PUBLISH = False
-"""Publish photodiode readings every time they're inquired."""
-PD_LOG_INTERVAL = 2.7
-"""Interval [s] at which the auxiliary photodiode readings are acquired."""
-
-RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
-"""Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
 # pylint: enable=invalid-name
