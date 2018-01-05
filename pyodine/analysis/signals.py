@@ -3,7 +3,6 @@
 import ast
 import base64
 import logging
-from typing import Optional
 import numpy as np
 from scipy import signal
 
@@ -11,6 +10,9 @@ from .. import constants as cs
 from .. import logger
 
 LOGGER = logging.getLogger('signals')
+
+GreenMhz = float
+"""MHz of light frequency in the green path."""
 
 def decode_daq_scan(log_file: str) -> np.ndarray:
     """Read the latest archived DAQ scan from the log file.
@@ -28,7 +30,10 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
 
 
 def format_daq_scan(data: np.ndarray) -> np.ndarray:
-    """Scale ramp value to be in MHz and sort data by ramp value."""
+    """Scale ramp value to be in MHz and sort data by ramp value.
+   
+    This procedure is not idempotent!  Only call this once on a given data set.
+    """
     assert len(data.shape) == 2 and data.shape[0] == 3
     ramp = data[0]  # Ramp values are in ADC counts.
     ramp = ramp / 2**16 * 20 - 10  # ramp values in volts
@@ -43,7 +48,8 @@ def format_daq_scan(data: np.ndarray) -> np.ndarray:
 
 
 def locate_doppler_line(data: np.ndarray,
-                        min_depth: float = cs.SPEC_MIN_LOG_DIP_DEPTH) -> int:
+                        min_depth: float = cs.SPEC_MIN_LOG_DIP_DEPTH,
+                        preprocess_data: bool = True) -> GreenMhz:
     """Locate a line in the "log" photodiode signal.
 
     This method basically returns the location of the absolute minimum of the
@@ -52,18 +58,27 @@ def locate_doppler_line(data: np.ndarray,
     don't need to consider the x values here and just work by indices instead.
 
     :param signal: The one-dimensional numpy array to search in.
+    :param min_depth: How deep has a dip in the "log" photodiode signal to be
+                to be considered valid?  In Volts.
+    :param preprocess_data: Expect raw data coming from DAQ and preprocess it.
+                If set to False, data must have been trimmed and formatted
+                before.
     :raises ValueError: Didn't find a line.
-    :returns: The index at which the maximum sits.
+    :returns: The directional distance of the dip minimum from current spectral
+                position in GreenMhz.
     """
-    assert len(data.shape) == 1
-    smooth = signal.savgol_filter(data, cs.DAQ_LOG_SIGNAL_SMOOTHING_WINDOW_WIDTH, 3)
+    assert len(data.shape) == 2 and data.shape[0] == 3
+    if preprocess_data:
+        data = format_daq_scan(trim_daq_scan(data))
+    ramp = data[0]
+    log = data[2]
+    smooth = signal.savgol_filter(log, cs.DAQ_LOG_SIGNAL_SMOOTHING_WINDOW_WIDTH, 3)
     argmin, argmax = np.argmin(smooth), np.argmax(smooth)
     depth = smooth[argmax] - smooth[argmin]
     if depth > min_depth:
         LOGGER.info("Found a %s V deep dip.", depth)
-        return argmin
+        return ramp[argmin]
     raise ValueError("Didn't find a dip.")
-
 
 
 def trim_daq_scan(data: np.ndarray) -> np.ndarray:
@@ -72,6 +87,9 @@ def trim_daq_scan(data: np.ndarray) -> np.ndarray:
     As the DAQ uses a Z-shaped signal for ramp scanning, there is mostly
     useless data at the beginning and end of the scan.  This data is trimmed
     off.
+
+    __Caution__: As opposed to common trimming, this procedure is not
+                idempotent!  Only call this once for a given data set.
 
     :raises ValueError: Data has an unexpected number of columns.  We expect
                 three or two columns (ramp amplitude, error signal, <log
