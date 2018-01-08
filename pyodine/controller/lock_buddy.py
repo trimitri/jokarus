@@ -503,14 +503,15 @@ class LockBuddy:
         return TunersState(value=await tuners[0].get(), speed=speed_constraint)
 
     async def set_tuners_state(self, state: TunersState) -> None:
-        """Get the state of all involved tuners.
+        """Set the state of all involved tuners to `state`.
 
         :raises NotImplementedError: Would affect more than one tuner.
         """
+        LOGGER.debug("Setting tuners state to %s.", state)
         tuners = self._filter_tuners(state.speed)
         if len(tuners) > 1:
             raise NotImplementedError("State reset not implemented for multiple tuners.")
-        tuners[0].set(state.value)
+        await tuners[0].set(state.value)
 
     async def is_correct_line(self, hint: DopplerLine = None, reset: bool = False) -> bool:
         """Are we close to the right line?
@@ -525,8 +526,8 @@ class LockBuddy:
         state_before = await self.get_tuners_state(cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
         try:
             for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
-                if dip.distance < cs.PRELOCK_TUNING_PRECISION:
-                    LOGGER.debug("Took %s attempts to center dip.", attempt)
+                if abs(dip.distance) < cs.PRELOCK_TUNING_PRECISION:
+                    LOGGER.info("Took %s attempts to center dip.", attempt)
                     break
                 await self.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
                 dip = await self.doppler_sweep()
@@ -677,7 +678,7 @@ class LockBuddy:
                     ``speed_constraint``.
         :raises ValueError: ``speed_constraint`` disqualifies all tuners.
         """
-        LOGGER.info("Tuning %s/%s MHz...", distance, cs.LOCK_SFG_FACTOR)
+        LOGGER.debug("Tuning %s/%s MHz...", distance, cs.LOCK_SFG_FACTOR)
         delta = LaserMhz(distance / cs.LOCK_SFG_FACTOR)
         # We won't tune if delta is smaller than any of the available
         # granularities.
