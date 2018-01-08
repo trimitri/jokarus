@@ -47,7 +47,7 @@ def format_daq_scan(data: np.ndarray) -> np.ndarray:
 
 def locate_doppler_line(data: np.ndarray,
                         min_depth: float = cs.SPEC_MIN_LOG_DIP_DEPTH,
-                        preprocess_data: bool = True) -> cs.SpecMhz:
+                        preprocess_data: bool = True) -> cs.DopplerLine:
     """Locate a line in the "log" photodiode signal.
 
     This method basically returns the location of the absolute minimum of the
@@ -63,7 +63,7 @@ def locate_doppler_line(data: np.ndarray,
                 before.
     :raises ValueError: Didn't find a line.
     :returns: The directional distance of the dip minimum from current spectral
-                position in SpecMHz.
+                position in SpecMHz and the dip depth in Volts.
     """
     assert len(data.shape) == 2 and data.shape[0] == 3
     if preprocess_data:
@@ -74,8 +74,7 @@ def locate_doppler_line(data: np.ndarray,
     argmin, argmax = np.argmin(smooth), np.argmax(smooth)
     depth = smooth[argmax] - smooth[argmin]
     if depth > min_depth:
-        LOGGER.info("Found a %s V deep dip.", depth)
-        return cs.SpecMhz(ramp[argmin])
+        return cs.DopplerLine(distance=cs.SpecMhz(ramp[argmin]), depth=depth)
     raise ValueError("Didn't find a dip.")
 
 

@@ -8,7 +8,7 @@ import numpy as np
 
 from . import feature_locator
 from .. import constants as cs
-from ..constants import SpecMhz, LaserMhz
+from ..constants import DopplerLine, LaserMhz, SpecMhz
 from ..util import asyncio_tools as tools
 from ..analysis import signals
 
@@ -30,6 +30,32 @@ time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
 It's an array [low, high] with 0 < low < high < 1.
 """
 
+class LockError(RuntimeError):
+    """Something went wrong in trying to achieve a lock."""
+    pass
+class SnowblindError(LockError):
+    """In search for a feature, we found nothing but an empty void.
+
+    This is a common problem with MTS spectra, as they are very "clean" and
+    have long sections where they're simply == 0.
+
+    This Error is marked private, as it's not going to rise out of the class.
+    """
+    pass
+class DriftError(LockError):
+    """System behaves in an unstable manner, possibly due to drifts."""
+    pass
+class _RivalryError(LockError):
+    """We wanted one match but found many and no particular one sticks out.
+
+    If there are many features in the spectrum that all look the same, then
+    using only a very small sample and trying to find its position can lead to
+    multiple nearly identical hits. This just happened.
+
+    This Error is marked private, as it's not going to rise out of the class.
+    """
+    pass
+
 class Line(enum.Enum):
     """A map of where in the spectrum to find the target transitions."""
     # The first line's position depends on how much padding is added to the
@@ -49,11 +75,6 @@ class Line(enum.Enum):
     a_13 = a_1 + 726.030
     a_14 = a_1 + 732.207
     a_15 = a_1 + 857.954
-
-class LockError(RuntimeError):
-    """Something went wrong in trying to achieve a lock."""
-    pass
-
 class LockStatus(enum.IntEnum):
     """Asessment of the current lock situation."""
     ON_LINE = 0
@@ -64,7 +85,6 @@ class LockStatus(enum.IntEnum):
     """The lockbox is not completely engaged."""
     DEGRADED = 3
     """The lockbox is neither completely engaged nor properly switched off."""
-
 class LockboxState(enum.IntEnum):
     """Possible states a software-configurable lockbox could be in."""
     ENGAGED = 0
@@ -73,27 +93,6 @@ class LockboxState(enum.IntEnum):
     """The lockbox and all it's control stages are disengaged."""
     DEGRADED = 2
     """The lockbox is neither completely engaged nor properly switched off."""
-
-class SnowblindError(LockError):
-    """In search for a feature, we found nothing but an empty void.
-
-    This is a common problem with MTS spectra, as they are very "clean" and
-    have long sections where they're simply == 0.
-
-    This Error is marked private, as it's not going to rise out of the class.
-    """
-    pass
-
-class _RivalryError(LockError):
-    """We wanted one match but found many and no particular one sticks out.
-
-    If there are many features in the spectrum that all look the same, then
-    using only a very small sample and trying to find its position can lead to
-    multiple nearly identical hits. This just happened.
-
-    This Error is marked private, as it's not going to rise out of the class.
-    """
-    pass
 
 
 class Tuner:
@@ -304,9 +303,22 @@ class LockBuddy:
         LOGGER.info("Balancing lock by %s units.", distance)
         await self.tune(SpecMhz(cs.LOCK_SFG_FACTOR * distance))
 
-    async def doppler_search(self, speed_constraint: float = 5,
+    async def doppler_sweep(self) -> Optional[cs.DopplerLine]:
+        """Do one scan and see if there's a doppler line nearby.
+
+        :returns: Distance to doppler line and its depth if there is a line,
+                    None otherwise.
+        """
+        signal = await self.acquire_signal()
+        try:
+            return signals.locate_doppler_line(signal.transpose())
+        except ValueError:
+            LOGGER.debug("Didn't find a line.")
+            return None
+
+    async def doppler_search(self, speed_constraint: float = cs.PRELOCK_TUNER_SPEED_CONSTRAINT,
                              step_size: SpecMhz = cs.PRELOCK_STEP_SIZE,
-                             max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> SpecMhz:
+                             max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> cs.DopplerLine:
         """Search for a doppler-broadened line around current working point.
 
         :param speed_constraint: When tuning away from the initial working
@@ -339,18 +351,6 @@ class LockBuddy:
             if max_range > red or max_range > blue:
                 LOGGER.warning("Can't search requested range in both directions.")
 
-        async def distance_to_line() -> Optional[SpecMhz]:
-            """Do we see a transition at the current position?
-
-            :returns: Distance to dip minimum if we found one.  None otherwise.
-            """
-            LOGGER.info("Searching at %s.", relative_position)
-            signal = await tools.async_call(self._scanner)
-            try:
-                return signals.locate_doppler_line(signal.transpose())
-            except ValueError:
-                LOGGER.debug("Didn't find a line.")
-                return None
 
         # Zig-zag back and forth, gradually extending the distance to the
         # origin.
@@ -358,11 +358,12 @@ class LockBuddy:
         relative_position = SpecMhz(0) # distance to origin
         sign = +1              # zig or zag?
         counter = 1            # how far to jump with next zig resp. zag
-        distance = await distance_to_line()
+        dip = await self.doppler_sweep()  # type: DopplerLine
         step = step_size
-        while not isinstance(distance, SpecMhz):
+        while not isinstance(dip, DopplerLine):
             try:
-                LOGGER.debug("Target is %s + %s = %s", relative_position, step, relative_position + step)
+                LOGGER.debug("Target is %s + %s = %s",
+                             relative_position, step, relative_position + step)
                 if abs(relative_position + step) > reach:
                     LOGGER.debug("Would exceed reach.")
                     raise ValueError
@@ -383,17 +384,17 @@ class LockBuddy:
                     # Even the single-sided search didn't turn anything out.
                     LOGGER.warning("Exiting single-sided mode. No match at all.")
                     break
-            distance = await distance_to_line()
+            LOGGER.info("Searching at %s.", relative_position)
+            dip = await self.doppler_sweep()
             if alternate:
                 counter += 1
                 sign *= -1
                 step = sign * counter * step_size
         else:
-            LOGGER.info("Found a doppler dip %s MHz from here.", distance)
-            return distance
+            LOGGER.info("Found a dip: %s.", dip)
+            return dip
 
         raise SnowblindError("Didn't find a doppler dip.")
-
 
     def engage_and_maintain(self, balance: bool = True,
                             relock: bool = True) -> asyncio.Task:
@@ -472,27 +473,25 @@ class LockBuddy:
             return await fast_tuners[0].get_max_jumps()
         raise ValueError("speed_constraint {} disqualifies all tuners.".format(speed_constraint))
 
-    async def watchdog(self) -> LockStatus:
-        """Watch an engaged lock and return as soon as something goes wrong.
+    async def is_correct_line(self, hint: DopplerLine = None) -> bool:
+        """Are we close to the right line?
 
-        :raises RuntimeError: The lock wasn't on line when the dog was let out.
-        :returns: The new status. Most definitely not `LockStatus.ON_LINE`.
+        :raises SnowblindError: We are not close to any line.
+        :raises DriftError: Unable to center the dip well enough for
+                    measurement.  We're possibly experiencing heavy drifts.
         """
-        status = await self.get_lock_status()
-        if status != LockStatus.ON_LINE:
-            raise RuntimeError("Lock is {}. Refusing to start watchdog.".format(status))
-        LOGGER.info("Starting to track engaged lock.")
-        async def check() -> bool:
-            """Inquire current status and save it in scope."""
-            nonlocal status
-            status = await self.get_lock_status()
-            return status != LockStatus.ON_LINE
-
-        await tools.poll_resource(check, cs.LOCKBOX_RAIL_CHECK_INTERVAL,
-                                  name="lock watchdog")
-        # For the infinite lock, this will run forever.  Otherwise we return
-        # the problem.
-        return status
+        dip = hint if hint else await self.doppler_sweep()
+        if not dip:
+            raise SnowblindError("There is no line nearby.")
+        for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
+            if dip.distance < cs.PRELOCK_TUNING_PRECISION:
+                LOGGER.debug("Took %s attempts to center dip.", attempt)
+                break
+            await self.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+            dip = await self.doppler_sweep()
+        else:
+            raise DriftError("Unable to center doppler line.")
+        return dip.depth < cs.PRELOCK_DIP_DECIDING_DEPTH
 
     async def start_balancer(self) -> None:
         """Watch a running lock and correct for occurring drifts."""
@@ -710,6 +709,29 @@ class LockBuddy:
         # In our case, however, the MiOB temperature has such a vast range,
         # that combining tuners will never be necessary.
         # FEATURE
+
+    async def watchdog(self) -> LockStatus:
+        """Watch an engaged lock and return as soon as something goes wrong.
+
+        :raises RuntimeError: The lock wasn't on line when the dog was let out.
+        :returns: The new status. Most definitely not `LockStatus.ON_LINE`.
+        """
+        status = await self.get_lock_status()
+        if status != LockStatus.ON_LINE:
+            raise RuntimeError("Lock is {}. Refusing to start watchdog.".format(status))
+        LOGGER.info("Starting to track engaged lock.")
+        async def check() -> bool:
+            """Inquire current status and save it in scope."""
+            nonlocal status
+            status = await self.get_lock_status()
+            return status != LockStatus.ON_LINE
+
+        await tools.poll_resource(check, cs.LOCKBOX_RAIL_CHECK_INTERVAL,
+                                  name="lock watchdog")
+        # For the infinite lock, this will run forever.  Otherwise we return
+        # the problem.
+        return status
+
 
     @staticmethod
     def _pick_match(candidates: List[List[float]], near: SpecMhz = None) -> SpecMhz:

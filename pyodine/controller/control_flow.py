@@ -230,11 +230,9 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
-    LOGGER.info("prelock_and_lock() called.")  # TODO Invoke prelock algorithm.
-    return
-    await locker.start_prelock(
-        threshold=0.5, target_position=lock_buddy.Line.a_1,
-        proximity_callback=lambda: LOGGER.info("Yeah!"))
+    dip = await locker.doppler_search()
+    if await locker.is_correct_line(dip):
+        pass
 
 
 async def engage_lock(subs: subsystems.Subsystems) -> None:

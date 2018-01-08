@@ -1,4 +1,5 @@
 """Various constants and common objects used throughout pyodine."""
+import typing
 import numpy
 
 
@@ -27,6 +28,9 @@ class LaserMhz(float):
     SpecMhz!
     """
     pass
+
+DopplerLine = typing.NamedTuple('DopplerLine',
+                                [('depth', float), ('distance', SpecMhz)])
 
 ##################
 # Base Constants #  Those are not tied to others in a direct, arithmetical way.
@@ -191,12 +195,31 @@ PD_DO_PUBLISH = False
 PD_LOG_INTERVAL = 2.7
 """Interval [s] at which the auxiliary photodiode readings are acquired."""
 
-PRELOCK_STEP_SIZE = SpecMhz(600)
-"""Step size to take when searching for doppler-broadened lines."""
+PRELOCK_DIP_DECIDING_DEPTH = (.397 + .231) / 2  # Measured in rev. 5c0ea6 
+"""A dip smaller than this is boldly taken for an indicator that we're on the
+R(56)32-0 transition.
+"""
+PRELOCK_TUNING_PRECISION = SpecMhz(50)  # Would love more accuracy, but MO driver is crap.
+"""How accurately can we reliably position ourselves during prelock?
+
+During prelock, only fast tuners can be used.  Together with possible (drift
+rate * sample rate), they are the limiting factor here.
+"""
+PRELOCK_TUNING_ATTEMPTS = 10  # Guesswork.
+"""Only jump ~ times in trying to reach a specific frequency.
+
+If we have to jump more often than this, we're probably lost anyway (due to
+drifts or another system problem)."""
+PRELOCK_DIST_SWEET_SPOT_TO_DIP = 537  # Measured in rev. 5c0ea6
+"""The distance between the absorption dip minimum and the "sweet spot" halfway
+between a_1 and a_2 from where the lock can reliably be engaged.
+"""
 PRELOCK_MAX_RANGE = LaserMhz(10000)
 """There is no point in "tuning" the laser further than this, as there will be
 mode hops anyway.
 """
+PRELOCK_STEP_SIZE = SpecMhz(600)
+"""Step size to take when searching for doppler-broadened lines."""
 PRELOCK_TUNER_SPEED_CONSTRAINT = 5
 """Don't use tuners slower than this during prelock.  In seconds."""
 
