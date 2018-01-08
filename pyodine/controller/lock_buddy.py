@@ -2,6 +2,7 @@
 import asyncio
 import enum
 import logging
+import typing
 from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -93,6 +94,11 @@ class LockboxState(enum.IntEnum):
     """The lockbox and all it's control stages are disengaged."""
     DEGRADED = 2
     """The lockbox is neither completely engaged nor properly switched off."""
+TunersState = typing.NamedTuple('TunersState', [('speed', float), ('value', float)])
+"""State for a set of tuners.
+
+Is currently only implemented for single tuners, not for sets of.
+"""
 
 
 class Tuner:
@@ -316,14 +322,21 @@ class LockBuddy:
             LOGGER.debug("Didn't find a line.")
             return None
 
-    async def doppler_search(self, speed_constraint: float = cs.PRELOCK_TUNER_SPEED_CONSTRAINT,
-                             step_size: SpecMhz = cs.PRELOCK_STEP_SIZE,
-                             max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> cs.DopplerLine:
+    async def doppler_search(
+            self, speed_constraint: float = cs.PRELOCK_TUNER_SPEED_CONSTRAINT,
+            judge: Callable[[cs.DopplerLine], Union[Awaitable[bool], bool]] = lambda _: True,
+            step_size: SpecMhz = cs.PRELOCK_STEP_SIZE,
+            max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> cs.DopplerLine:
         """Search for a doppler-broadened line around current working point.
 
         :param speed_constraint: When tuning away from the initial working
                     point, don't use tuners that take longer than ~ seconds for
                     a jump.
+        :param judge: A coroutine function that is able to say if the line it
+                    got passed is the line we're searching for.  If this method
+                    doesn't evaluate True, we keep searching as if no line was
+                    found. This must not detune the system or if it does, undo
+                    what it has done afterwards.
         :param step_size: When searching, spectral sample points will be spaced
                     this far from each other.
         :param max_range: Don't deviate further than ~ LaserMhz from initial
@@ -351,7 +364,6 @@ class LockBuddy:
             if max_range > red or max_range > blue:
                 LOGGER.warning("Can't search requested range in both directions.")
 
-
         # Zig-zag back and forth, gradually extending the distance to the
         # origin.
         alternate = True       # search zig-zag
@@ -360,7 +372,8 @@ class LockBuddy:
         counter = 1            # how far to jump with next zig resp. zag
         dip = await self.doppler_sweep()  # type: DopplerLine
         step = step_size
-        while not isinstance(dip, DopplerLine):
+        old_tuners_state = await self.get_tuners_state(speed_constraint)
+        while True:
             try:
                 LOGGER.debug("Target is %s + %s = %s",
                              relative_position, step, relative_position + step)
@@ -369,7 +382,7 @@ class LockBuddy:
                     raise ValueError
                 LOGGER.debug("Is in reach. Tuning by %s.", step)
                 await self.tune(step, speed_constraint)  # also raises ValueError!
-                relative_position += step
+                relative_position = SpecMhz(relative_position + step)
             except ValueError:
                 LOGGER.debug("Couldn't tune.")
                 if alternate:
@@ -378,7 +391,7 @@ class LockBuddy:
                     # as far as possible.
                     LOGGER.info("Switching to single-sided mode.")
                     alternate = False
-                    step = -1 * sign * step_size
+                    step = SpecMhz(-1 * sign * step_size)
                     continue
                 else:
                     # Even the single-sided search didn't turn anything out.
@@ -389,11 +402,17 @@ class LockBuddy:
             if alternate:
                 counter += 1
                 sign *= -1
-                step = sign * counter * step_size
-        else:
-            LOGGER.info("Found a dip: %s.", dip)
-            return dip
+                step = SpecMhz(sign * counter * step_size)
+            if isinstance(dip, DopplerLine):
+                is_legal = await tools.async_call(judge, dip)
+                LOGGER.info("Found %s, %s deep dip %s MHz from the starting position.",
+                            'correct' if is_legal else 'incorrect',
+                            dip.depth,
+                            dip.distance + relative_position)
+                if is_legal:
+                    return dip
 
+        await self.set_tuners_state(old_tuners_state)
         raise SnowblindError("Didn't find a doppler dip.")
 
     def engage_and_maintain(self, balance: bool = True,
@@ -468,12 +487,32 @@ class LockBuddy:
         :returns: Tuple like (max_red_detuning, max_blue_detuning).
         :raises ValueError: `speed_constraint` disqualifies all tuners.
         """
-        fast_tuners = self._only_fast_tuners(speed_constraint)
+        fast_tuners = self._filter_tuners(speed_constraint=speed_constraint)
         if fast_tuners:
             return await fast_tuners[0].get_max_jumps()
         raise ValueError("speed_constraint {} disqualifies all tuners.".format(speed_constraint))
 
-    async def is_correct_line(self, hint: DopplerLine = None) -> bool:
+    async def get_tuners_state(self, speed_constraint: float) -> TunersState:
+        """Get the state of all involved tuners.
+
+        :raises NotImplementedError: Filter leaves more than one tuner.
+        """
+        tuners = self._filter_tuners(speed_constraint)
+        if len(tuners) > 1:
+            raise NotImplementedError("State reset not implemented for multiple tuners.")
+        return TunersState(value=await tuners[0].get(), speed=speed_constraint)
+
+    async def set_tuners_state(self, state: TunersState) -> None:
+        """Get the state of all involved tuners.
+
+        :raises NotImplementedError: Would affect more than one tuner.
+        """
+        tuners = self._filter_tuners(state.speed)
+        if len(tuners) > 1:
+            raise NotImplementedError("State reset not implemented for multiple tuners.")
+        tuners[0].set(state.value)
+
+    async def is_correct_line(self, hint: DopplerLine = None, reset: bool = False) -> bool:
         """Are we close to the right line?
 
         :raises SnowblindError: We are not close to any line.
@@ -483,14 +522,19 @@ class LockBuddy:
         dip = hint if hint else await self.doppler_sweep()
         if not dip:
             raise SnowblindError("There is no line nearby.")
-        for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
-            if dip.distance < cs.PRELOCK_TUNING_PRECISION:
-                LOGGER.debug("Took %s attempts to center dip.", attempt)
-                break
-            await self.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
-            dip = await self.doppler_sweep()
-        else:
-            raise DriftError("Unable to center doppler line.")
+        state_before = await self.get_tuners_state(cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+        try:
+            for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
+                if dip.distance < cs.PRELOCK_TUNING_PRECISION:
+                    LOGGER.debug("Took %s attempts to center dip.", attempt)
+                    break
+                await self.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+                dip = await self.doppler_sweep()
+            else:
+                raise DriftError("Unable to center doppler line.")
+        finally:
+            if reset:
+                await self.set_tuners_state(state_before)
         return dip.depth < cs.PRELOCK_DIP_DECIDING_DEPTH
 
     async def start_balancer(self) -> None:
@@ -640,7 +684,7 @@ class LockBuddy:
         if not abs(delta) >= self.min_step:
             LOGGER.warning("Can't tune this fine %s %s. Ignoring.", delta, self.min_step)
             return
-        tuners = self._only_fast_tuners(speed_constraint)
+        tuners = self._filter_tuners(speed_constraint=speed_constraint)
         if not tuners:
             raise ValueError("Speed constraint of {} disqualifies all tuners"
                              .format(speed_constraint))
@@ -704,12 +748,6 @@ class LockBuddy:
             return
         raise ValueError("Could't fulfill tuning request by means of a single tuner.")
 
-        # Can we reach the desired jump by combining tuners?  This would only
-        # be important if all available tuners have a similar range of motion.
-        # In our case, however, the MiOB temperature has such a vast range,
-        # that combining tuners will never be necessary.
-        # FEATURE
-
     async def watchdog(self) -> LockStatus:
         """Watch an engaged lock and return as soon as something goes wrong.
 
@@ -771,7 +809,7 @@ class LockBuddy:
         raise _RivalryError("There were suitable matches, but they're too "
                             "similar.")
 
-    def _only_fast_tuners(self, speed_constraint: float = None) -> List[Tuner]:
+    def _filter_tuners(self, speed_constraint: float = None) -> List[Tuner]:
         """Filter tuners and return only the ones fast enough."""
         return [t for t in self._tuners
                 if not speed_constraint or t.delay < speed_constraint]

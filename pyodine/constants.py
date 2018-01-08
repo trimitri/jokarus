@@ -210,7 +210,7 @@ PRELOCK_TUNING_ATTEMPTS = 10  # Guesswork.
 
 If we have to jump more often than this, we're probably lost anyway (due to
 drifts or another system problem)."""
-PRELOCK_DIST_SWEET_SPOT_TO_DIP = 537  # Measured in rev. 5c0ea6
+PRELOCK_DIST_SWEET_SPOT_TO_DIP = (635 + 440) / 2  # Measured in rev. 5c0ea6
 """The distance between the absorption dip minimum and the "sweet spot" halfway
 between a_1 and a_2 from where the lock can reliably be engaged.
 """

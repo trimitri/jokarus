@@ -230,9 +230,9 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
-    dip = await locker.doppler_search()
-    if await locker.is_correct_line(dip):
-        pass
+    dip = await locker.doppler_search(
+        judge=partial(locker.is_correct_line, reset=True))
+    locker.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
 
 
 async def engage_lock(subs: subsystems.Subsystems) -> None:
