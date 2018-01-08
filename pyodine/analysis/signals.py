@@ -75,7 +75,7 @@ def locate_doppler_line(data: np.ndarray,
     depth = smooth[argmax] - smooth[argmin]
     if depth > min_depth:
         LOGGER.info("Found a %s V deep dip.", depth)
-        return ramp[argmin]
+        return cs.SpecMhz(ramp[argmin])
     raise ValueError("Didn't find a dip.")
 
 

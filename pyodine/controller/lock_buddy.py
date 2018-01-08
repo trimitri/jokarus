@@ -347,7 +347,7 @@ class LockBuddy:
             LOGGER.info("Searching at %s.", relative_position)
             signal = await tools.async_call(self._scanner)
             try:
-                return signals.locate_doppler_line(signal)
+                return signals.locate_doppler_line(signal.transpose())
             except ValueError:
                 LOGGER.debug("Didn't find a line.")
                 return None
