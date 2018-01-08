@@ -31,7 +31,6 @@ set as target, assuming perfectly controlled plant. This is only due to NTC
 calculations and DAC/ADC errors, not related to the actual plant and
 controller!
 """
-AMBIENT_TEMP = 23.  # FIXME use NTC readings!
 
 
 class ReturnState(enum.IntEnum):
@@ -44,8 +43,9 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
     LOGGER.info("Cooling down components...")
     for unit in subsystems.TecUnit:
         if subs.is_tec_enabled(unit):
-            subs.set_temp(unit, AMBIENT_TEMP)  # ramp target temp
-            subs.switch_temp_ramp(unit, True)
+            # subs.set_temp(unit, AMBIENT_TEMP)  # ramp target temp
+            # subs.switch_temp_ramp(unit, True)
+            pass
         else:
             LOGGER.warning("Skipping %s on cooldown, as TEC was disabled.",
                            unit)
@@ -66,17 +66,18 @@ async def heat_up(subs: subsystems.Subsystems) -> None:
     target_temps = {subsystems.TecUnit.MIOB: 24.850, subsystems.TecUnit.VHBG: 24.856,
                     subsystems.TecUnit.SHGA: 40.95, subsystems.TecUnit.SHGB: 40.85}
     for unit in subsystems.TecUnit:
-        if not subs.is_tec_enabled(unit):
-            subs.set_temp(unit, AMBIENT_TEMP, True)  # actual setpoint
-            subs.set_temp(unit, AMBIENT_TEMP, False)  # ramp target temp
-            # Wait for the temp. setpoint to arrive at actual TEC controller.
-            await asyncio.sleep(.5)
-            subs.switch_tec_by_id(unit, True)
-            await asyncio.sleep(3)  # Allow three seconds for thermalization.
-            subs.set_temp(unit, target_temps[unit])
-            subs.switch_temp_ramp(unit, True)
-        else:
-            LOGGER.warning("Skipping %s TEC, as it was already active.")
+        pass
+        # if not subs.is_tec_enabled(unit):
+        #     subs.set_temp(unit, AMBIENT_TEMP, True)  # actual setpoint
+        #     subs.set_temp(unit, AMBIENT_TEMP, False)  # ramp target temp
+        #     # Wait for the temp. setpoint to arrive at actual TEC controller.
+        #     await asyncio.sleep(.5)
+        #     subs.switch_tec_by_id(unit, True)
+        #     await asyncio.sleep(3)  # Allow three seconds for thermalization.
+        #     subs.set_temp(unit, target_temps[unit])
+        #     subs.switch_temp_ramp(unit, True)
+        # else:
+        #     LOGGER.warning("Skipping %s TEC, as it was already active.")
 
 
 def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
@@ -112,8 +113,11 @@ def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
 def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
 
+    # Store tuners as "globals" (into subsystems) for other modules to use.
+    subsystems.Tuners.MO = _spawn_current_tuner(subs)
+    subsystems.Tuners.MIOB = _spawn_miob_tuner(subs)
 
-    # The lockbox itself has to be wrapped like a Tuner as well, as it does
+    # The lockbox itself has to be wrapped like a Tuner, as it does
     # effectively tune the laser. All values associated with setting stuff can
     # be ignored though ("1"'s and lambda below).
     lock = cs.LOCKBOX_RANGE_mV
@@ -159,7 +163,6 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
         lockbox=lockbox,
         scanner=subs.fetch_scan,
         scanner_range=cs.LaserMhz(700),  # FIXME measure correct scaling coefficient.
-        tuners=[_spawn_miob_tuner(subs), _spawn_current_tuner(subs)],
         on_new_signal=on_new_signal)
     return locker
 
@@ -224,19 +227,20 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
-async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> asyncio.Task:
+async def prelock_and_lock(locker: lock_buddy.LockBuddy,
+                           prelock_tuner: lock_buddy.Tuner) -> asyncio.Task:
     """Run the pre-lock algorithm and engage the frequency lock.
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
-    dip = await locker.doppler_search(judge=partial(locker.is_correct_line,
-                                                    reset=True))
+    dip = await locker.doppler_search(
+        prelock_tuner, judge=partial(locker.is_correct_line, prelock_tuner, reset=True))
     for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
         error = cs.SpecMhz(dip.distance - cs.PRELOCK_DIST_SWEET_SPOT_TO_DIP)
         if abs(error) < cs.PRELOCK_TUNING_PRECISION:
             LOGGER.info("Took %s jumps to align dip.", attempt)
             break
-        await locker.tune(error, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+        await locker.tune(error, prelock_tuner)
         dip = await locker.doppler_sweep()
     else:
         raise lock_buddy.DriftError("Unable to center doppler line.")

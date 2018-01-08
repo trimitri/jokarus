@@ -8,15 +8,13 @@ from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union
 import numpy as np
 
 from . import feature_locator
+from .subsystems import Tuners as Ts
 from .. import constants as cs
 from ..constants import DopplerLine, LaserMhz, SpecMhz
 from ..util import asyncio_tools as tools
 from ..analysis import signals
 
 LOGGER = logging.getLogger('pyodine.controller.lock_buddy')
-
-MAX_JUMPS = 10
-"""Jump ~ times before considering the pre-lock procedure failed."""
 
 MATCH_QUALITY_THRESH = 0.7
 """How well does a sample have to fit the reference for us to even consider the
@@ -34,6 +32,9 @@ It's an array [low, high] with 0 < low < high < 1.
 class LockError(RuntimeError):
     """Something went wrong in trying to achieve a lock."""
     pass
+class DriftError(LockError):
+    """System behaves in an unstable manner, possibly due to drifts."""
+    pass
 class SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
 
@@ -43,8 +44,8 @@ class SnowblindError(LockError):
     This Error is marked private, as it's not going to rise out of the class.
     """
     pass
-class DriftError(LockError):
-    """System behaves in an unstable manner, possibly due to drifts."""
+class TuningRangeError(LockError):
+    """The tuner can't tune this far."""
     pass
 class _RivalryError(LockError):
     """We wanted one match but found many and no particular one sticks out.
@@ -188,7 +189,6 @@ class LockBuddy:
                  locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
                  scanner: Callable[[float], Awaitable[cs.SpecScan]],
                  scanner_range: LaserMhz,
-                 tuners: List[Tuner],
                  lockbox: Tuner,
                  on_new_signal: Callable[
                      [cs.SpecScan], Optional[Awaitable[None]]]=lambda _: None) -> None:
@@ -208,8 +208,6 @@ class LockBuddy:
         :param scanner_range: How much quantity units does a call to
                     ``scanner(1.)`` span? Has to be a coroutine, as it will
                     always take considerable time to fetch a signal.
-        :param tuners: A list of Tuner objects that provide control over the
-                    tunable quantity.
         :param lockbox: A "read-only" tuner providing the current lockbox state
                     as well as it's scale. This is needed for balancing during
                     prolonged locks. The Tuner's .set() is not used.
@@ -224,8 +222,6 @@ class LockBuddy:
                                ("scanner", scanner), ("locked", locked)):
             if not callable(callback):
                 raise TypeError('Callback "{}" is not callable.'.format(name))
-        if not tuners:
-            raise ValueError("No tuners passed.")
 
         self.cancel_prelock = False
         self.recent_signal = np.empty(0)  # The most recent signal acquired.
@@ -241,17 +237,6 @@ class LockBuddy:
         self._scanner = scanner  # type: Callable[[float], Awaitable[cs.SpecScan]]
         self._scanner_range = scanner_range
         self._unlock = unlock
-
-        # Sort available tuners finest first.
-        self._tuners = sorted(tuners, key=lambda t: t.granularity)
-
-    @property
-    def min_step(self) -> LaserMhz:
-        """The smallest step size (in quantity units) this class can use to do
-        prelock and tuning. There is no use in trying to achieve results more
-        precise than this for a given set of tuners.
-        """
-        return min([LaserMhz(t.granularity * t.scale) for t in self._tuners])
 
     @property
     def prelock_running(self) -> bool:
@@ -285,13 +270,14 @@ class LockBuddy:
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 
-    async def balance(self, equilibrium: float = 0.5) -> None:
+    async def balance(self, tuner: Tuner, equilibrium: float = 0.5) -> None:
         """Adjust available tuners to keep lockbox well within range of motion.
 
         :param equilibrium: Where should a perfectly balanced lockbox be
                     resting? This should be given with respect to the [0, 1]
                     lockbox control range interval.  Thus, the obvious (and
                     default) choice is 0.5.
+        :param tuner: Which tuner to use for balancing?
         :raises RuntimeError: Lock is not on line.
         """
         status = await self.get_lock_status()
@@ -307,7 +293,7 @@ class LockBuddy:
         # the lockbox output.
         distance = imbalance * self._lockbox.scale
         LOGGER.info("Balancing lock by %s units.", distance)
-        await self.tune(SpecMhz(cs.LOCK_SFG_FACTOR * distance))
+        await self.tune(SpecMhz(cs.LOCK_SFG_FACTOR * distance), tuner)
 
     async def doppler_sweep(self) -> Optional[cs.DopplerLine]:
         """Do one scan and see if there's a doppler line nearby.
@@ -323,7 +309,7 @@ class LockBuddy:
             return None
 
     async def doppler_search(
-            self, speed_constraint: float = cs.PRELOCK_TUNER_SPEED_CONSTRAINT,
+            self, tuner: Tuner,
             judge: Callable[[cs.DopplerLine], Union[Awaitable[bool], bool]] = lambda _: True,
             step_size: SpecMhz = cs.PRELOCK_STEP_SIZE,
             max_range: LaserMhz = cs.PRELOCK_MAX_RANGE) -> cs.DopplerLine:
@@ -348,7 +334,7 @@ class LockBuddy:
         :raises SnowblindError: Didn't find a line.  Staying at last active
                     search position.  TODO: Go back where we came from.
         """
-        red, blue = await self.get_max_range(speed_constraint)
+        red, blue = await tuner.get_max_jumps()
         reach = (max_range if max_range
                  else cs.LOCK_SFG_FACTOR * min(max_range, max(red, blue)))
         LOGGER.debug("red: %s, blue: %s, reach: %s", red, blue, reach)
@@ -372,7 +358,7 @@ class LockBuddy:
         counter = 1            # how far to jump with next zig resp. zag
         dip = await self.doppler_sweep()  # type: DopplerLine
         step = step_size
-        old_tuners_state = await self.get_tuners_state(speed_constraint)
+        old_tuner_state = await tuner.get()
         while True:
             try:
                 LOGGER.debug("Target is %s + %s = %s",
@@ -381,9 +367,9 @@ class LockBuddy:
                     LOGGER.debug("Would exceed reach.")
                     raise ValueError
                 LOGGER.debug("Is in reach. Tuning by %s.", step)
-                await self.tune(step, speed_constraint)  # also raises ValueError!
+                await self.tune(step, tuner)  # raises TuningRangeError!
                 relative_position = SpecMhz(relative_position + step)
-            except ValueError:
+            except (ValueError, TuningRangeError):
                 LOGGER.debug("Couldn't tune.")
                 if alternate:
                     # We hit a boundary in one direction.  If we still didn't
@@ -412,7 +398,7 @@ class LockBuddy:
                 if is_legal:
                     return dip
 
-        await self.set_tuners_state(old_tuners_state)
+        await tuner.set(old_tuner_state)
         raise SnowblindError("Didn't find a doppler dip.")
 
     def engage_and_maintain(self) -> asyncio.Task:
@@ -475,39 +461,8 @@ class LockBuddy:
             return LockStatus.ON_LINE
         raise RuntimeError("Couldn't get lockbox state from callback.")
 
-    async def get_max_range(self, speed_constraint: float = None) -> Tuple[LaserMhz, LaserMhz]:
-        """How far can we tune up or down from the current working point?
-
-        :returns: Tuple like (max_red_detuning, max_blue_detuning).
-        :raises ValueError: `speed_constraint` disqualifies all tuners.
-        """
-        fast_tuners = self._filter_tuners(speed_constraint=speed_constraint)
-        if fast_tuners:
-            return await fast_tuners[0].get_max_jumps()
-        raise ValueError("speed_constraint {} disqualifies all tuners.".format(speed_constraint))
-
-    async def get_tuners_state(self, speed_constraint: float) -> TunersState:
-        """Get the state of all involved tuners.
-
-        :raises NotImplementedError: Filter leaves more than one tuner.
-        """
-        tuners = self._filter_tuners(speed_constraint)
-        if len(tuners) > 1:
-            raise NotImplementedError("State reset not implemented for multiple tuners.")
-        return TunersState(value=await tuners[0].get(), speed=speed_constraint)
-
-    async def set_tuners_state(self, state: TunersState) -> None:
-        """Set the state of all involved tuners to `state`.
-
-        :raises NotImplementedError: Would affect more than one tuner.
-        """
-        LOGGER.debug("Setting tuners state to %s.", state)
-        tuners = self._filter_tuners(state.speed)
-        if len(tuners) > 1:
-            raise NotImplementedError("State reset not implemented for multiple tuners.")
-        await tuners[0].set(state.value)
-
-    async def is_correct_line(self, hint: DopplerLine = None, reset: bool = False) -> bool:
+    async def is_correct_line(self, tuner: Tuner, hint: DopplerLine = None,
+                              reset: bool = False) -> bool:
         """Are we close to the right line?
 
         :raises SnowblindError: We are not close to any line.
@@ -517,19 +472,19 @@ class LockBuddy:
         dip = hint if hint else await self.doppler_sweep()
         if not dip:
             raise SnowblindError("There is no line nearby.")
-        state_before = await self.get_tuners_state(cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+        state_before = await tuner.get()
         try:
             for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
                 if abs(dip.distance) < cs.PRELOCK_TUNING_PRECISION:
                     LOGGER.info("Took %s attempts to center dip.", attempt)
                     break
-                await self.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+                await self.tune(dip.distance, tuner)
                 dip = await self.doppler_sweep()
             else:
                 raise DriftError("Unable to center doppler line.")
         finally:
             if reset:
-                await self.set_tuners_state(state_before)
+                await tuner.set(state_before)
         return dip.depth < cs.PRELOCK_DIP_DECIDING_DEPTH
 
     async def start_balancer(self) -> None:
@@ -540,7 +495,7 @@ class LockBuddy:
         while True:
             status = await self.get_lock_status()
             if status == LockStatus.ON_LINE:
-                await self.balance(cs.LOCKBOX_BALANCE_POINT)
+                await self.balance(Ts.MO, equilibrium=cs.LOCKBOX_BALANCE_POINT)
             else:
                 break
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
@@ -578,93 +533,21 @@ class LockBuddy:
                 break
         LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
-    async def tune(self, distance: SpecMhz, speed_constraint: float = 0) -> None:
-        """Tune the system by ``distance`` quantity units and wait.
+    async def tune(self, delta: SpecMhz, tuner: Tuner) -> None:
+        """Simplified tuning when using a specific tuner.
 
-        This will choose the most appropriate tuner by itself, invoke it and
-        then wait for as long as it usually takes the chosen tuner to reflect
-        the change in the actual physical system.
-
-        :param distance: The amount of quantity units to jump. Any float number
-                    is legal input, although the system might reject bold
-                    requests with a ValueError.
-        :param speed_constraint: Don't use tuners that have delays larger than
-                    this many seconds. Set to 0 to disable contraint (default).
-        :raises ValueError: None of the available tuners can tune that far.
-                    Note that availability of tuners is limited by
-                    ``speed_constraint``.
-        :raises ValueError: ``speed_constraint`` disqualifies all tuners.
+        :raises TuningRangeError: Can't get that far using this tuner.
         """
-        LOGGER.debug("Tuning %s/%s MHz...", distance, cs.LOCK_SFG_FACTOR)
-        delta = LaserMhz(distance / cs.LOCK_SFG_FACTOR)
-        # We won't tune if delta is smaller than any of the available
-        # granularities.
-        if not abs(delta) >= self.min_step:
-            LOGGER.warning("Can't tune this fine %s %s. Ignoring.", delta, self.min_step)
+        if not delta >= abs(tuner.granularity * tuner.scale):
+            LOGGER.warning("Can't tune this fine (%s MHz).", delta)
             return
-        tuners = self._filter_tuners(speed_constraint=speed_constraint)
-        if not tuners:
-            raise ValueError("Speed constraint of {} disqualifies all tuners"
-                             .format(speed_constraint))
-
-        LOGGER.debug("%s tuners left.", len(tuners))
-
-        # Try using a single tuner first. The tuners are sorted by ascending
-        # granularity, so more coarse tuners are only used if the finer tuners
-        # can't provide the needed range of motion.
-        for index, tuner in enumerate(tuners):
-            # Skip this tuner if it doesn't have enough range left to jump by
-            # ``delta``.
-            state = await tuner.get()
-            target = state + (delta / tuner.scale)
-            LOGGER.debug("state: %s, delta: %s, delta / scale: %s", state,
-                         delta, delta / tuner.scale)
-            LOGGER.debug("Target of %s would be %s.", tuner.name, target)
-            if target < 0 or target > 1:
-                LOGGER.debug("Skipping %s for insufficient range of motion.",
-                             tuner.name)
-                continue
-
-            # We found a tuner that can do what we want. It might be, however,
-            # that we arrived at a more coarse tuner than necessary just
-            # because the finer tuners were maxed out. So instead of firing
-            # this tuner straightaway, we will first check if that was the
-            # case, and---if so---do a balancing operation.
-
-            # Did we have to skip any of the finer tuners?
-            compensation = .0
-            if index > 0:
-                LOGGER.debug("Checking for necessity of compensation.")
-                for skipped_tuner in tuners[:index]:
-                    local_state = await skipped_tuner.get()
-                    # Is the tuner imbalanced?
-                    if local_state < BALANCE_AT[0] or local_state > BALANCE_AT[1]:
-                        # How much compensation would be required
-                        # downstream when resetting this tuner?
-                        detuning = (local_state - 0.5) * skipped_tuner.scale
-                        carry = detuning / tuner.scale
-
-                        # Is there still room in the downstream tuner
-                        # (``tuner``) to accommodate this compensation?
-                        desired = target + compensation + carry
-                        if desired >= 0 and desired <= 1:
-                            compensation += carry
-                            await skipped_tuner.set(0.5)
-                            LOGGER.debug("Balanced %s.", skipped_tuner.name)
-                        else:
-                            LOGGER.debug("Couldn't balance %s due to insufficient headroom in %s.",
-                                         skipped_tuner.name, tuner.name)
-                    else:
-                        LOGGER.debug("Imbalance wasn't the reason to skip %s.",
-                                     skipped_tuner.name)
-            LOGGER.debug("Setting tuner %s to %s (was %s).",
-                         tuner.name, target + compensation, state)
-            if compensation > 0:
-                LOGGER.debug("Introduced carry-over from balancing. Expect degraded performance.")
-            await tuner.set(target + compensation)
-            LOGGER.debug("Tuned %s by %s units.", tuner.name, delta)
-            return
-        raise ValueError("Could't fulfill tuning request by means of a single tuner.")
+        state = await tuner.get()
+        target = state + (delta / tuner.scale)
+        LOGGER.debug("state: %s, delta: %s, delta / scale: %s", state, delta, delta / tuner.scale)
+        LOGGER.debug("Target of %s would be %s.", tuner.name, target)
+        if target < 0 or target > 1:
+            raise TuningRangeError("Can't tune this far using {}.".format(tuner.name))
+        await tuner.set(target)
 
     async def watchdog(self) -> LockStatus:
         """Watch an engaged lock and return as soon as something goes wrong.
@@ -726,8 +609,3 @@ class LockBuddy:
                 "poor quality and is probably not a real hit.")
         raise _RivalryError("There were suitable matches, but they're too "
                             "similar.")
-
-    def _filter_tuners(self, speed_constraint: float = None) -> List[Tuner]:
-        """Filter tuners and return only the ones fast enough."""
-        return [t for t in self._tuners
-                if not speed_constraint or t.delay < speed_constraint]

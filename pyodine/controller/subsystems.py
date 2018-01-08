@@ -16,6 +16,7 @@ from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
+from . import lock_buddy
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
@@ -94,6 +95,17 @@ LIGHT_SENSOR_CHANNELS = LightSensors(DaqInput.PD_MIOB, DaqInput.PD_AUX,
                                      DaqInput.DETECTOR_PUMP, DaqInput.DETECTOR_LOG)
 LIGHT_SENSOR_GAINS = LightSensors(mccdaq.InputRange.PM_2V, mccdaq.InputRange.PM_2V,
                                   mccdaq.InputRange.PM_5V, mccdaq.InputRange.PM_5V)
+
+class Tuners:  # pylint: disable=too-few-public-methods
+    """The usable tuners exposed by the system.
+
+    This is a static class whose members need to explicitly set from the
+    outside, as they are None otherwise.
+    """
+    MO = None  # type: lock_buddy.Tuner
+    """Master oscillator diode current."""
+    MIOB = None  # type: lock_buddy.Tuner
+    """Temperature of micro-optical bench."""
 
 _LD_CARDS = {
     LdDriver.MASTER_OSCILLATOR: menlo_stack.OscCard.OSC1A,

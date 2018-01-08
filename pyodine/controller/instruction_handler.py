@@ -92,6 +92,7 @@ class InstructionHandler:
             'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
 
     async def handle_instruction(self, message: str) -> None:
+        """Extract an instruction from `message` and execute it."""
         # Use a "meta" try to comply with class security policy. However, due
         # to the command whitelisting, we should not actually have to catch
         # anything out here.
@@ -146,7 +147,7 @@ class InstructionHandler:
                 await control_flow.laser_power_down(self._subs)
         elif wire == TimerEffect.LOCK:
             if timer_state[wire]:
-                await control_flow.prelock_and_lock(self._locker)
+                await control_flow.prelock_and_lock(self._locker, subsystems.Tuners.MO)
             else:
                 await control_flow.release_lock(self._subs)
         else:
