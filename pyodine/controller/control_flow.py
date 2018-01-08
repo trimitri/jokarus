@@ -51,7 +51,6 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
                            unit)
 
 
-
 async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled components to their target value.
 
@@ -225,14 +224,23 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
-async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> None:
+async def prelock_and_lock(locker: lock_buddy.LockBuddy) -> asyncio.Task:
     """Run the pre-lock algorithm and engage the frequency lock.
 
     :raises lock_buddy.LockError: A lock couldn't be established.
     """
-    dip = await locker.doppler_search(
-        judge=partial(locker.is_correct_line, reset=True))
-    await locker.tune(dip.distance, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+    dip = await locker.doppler_search(judge=partial(locker.is_correct_line,
+                                                    reset=True))
+    for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
+        error = cs.SpecMhz(cs.PRELOCK_DIST_SWEET_SPOT_TO_DIP - dip.distance)
+        if abs(error) < cs.PRELOCK_TUNING_PRECISION:
+            LOGGER.info("Took %s attempts to center dip.", attempt)
+            break
+        locker.tune(error, cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
+        dip = await locker.doppler_sweep()
+    else:
+        raise lock_buddy.DriftError("Unable to center doppler line.")
+    return locker.engage_and_maintain()
 
 
 async def engage_lock(subs: subsystems.Subsystems) -> None:

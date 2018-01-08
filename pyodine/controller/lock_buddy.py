@@ -415,8 +415,7 @@ class LockBuddy:
         await self.set_tuners_state(old_tuners_state)
         raise SnowblindError("Didn't find a doppler dip.")
 
-    def engage_and_maintain(self, balance: bool = True,
-                            relock: bool = True) -> asyncio.Task:
+    def engage_and_maintain(self) -> asyncio.Task:
         """Engage the lock and maintain it long-term.
 
         :param balance: Watch the established lock for imbalance (see
@@ -429,11 +428,6 @@ class LockBuddy:
                     This task will only finish if something unexpected happens.
                     Thus, it can also be used to be notified of problems.
         """
-
-        if not relock or not balance:
-            # TODO Implement partial maintenance.
-            raise NotImplementedError("Relocker and balancer are always active.")
-
         balancer = None  # type: asyncio.Task
 
         def launch_balancer() -> None:
@@ -551,83 +545,6 @@ class LockBuddy:
                 break
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
         LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
-
-    async def start_prelock(self, threshold: SpecMhz, target_position: SpecMhz,
-                            proximity_callback: Callable[[], Any] = lambda: None,
-                            max_tries: int = MAX_JUMPS) -> None:
-        """Start the prelock algorithm and get as close as possible to target.
-
-
-        As soon as we can reasonable assume to be closer than `threshold` to
-        the target value, `proximity_callback` is fired.
-
-        If the lock is currently engaged, it is going to be released!
-
-        :param threshold: How close (in qty. units) to the target position is
-                    considered close enough?
-        :param target_position: How far (in qty. units) is the desired feature
-                    from the left edge of the reference spectrum?
-        :param proximity_callback: Must not require any arguments. Is called as
-                    soon as the target has been reached, but after the
-                    (optional) closed-loop lock has been engaged. Both events
-                    might as well not happen if the system misbehaves.
-        :param max_tries: Upper bound on iterations to use when trying to
-                    undercut ``threshold``. When set to 0, this will let the
-                    search run forever (even after possible success) and thus
-                    lead to **blocking behaviour**, so don't do this in the
-                    main thread.
-        :raises RuntimeError: Desired ``threshold`` could not be undercut in
-                    ``max_tries`` iterations.
-        :raises RuntimeError: None of the tuners where able to compensate
-                    for the measured detuning. Maybe check overall system
-                    setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
-        """
-        async def iterate() -> bool:
-            """Do one iteration of the pre-lock loop.
-
-            This will do one jump if we're still too far from our target
-            transition. If we're close already, this returns True and does not
-            jump.
-
-            :returns: Did we arrive at a distance closer than ``threshold``?
-
-            :raises RuntimeError: None of the tuners where able to compensate
-                        for the measured detuning. Maybe check overall system
-                        setup or consider raising ``PRELOCK_SPEED_CONSTRAINT``.
-            :raises SnowblindError: There was no usable feature in
-                        the scanned range. Consider raising the scan range.
-            :raises _RivalryError: Couldn't decide for a match, as
-                        options are too similar. Consider raising the scan
-                        range.
-            """
-            await self.acquire_signal(current_range)
-            match_candidates = self._locator.locate_sample(
-                self.recent_signal, current_range * self._scanner_range)
-            best_match = self._pick_match(match_candidates)  # raises!
-            detuning = target_position - best_match  # Sign already flipped for jumping.
-            if abs(detuning) < threshold:
-                return True
-            LOGGER.debug("Jumping by %s units.", detuning)
-            try:
-                await self.tune(SpecMhz(detuning), cs.PRELOCK_TUNER_SPEED_CONSTRAINT)
-            except ValueError as err:
-                raise RuntimeError("Requested more than tuners could deliver.") from err
-            return False
-
-        current_range = self._scanner_range
-        self._prelock_running = True
-        self.cancel_prelock = False
-        n_tries = 0
-        while not self.cancel_prelock:
-            n_tries += 1
-            if max_tries > 0 and n_tries > max_tries:
-                raise RuntimeError("Couldn't reach requested proximity in "
-                                   "{} tries".format(max_tries))
-            if await iterate():  # raises!
-                LOGGER.info("Acquired pre-lock after %s iterations.", n_tries)
-                tools.safe_call(proximity_callback)
-                if max_tries > 0:
-                    break
 
     async def start_relocker(
             self, on_lock_lost: Callable[[], Any] = lambda: None,
