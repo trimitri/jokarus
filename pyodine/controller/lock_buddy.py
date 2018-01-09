@@ -533,12 +533,13 @@ class LockBuddy:
                 break
         LOGGER.warning("Relocker is exiting due to Lock being %s.", problem)
 
-    async def tune(self, delta: SpecMhz, tuner: Tuner) -> None:
+    async def tune(self, distance: SpecMhz, tuner: Tuner) -> None:
         """Simplified tuning when using a specific tuner.
 
         :raises TuningRangeError: Can't get that far using this tuner.
         """
-        if not delta >= abs(tuner.granularity * tuner.scale):
+        delta = LaserMhz(distance / cs.LOCK_SFG_FACTOR)
+        if not abs(delta) >= abs(tuner.granularity * tuner.scale):
             LOGGER.warning("Can't tune this fine (%s MHz).", delta)
             return
         state = await tuner.get()
