@@ -10,7 +10,7 @@ import base64
 import enum
 from functools import partial
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 import numpy as np
 import aioconsole
 from . import lock_buddy, subsystems
@@ -82,30 +82,44 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
                            unit)
 
 
-async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit) -> None:
-    """Set a `unit`'s raw temperature to ambient temp.
+async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
+                          ramp_down: bool = False, temps: List[float] = None) -> None:
+    """Set a `unit`'s temperature to ambient temp.
 
-    This will only work if the unit is switched off, as setting the raw
-    (non-ramp) temperature in all cases is dangerous.
+    If the TEC is disabled, it will simply set it's raw temperature to the
+    ambient temp.  If TEC is enabled and `ramp_down` is given, the temp. is
+    ramped down.  If `ramp_down` and actual TEC state dont add up, a
+    RuntimeError is raised.
 
-    :raises RuntimeError: Unit is running.
+    :raises RuntimeError: `ramp_down` parameter must only be given for running
+                TEC units.
     :raises ConnectionError: Couldn't get reliable values for ambient temp of
-                `unit`.
+                `unit` or failed to set TEC setpoint.
     """
-    if subs.is_tec_enabled(unit):
-        raise RuntimeError("TEC is running, refusing to set to ambient.")
+    temps = temps if temps else await subs.get_aux_temps(dont_log=True)
+    assert len(temps) == len(subsystems.AuxTemp)
 
-    def set_now(unit: subsystems.TecUnit, temp: float) -> None:
-        """Set temp now if TEC is off, raise otherwise.
+    async def set_now(unit: subsystems.TecUnit, temp: float) -> None:
+        """Set temp now and switch on TEC, raise otherwise.
 
         :raises RuntimeError: TEC isn't switched off.
         """
         # Check again, as time has passed.
-        if subs.is_tec_enabled(unit):
-            raise RuntimeError("TEC is running, refusing to set to ambient.")
-        subs.set_temp(unit, temp, bypass_ramp=True)
+        is_tec_on = subs.is_tec_enabled(unit)
+        if is_tec_on and ramp_down:
+            subs.set_temp(unit, temp)
+            # FIXME wait!
+        elif not is_tec_on and not ramp_down:
+            subs.set_temp(unit, temp, bypass_ramp=True)
+            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+            if abs(subs.get_temp_setpt(unit) - temp) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
+                subs.switch_tec_by_id(unit, True)
+                await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+            else:
+                raise ConnectionError("Failed to set {} temperature.".format(unit))
+        else:
+            raise RuntimeError("Give `ramp_down` param according to TEC state.")
 
-    temps = await subs.get_aux_temps(dont_log=True)
     if unit == subsystems.TecUnit.MIOB:
         candidate = temps[subsystems.AuxTemp.HEATSINK_A]
         second = temps[subsystems.AuxTemp.HEATSINK_B]
@@ -127,7 +141,7 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit)
 
 
 async def heat_up(subs: subsystems.Subsystems) -> None:
-    """Ramp temperatures of all controlled components to their target value.
+    """Ramp temperatures of all controlled  components to their target value.
 
     If the temperature control is currently active for all those components,
     nothing happens, even if the current temperatures differs from the target

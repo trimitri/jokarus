@@ -87,6 +87,13 @@ When sending a simple request to the menlo stack, it will take at most this
 long until the change will be reflected in the readings.  "Simple" meaning,
 that it doesn't take any hardware (current, temp.) to change.
 """
+# MENLO_MEDIUM_WAIT = .5
+# """The Menlo stack "simple setter" roundtrip time in seconds.
+
+# When sending a normal, immediately fulfillable request (such as setting a
+# setpoint of something or switching something on or off) to the menlo stack, it
+# will take at most this long until the change will be reflected in the readings.
+# """
 
 MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
 """Those types of messages can be sent out by pyodine.  Messages of types that
@@ -238,6 +245,12 @@ This is an approximate number empirically tested on 2017-11-09 to work at room
 temp.
 """
 
+TEMP_ALLOWABLE_SETTER_ERROR = 1.
+"""When set and gotten setpoint differ by ~ K, it's still considered OK.
+
+This is necessary mostly due to DAC/ADC quantization and arithmetic errors in
+temp. calculation formulas.
+"""
 TEMP_LASER_TRAY_DELTA = 1.
 """A temperature gradient of more K than this between the laser tray NTCs
 considered an erroneous reading.
