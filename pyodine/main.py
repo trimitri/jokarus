@@ -41,7 +41,8 @@ async def main() -> None:
                                 'face': face,
                                 'flow': control_flow,
                                 'locker': locker,
-                                'subs': subs})
+                                'subs': subs,
+                                'Tuners': subsystems.Tuners})
 
     await tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
