@@ -142,7 +142,7 @@ async def poll_resource(indicator: Callable[[], Union[bool, Awaitable[bool]]],
 async def repeat_task(
         coro: Callable[[], Optional[Awaitable[None]]],
         period: float,
-        do_continue: Callable[[], bool] = lambda: True,
+        do_continue: Callable[[], Union[bool, Awaitable[bool]]] = lambda: True,
         reps: int = 0, min_wait_time: float = 0.1) -> None:
     """Repeat a task at given time intervals forever or ``reps`` times.
 
@@ -167,11 +167,11 @@ async def repeat_task(
 
     if reps > 0:  # Do `reps` repetitions at max.
         for _ in range(reps):
-            if not do_continue():
+            if not await async_call(do_continue):
                 break
             await run_once()
     else:  # Run forever.
-        while do_continue():
+        while await async_call(do_continue):
             await run_once()
 
 

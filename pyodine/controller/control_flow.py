@@ -16,6 +16,7 @@ import aioconsole
 from . import lock_buddy, subsystems
 from .. import constants as cs
 from .. import logger
+from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('control_flow')
 
@@ -47,19 +48,25 @@ async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
     :param loop: Event loop to use for scheduling.
     :raises LockError: Lock wasn't engaged initially.
     """
-    status = await locker.get_lock_status()
-    if status is not lock_buddy.LockStatus.ON_LINE:
-        raise lock_buddy.LockError("Can only compensate running locks.")
-    current = subsystems.Tuners.MO
-    while locker.get_lock_status() is lock_buddy.LockStatus.ON_LINE:
+    async def balancer() -> None:
+        """Balance now once, if necessary."""
+        current = subsystems.Tuners.MO
         mo_imbalance = cs.SpecMhz(
             cs.LOCK_SFG_FACTOR * (await current.get() - 0.5) * current.scale)
-        LOGGER.info("MO imbalance is %s MHz.", mo_imbalance)
         if abs(mo_imbalance) > cs.PRELOCK_TUNING_PRECISION:
-            LOGGER.info("Tuning MiOB to balance MO current.")
+            LOGGER.info("Tuning MiOB by %s MHz to balance MO current.", mo_imbalance)
             await locker.tune(mo_imbalance, subsystems.Tuners.MIOB)
-        status = await locker.get_lock_status()
-    LOGGER.warning("Stopped temp drift compensator, as lock is %s.", status)
+
+    async def condition() -> bool:
+        """Does balancing still make sense?"""
+        return await locker.get_lock_status() == lock_buddy.LockStatus.ON_LINE
+
+    if not await condition():
+        raise lock_buddy.LockError("Can only compensate running locks.")
+
+    await tools.repeat_task(balancer, period=0.6, do_continue=condition)
+    LOGGER.warning("Stopped temp drift compensator, as lock is %s.",
+                   await locker.get_lock_status())
 
 
 async def cool_down(subs: subsystems.Subsystems) -> None:
