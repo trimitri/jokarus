@@ -126,7 +126,7 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
         if     (abs(candidate - second) < cs.TEMP_LASER_TRAY_DELTA
                 and candidate > cs.TEMP_HEATSINK_RANGE_LASER[0]
                 and candidate < cs.TEMP_HEATSINK_RANGE_LASER[1]):
-            set_now(unit, candidate)
+            await set_now(unit, candidate)
         else:
             raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
     elif unit == subsystems.TecUnit.SHGA or unit == subsystems.TecUnit.SHGB:
@@ -135,7 +135,7 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
         if     (abs(candidate - second) < cs.TEMP_SPEC_TRAY_DELTA
                 and candidate > cs.TEMP_HEATSINK_RANGE_SPEC[0]
                 and candidate < cs.TEMP_HEATSINK_RANGE_SPEC[1]):
-            set_now(unit, candidate)
+            await set_now(unit, candidate)
         else:
             raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
 
