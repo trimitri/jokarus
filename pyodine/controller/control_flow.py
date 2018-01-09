@@ -82,6 +82,50 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
                            unit)
 
 
+async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit) -> None:
+    """Set a `unit`'s raw temperature to ambient temp.
+
+    This will only work if the unit is switched off, as setting the raw
+    (non-ramp) temperature in all cases is dangerous.
+
+    :raises RuntimeError: Unit is running.
+    :raises ConnectionError: Couldn't get reliable values for ambient temp of
+                `unit`.
+    """
+    if subs.is_tec_enabled(unit):
+        raise RuntimeError("TEC is running, refusing to set to ambient.")
+
+    def set_now(unit: subsystems.TecUnit, temp: float) -> None:
+        """Set temp now if TEC is off, raise otherwise.
+
+        :raises RuntimeError: TEC isn't switched off.
+        """
+        # Check again, as time has passed.
+        if subs.is_tec_enabled(unit):
+            raise RuntimeError("TEC is running, refusing to set to ambient.")
+        subs.set_temp(unit, temp, bypass_ramp=True)
+
+    temps = await subs.get_aux_temps(dont_log=True)
+    if unit == subsystems.TecUnit.MIOB:
+        candidate = temps[subsystems.AuxTemp.HEATSINK_A]
+        second = temps[subsystems.AuxTemp.HEATSINK_B]
+        if     (abs(candidate - second) < cs.TEMP_LASER_TRAY_DELTA
+                and candidate > cs.TEMP_HEATSINK_RANGE_LASER[0]
+                and candidate < cs.TEMP_HEATSINK_RANGE_LASER[1]):
+            set_now(unit, candidate)
+        else:
+            raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
+    elif unit == subsystems.TecUnit.SHGA or unit == subsystems.TecUnit.SHGB:
+        candidate = temps[subsystems.AuxTemp.SHG]
+        second = temps[subsystems.AuxTemp.CELL]
+        if     (abs(candidate - second) < cs.TEMP_SPEC_TRAY_DELTA
+                and candidate > cs.TEMP_HEATSINK_RANGE_SPEC[0]
+                and candidate < cs.TEMP_HEATSINK_RANGE_SPEC[1]):
+            set_now(unit, candidate)
+        else:
+            raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
+
+
 async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled components to their target value.
 

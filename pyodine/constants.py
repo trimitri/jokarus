@@ -238,6 +238,22 @@ This is an approximate number empirically tested on 2017-11-09 to work at room
 temp.
 """
 
+TEMP_LASER_TRAY_DELTA = 1.
+"""A temperature gradient of more K than this between the laser tray NTCs
+considered an erroneous reading.
+"""
+TEMP_SPEC_TRAY_DELTA = 3.
+"""A temperature gradient of more K than this between the SHG and spec cell
+NTCs is considered an erroneous reading.
+"""
+TEMP_HEATSINK_RANGE_LASER = [13., 40]
+"""Value outside this range are considered erroneous measurements when powering
+on the MiOB TEC.
+"""
+TEMP_HEATSINK_RANGE_SPEC = [13, 50]
+"""Value outside this range are considered erroneous measurements when powering
+on the SHG TECs.
+"""
 
 ##########################
 # Transitional Constants #  Those are only used to calculate other constants.

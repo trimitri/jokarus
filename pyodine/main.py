@@ -9,7 +9,6 @@ way as discussed in PEP328.
 """
 import asyncio
 import logging
-from typing import Any
 
 from . import logger
 from . import constants as cs
@@ -42,6 +41,7 @@ async def main() -> None:
                                 'flow': control_flow,
                                 'locker': locker,
                                 'subs': subs,
+                                'subsystems': subsystems,
                                 'Tuners': subsystems.Tuners})
 
     await tools.watch_loop(
