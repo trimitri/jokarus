@@ -233,6 +233,9 @@ PRELOCK_TUNER_SPEED_CONSTRAINT = 5
 RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
 """Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
+SHGA_WORKING_TEMP = 40.95
+SHGB_WORKING_TEMP = 40.85
+
 SPEC_MIN_LOG_DIP_DEPTH = 0.1
 """How deep has a dip in the "log" photodiode signal to be to be considered
 valid?  In Volts.
@@ -245,12 +248,14 @@ This is an approximate number empirically tested on 2017-11-09 to work at room
 temp.
 """
 
-TEMP_ALLOWABLE_SETTER_ERROR = 1.
+TEMP_ALLOWABLE_SETTER_ERROR = .5
 """When set and gotten setpoint differ by ~ K, it's still considered OK.
 
 This is necessary mostly due to DAC/ADC quantization and arithmetic errors in
 temp. calculation formulas.
 """
+TEMP_GENERAL_ERROR = .8
+"""When dealing with actual temps, errors up to ~ K are normal."""
 TEMP_LASER_TRAY_DELTA = 1.
 """A temperature gradient of more K than this between the laser tray NTCs
 considered an erroneous reading.
@@ -267,6 +272,9 @@ TEMP_HEATSINK_RANGE_SPEC = [13, 50]
 """Value outside this range are considered erroneous measurements when powering
 on the SHG TECs.
 """
+
+VHBG_WORKING_TEMP = 27.02
+"""Working point temperature of volume-holometric bragg grating in °C"""
 
 ##########################
 # Transitional Constants #  Those are only used to calculate other constants.

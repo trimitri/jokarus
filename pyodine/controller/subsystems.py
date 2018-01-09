@@ -350,7 +350,7 @@ class Subsystems:
             data['rf_use_external_clock'] = self._wrap_into_buffer(ext_clock)
         return data
 
-    def get_temp(self, unit: int) -> float:
+    def get_temp(self, unit: TecUnit) -> float:
         """Returns the temperature of the given unit in °C.
 
         Consider using this module's provided Enums for choice of unit number.

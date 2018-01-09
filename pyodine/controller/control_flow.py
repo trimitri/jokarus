@@ -33,11 +33,40 @@ calculations and DAC/ADC errors, not related to the actual plant and
 controller!
 """
 
+class TecStatus(enum.IntEnum):
+    """Status of the thermoelectric cooling subsystem."""
+
+    UNDEFINED = 10
+    """Everything that is not covered by the other cases (e.g. "off")."""
+
+    AMBIENT = 20
+    """MiOB and SHG TECs are on and set to ambient temperature. VHBG is off.
+
+    Note that the system may change from AMBIENT to UNDEFINED whenever the housing
+    temperature changes.
+    """
+
+    HEATING = 30
+    """Ramp target temperatures lie within working range, but not HOT.
+
+    This also checks for actually running ramps, so this will most definitely
+    lead to HOT.  VHBG is not checked at all.
+    """
+
+    HOT = 40
+    """All actual object temperatures and ramp targets are in working range.
+
+    This checks for VHBG as well. All TECs are on. The laser must not run in
+    any state except this one.
+    """
 
 class ReturnState(enum.IntEnum):
     SUCCESS = 0
     FAIL = 1
 
+class TecError(RuntimeError):
+    """Something went wrong with the thermoelectric cooling subsystem."""
+    pass
 
 async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
     """Keep the MO current in the center of its range of motion.
@@ -81,6 +110,39 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
             LOGGER.warning("Skipping %s on cooldown, as TEC was disabled.",
                            unit)
 
+def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
+    """Get (and judge) ambient temp readings for TEC operation.
+
+    :returns: Dict of two temperatures to use for SHGs and MIOB. VHBG has no "ambient".
+    :raises ConnectionError: Temperature readings are not consistent.
+    :raises ValueError: At least one ambient temp is out of safe bounds for the
+                respective component.
+    """
+    assert len(temps) == len(subsystems.AuxTemp)
+    ambient = {}
+
+    # MiOB
+    candidate = ambient[subsystems.AuxTemp.HEATSINK_A]
+    second = ambient[subsystems.AuxTemp.HEATSINK_B]
+    if abs(candidate - second) > cs.TEMP_LASER_TRAY_DELTA:
+        raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
+    if (candidate < cs.TEMP_HEATSINK_RANGE_LASER[0]
+            or candidate > cs.TEMP_HEATSINK_RANGE_LASER[1]):
+        raise ValueError("Laser tray temperature {} out of safe range.".format(candidate))
+    ambient[subsystems.TecUnit.MIOB] = candidate
+
+    # SHGs
+    candidate = ambient[subsystems.AuxTemp.SHG]
+    second = ambient[subsystems.AuxTemp.CELL]
+    if abs(candidate - second) > cs.TEMP_SPEC_TRAY_DELTA:
+        raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
+    if (candidate < cs.TEMP_HEATSINK_RANGE_SPEC[0]
+            or candidate > cs.TEMP_HEATSINK_RANGE_SPEC[1]):
+        raise ValueError("Spec tray temperature {} out of safe range.".format(candidate))
+    ambient[subsystems.TecUnit.SHGA] = candidate
+    ambient[subsystems.TecUnit.SHGB] = candidate
+
+    return ambient
 
 async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
                           ramp_down: bool = False, temps: List[float] = None) -> None:
@@ -97,7 +159,10 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
                 `unit` or failed to set TEC setpoint.
     """
     temps = temps if temps else await subs.get_aux_temps(dont_log=True)
-    assert len(temps) == len(subsystems.AuxTemp)
+    try:
+        ambient = _get_ambient_temps(temps)
+    except (ValueError, ConnectionError) as err:
+        raise TecError("Couldn't get ambient temps.") from err
 
     async def set_now(unit: subsystems.TecUnit, temp: float) -> None:
         """Set temp now and switch on TEC, raise otherwise.
@@ -120,25 +185,89 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
         else:
             raise RuntimeError("Give `ramp_down` param according to TEC state.")
 
-    if unit == subsystems.TecUnit.MIOB:
-        candidate = temps[subsystems.AuxTemp.HEATSINK_A]
-        second = temps[subsystems.AuxTemp.HEATSINK_B]
-        if     (abs(candidate - second) < cs.TEMP_LASER_TRAY_DELTA
-                and candidate > cs.TEMP_HEATSINK_RANGE_LASER[0]
-                and candidate < cs.TEMP_HEATSINK_RANGE_LASER[1]):
-            await set_now(unit, candidate)
-        else:
-            raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
-    elif unit == subsystems.TecUnit.SHGA or unit == subsystems.TecUnit.SHGB:
-        candidate = temps[subsystems.AuxTemp.SHG]
-        second = temps[subsystems.AuxTemp.CELL]
-        if     (abs(candidate - second) < cs.TEMP_SPEC_TRAY_DELTA
-                and candidate > cs.TEMP_HEATSINK_RANGE_SPEC[0]
-                and candidate < cs.TEMP_HEATSINK_RANGE_SPEC[1]):
-            await set_now(unit, candidate)
-        else:
-            raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
+    for unit in [subsystems.TecUnit.MIOB, subsystems.TecUnit.SHGA, subsystems.TecUnit.SHGB]:
+        asyncio.gather(loop=loop)
 
+async def get_tec_status(subs: subsystems.Subsystems,
+                         ambient: List[float] = None) -> TecStatus:
+    """Analyze the current TEC subsystem status."""
+    ambient = ambient if ambient else await subs.get_aux_temps(dont_log=True)
+
+    is_on = {}  # type: Dict[subsystems.TecUnit, bool]
+    obj_temp = {}  # type: Dict[subsystems.TecUnit, float]
+    raw_setpt = {}  # type: Dict[subsystems.TecUnit, float]
+    ramp_setpt = {}  # type: Dict[subsystems.TecUnit, float]
+    tec = subsystems.TecUnit
+    for unit in tec:
+        is_on[unit] = subs.is_tec_enabled(unit)
+        obj_temp[unit] = subs.get_temp(unit)
+        raw_setpt[unit] = subs.get_temp_setpt(unit)
+        ramp_setpt[unit] = subs.get_temp_ramp_target(unit)
+    if not (is_on[tec.MIOB] and is_on[tec.SHGA] and is_on[tec.SHGB]):
+        return TecStatus.UNDEFINED
+
+    def is_hot_shg(temp: float) -> bool:
+        mean_temp = (cs.SHGA_WORKING_TEMP + cs.SHGB_WORKING_TEMP) / 2
+        return (temp > mean_temp - cs.TEMP_GENERAL_ERROR
+                and temp < mean_temp + cs.TEMP_GENERAL_ERROR)
+
+    def is_hot_vhbg(temp: float) -> bool:
+        return (temp > cs.VHBG_WORKING_TEMP - cs.TEMP_GENERAL_ERROR
+                and temp < cs.VHBG_WORKING_TEMP + cs.TEMP_GENERAL_ERROR)
+
+    def is_hot_miob(temp: float) -> bool:
+        return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
+                and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
+
+
+    # Check for legit "ON" state.  We always do all the checks as it's cheap
+    # and easier to read.
+    legit = True
+    # VHBG
+    legit = is_on[tec.VHBG]
+    for temp in [obj_temp[tec.VHBG], raw_setpt[tec.VHBG], ramp_setpt[tec.VHBG]]:
+        if is_hot_vhbg(temp):
+            LOGGER.info("VHBG temps OK.")
+        else:
+            legit = False
+            LOGGER.info("VHBG temps NOT OK.")
+
+    # MiOB
+    for temp in [obj_temp[tec.MIOB], raw_setpt[tec.MIOB], ramp_setpt[tec.MIOB]]:
+        if is_hot_miob(temp):
+            LOGGER.info("MIOB temps OK.")
+        else:
+            legit = False
+            LOGGER.info("MIOB temps NOT OK.")
+
+    # SHGs
+    for temp in [obj_temp[tec.SHGA], raw_setpt[tec.SHGA], ramp_setpt[tec.SHGA],
+                 obj_temp[tec.SHGB], raw_setpt[tec.SHGB], ramp_setpt[tec.SHGB]]:
+        if is_hot_shg(temp):
+            LOGGER.info("SHG temps OK.")
+        else:
+            legit = False
+            LOGGER.info("SHG temps NOT OK.")
+    if legit:
+        return TecStatus.HOT
+
+    # Check for "HEATING" state.
+    elif (is_hot_shg(ramp_setpt[tec.SHGA]) and is_on[tec.SHGA]
+            and is_hot_shg(ramp_setpt[tec.SHGB]) and is_on[tec.SHGB]
+            and is_hot_miob(ramp_setpt[tec.MIOB]) and is_on[tec.MIOB]):
+        return TecStatus.HEATING
+
+    # Check for "AMBIENT" state.
+    else:
+        if is_on[tec.VHBG]:
+            return TecStatus.UNDEFINED
+        for temp in [obj_temp[tec.SHGA], obj_temp[tec.SHGB]]:
+            if abs(temp - temps):
+                return TecStatus.UNDEFINED
+
+        return TecStatus.AMBIENT
+
+    return TecStatus.UNDEFINED
 
 async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled  components to their target value.
