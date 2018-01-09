@@ -38,6 +38,30 @@ class ReturnState(enum.IntEnum):
     FAIL = 1
 
 
+async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
+    """Keep the MO current in the center of its range of motion.
+
+    NOTE: This will only work on an engaged lock.  It may thus fail if the lock
+    is relocking _just now_.
+
+    :param loop: Event loop to use for scheduling.
+    :raises LockError: Lock wasn't engaged initially.
+    """
+    status = await locker.get_lock_status()
+    if status is not lock_buddy.LockStatus.ON_LINE:
+        raise lock_buddy.LockError("Can only compensate running locks.")
+    current = subsystems.Tuners.MO
+    while locker.get_lock_status() is lock_buddy.LockStatus.ON_LINE:
+        mo_imbalance = cs.SpecMhz(
+            cs.LOCK_SFG_FACTOR * (await current.get() - 0.5) * current.scale)
+        LOGGER.info("MO imbalance is %s MHz.", mo_imbalance)
+        if abs(mo_imbalance) > cs.PRELOCK_TUNING_PRECISION:
+            LOGGER.info("Tuning MiOB to balance MO current.")
+            await locker.tune(mo_imbalance, subsystems.Tuners.MIOB)
+        status = await locker.get_lock_status()
+    LOGGER.warning("Stopped temp drift compensator, as lock is %s.", status)
+
+
 async def cool_down(subs: subsystems.Subsystems) -> None:
     """Get the system to a state where it can be physically switched off."""
     LOGGER.info("Cooling down components...")
