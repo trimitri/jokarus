@@ -71,6 +71,7 @@ class TecError(RuntimeError):
     """Something went wrong with the thermoelectric cooling subsystem."""
     pass
 
+
 async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
     """Keep the MO current in the center of its range of motion.
 
@@ -113,6 +114,7 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
             LOGGER.warning("Skipping %s on cooldown, as TEC was disabled.",
                            unit)
 
+
 def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
     """Get (and judge) ambient temp readings for TEC operation.
 
@@ -147,9 +149,9 @@ def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
 
     return ambient
 
+
 async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
-                          ambient: Dict[subsystems.TecUnit, float],
-                          ramp_down: bool = False,) -> None:
+                          ambient: Dict[subsystems.TecUnit, float]) -> None:
     """Set `unit` temperature to ambient temp.
 
     If the TEC is disabled, it will simply set it's raw temperature to the
@@ -157,27 +159,27 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
     ramped down.  If `ramp_down` and actual TEC state dont add up, a
     RuntimeError is raised.
 
-    :raises RuntimeError: `ramp_down` parameter must only be given for running
-                TEC units.
     :raises ConnectionError: Couldn't get reliable values for ambient temp of
                 `unit` or failed to set TEC setpoint.
     """
     # Check again, as time has passed.
     is_tec_on = subs.is_tec_enabled(unit)
-    if is_tec_on and ramp_down:
+    if is_tec_on:
+        LOGGER.info("Ramping %s to ambient.", unit)
         subs.set_temp(unit, ambient[unit])
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-    elif not is_tec_on and not ramp_down:
+    else:
+        LOGGER.info("Arming %s.", unit)
         subs.set_temp(unit, ambient[unit], bypass_ramp=True)
+        subs.set_temp(unit, ambient[unit])  # Init temp ramp.
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
         if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
             subs.switch_tec_by_id(unit, True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
         else:
             raise ConnectionError("Failed to set {} temperature.".format(unit))
-    else:
-        raise RuntimeError("Give `ramp_down` param according to TEC state.")
-
+    subs.switch_temp_ramp(unit, True)
 
 
 async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None) -> TecStatus:
@@ -196,11 +198,13 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     assert all([ambient[tec.SHGA], ambient[tec.SHGB], ambient[tec.MIOB]])
 
     is_on = {}  # type: Dict[subsystems.TecUnit, bool]
+    ramp_on = {}  # type: Dict[subsystems.TecUnit, bool]
     obj_temp = {}  # type: Dict[subsystems.TecUnit, float]
     raw_setpt = {}  # type: Dict[subsystems.TecUnit, float]
     ramp_setpt = {}  # type: Dict[subsystems.TecUnit, float]
     for unit in tec:
         is_on[unit] = subs.is_tec_enabled(unit)
+        ramp_on[unit] = subs.is_temp_ramp_enabled(unit)
         obj_temp[unit] = subs.get_temp(unit)
         raw_setpt[unit] = subs.get_temp_setpt(unit)
         ramp_setpt[unit] = subs.get_temp_ramp_target(unit)
@@ -208,24 +212,36 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     if not any(is_on.values()):
         return TecStatus.OFF
 
-    if not all([is_on[tec.MIOB], is_on[tec.SHGA], is_on[tec.SHGB]]):
+    LOGGER.info("Not OFF")
+
+    if not all([is_on[unit] and ramp_on[unit] and ramp_setpt[unit] for unit
+                in [tec.SHGA, tec.SHGB, tec.MIOB]]):
+        # Unexpected number of TECs are active.
         return TecStatus.UNDEFINED
 
+    LOGGER.info("Base TECs OK, ramps on and set..")
+
     def is_hot_shg(temp: float) -> bool:
+        if not temp:
+            return False
         mean_temp = (cs.SHGA_WORKING_TEMP + cs.SHGB_WORKING_TEMP) / 2
         return (temp > mean_temp - cs.TEMP_GENERAL_ERROR
                 and temp < mean_temp + cs.TEMP_GENERAL_ERROR)
 
     def is_hot_vhbg(temp: float) -> bool:
+        if not temp:
+            return False
         return (temp > cs.VHBG_WORKING_TEMP - cs.TEMP_GENERAL_ERROR
                 and temp < cs.VHBG_WORKING_TEMP + cs.TEMP_GENERAL_ERROR)
 
     def is_hot_miob(temp: float) -> bool:
+        if not temp:
+            return False
         return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
                 and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
 
 
-    # Check for legit "ON" state.  We always do all the checks as it's cheap
+    # Check for legit "HOT" state.  We always do all the checks as it's cheap
     # and easier to read.
     legit = True
     # VHBG
@@ -256,24 +272,26 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     if legit:
         return TecStatus.HOT
 
+    LOGGER.info("Not legit HOT")
+
     # Check for "HEATING" state.
-    elif (is_hot_shg(ramp_setpt[tec.SHGA]) and is_on[tec.SHGA]
+    if (is_hot_shg(ramp_setpt[tec.SHGA]) and is_on[tec.SHGA]
           and is_hot_shg(ramp_setpt[tec.SHGB]) and is_on[tec.SHGB]
           and is_hot_miob(ramp_setpt[tec.MIOB]) and is_on[tec.MIOB]):
         return TecStatus.HEATING
 
+    LOGGER.info("not HEATING")
+
     # Check for "AMBIENT" state.
-    else:
-        # MiOB and SHG TECs are all on (is checked above).
-        if is_on[tec.VHBG]:
-            return TecStatus.UNDEFINED
-        for unit in [tec.SHGA, tec.SHGB, tec.MIOB]:
-            if abs(obj_temp[unit] - ambient[unit]) > cs.TEMP_GENERAL_ERROR:
+    # MiOB and SHG TECs are all on (is checked above).
+    if is_on[tec.VHBG]:
+        return TecStatus.UNDEFINED
+    for unit in [tec.SHGA, tec.SHGB, tec.MIOB]:
+        for temp in obj_temp[unit], ramp_setpt[unit], raw_setpt[unit]:
+            if abs(temp - ambient[unit]) > cs.TEMP_GENERAL_ERROR:
                 return TecStatus.UNDEFINED
 
-        return TecStatus.AMBIENT
-
-    return TecStatus.UNDEFINED
+    return TecStatus.AMBIENT
 
 async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled  components to their target value.
