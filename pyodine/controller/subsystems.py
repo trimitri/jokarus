@@ -395,6 +395,10 @@ class Subsystems:
         """Returns the target temperature of the unit's ramp."""
         return self._temp_ramps[unit].target_temperature
 
+    def is_temp_ramp_enabled(self, unit: TecUnit) -> bool:
+        """Is the given TEC unit's temp. ramp currently enabled?"""
+        return self._temp_ramps[unit].is_running
+
     def is_lockbox_ramp_enabled(self) -> bool:
         return self._unwrap_buffer(self._menlo.is_ramp_enabled(LOCKBOX_ID)) == 1
 
