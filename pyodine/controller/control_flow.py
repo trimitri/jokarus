@@ -60,6 +60,9 @@ class TecStatus(enum.IntEnum):
     any state except this one.
     """
 
+    OFF = 50
+    """All TECs are off.  Object temps are unknown due to inferior hardware."""
+
 class ReturnState(enum.IntEnum):
     SUCCESS = 0
     FAIL = 1
@@ -189,21 +192,34 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
         asyncio.gather(loop=loop)
 
 async def get_tec_status(subs: subsystems.Subsystems,
-                         ambient: List[float] = None) -> TecStatus:
-    """Analyze the current TEC subsystem status."""
-    ambient = ambient if ambient else await subs.get_aux_temps(dont_log=True)
+                         temps: List[float] = None,
+                         ambient: Dict[subsystems.TecUnit, float] = None) -> TecStatus:
+    """Analyze the current TEC subsystem status.
+
+    :raises TecError: Couldn't get ambient temperatures.
+    """
+    tec = subsystems.TecUnit
+    temps = temps if temps else await subs.get_aux_temps(dont_log=True)
+    try:
+        ambient = ambient if ambient else _get_ambient_temps(temps)
+    except (ValueError, ConnectionError) as err:
+        raise TecError("Couldn't get ambient temps.") from err
+    assert all([ambient[tec.SHGA], ambient[tec.SHGB], ambient[tec.MIOB]])
 
     is_on = {}  # type: Dict[subsystems.TecUnit, bool]
     obj_temp = {}  # type: Dict[subsystems.TecUnit, float]
     raw_setpt = {}  # type: Dict[subsystems.TecUnit, float]
     ramp_setpt = {}  # type: Dict[subsystems.TecUnit, float]
-    tec = subsystems.TecUnit
     for unit in tec:
         is_on[unit] = subs.is_tec_enabled(unit)
         obj_temp[unit] = subs.get_temp(unit)
         raw_setpt[unit] = subs.get_temp_setpt(unit)
         ramp_setpt[unit] = subs.get_temp_ramp_target(unit)
-    if not (is_on[tec.MIOB] and is_on[tec.SHGA] and is_on[tec.SHGB]):
+
+    if not any(is_on.values()):
+        return TecStatus.OFF
+
+    if not all([is_on[tec.MIOB], is_on[tec.SHGA], is_on[tec.SHGB]]):
         return TecStatus.UNDEFINED
 
     def is_hot_shg(temp: float) -> bool:
@@ -259,10 +275,11 @@ async def get_tec_status(subs: subsystems.Subsystems,
 
     # Check for "AMBIENT" state.
     else:
+        # MiOB and SHG TECs are all on (is checked above).
         if is_on[tec.VHBG]:
             return TecStatus.UNDEFINED
-        for temp in [obj_temp[tec.SHGA], obj_temp[tec.SHGB]]:
-            if abs(temp - temps):
+        for unit in [tec.SHGA, tec.SHGB, tec.MIOB]:
+            if abs(obj_temp[unit] - ambient[unit]) > cs.TEMP_GENERAL_ERROR:
                 return TecStatus.UNDEFINED
 
         return TecStatus.AMBIENT
