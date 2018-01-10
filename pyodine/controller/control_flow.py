@@ -301,24 +301,27 @@ async def heat_up(subs: subsystems.Subsystems) -> None:
     # VHBG plays a special role, as it can only be heated after the MiOB
     # finishes.
     vhbg = subsystems.TecUnit.VHBG
-    assert not subs.is_tec_enabled(vhbg)  # get_tec_status() takes care of that.
-    temp = subs.get_temp(subsystems.TecUnit.MIOB)
-    if _is_hot_miob(temp):
-        LOGGER.info("Heating VHBG...")
-        subs.set_temp(vhbg, temp)
-        subs.set_temp(vhbg, temp, bypass_ramp=True)
-        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        subs.switch_tec_by_id(vhbg, True)
-        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+    subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
+    if subs.is_tec_enabled(vhbg):
         subs.switch_temp_ramp(vhbg, True)
     else:
-        LOGGER.warning("Can't heat VHBG, as MiOB is not yet in working range.")
+        miob_temp = subs.get_temp(subsystems.TecUnit.MIOB)
+        if _is_hot_miob(miob_temp):
+            LOGGER.info("Heating VHBG...")
+            subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
+            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+            subs.switch_tec_by_id(vhbg, True)
+            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+            subs.switch_temp_ramp(vhbg, True)
+        else:
+            LOGGER.warning("Can't heat VHBG, as MiOB is not yet in working range.")
 
     # The others are simple, as get_tec_status() has checked everything before.
-    miob_target = (cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]) / 2
+    miob_target = (cs.MIOB_TEMP_TUNING_RANGE[0] + cs.MIOB_TEMP_TUNING_RANGE[1]) / 2
     subs.set_temp(subsystems.TecUnit.MIOB, miob_target)
     subs.set_temp(subsystems.TecUnit.SHGA, cs.SHGA_WORKING_TEMP)
     subs.set_temp(subsystems.TecUnit.SHGB, cs.SHGB_WORKING_TEMP)
+
 
 def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
     """Setup the RF sources for heterodyne detection.
