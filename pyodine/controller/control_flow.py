@@ -119,70 +119,15 @@ async def cool_down(subs: subsystems.Subsystems) -> None:
                            unit)
 
 
-def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
-    """Get (and judge) ambient temp readings for TEC operation.
-
-    :returns: Dict of two temperatures to use for SHGs and MIOB. VHBG has no "ambient".
-    :raises ConnectionError: Temperature readings are not consistent.
-    :raises ValueError: At least one ambient temp is out of safe bounds for the
-                respective component.
-    """
-    assert len(temps) == len(subsystems.AuxTemp)
-    ambient = {}  # type: Dict[subsystems.TecUnit, float]
-
-    # MiOB
-    candidate = temps[subsystems.AuxTemp.HEATSINK_A]
-    second = temps[subsystems.AuxTemp.HEATSINK_B]
-    if abs(candidate - second) > cs.TEMP_LASER_TRAY_DELTA:
-        raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
-    if (candidate < cs.TEMP_HEATSINK_RANGE_LASER[0]
-            or candidate > cs.TEMP_HEATSINK_RANGE_LASER[1]):
-        raise ValueError("Laser tray temperature {} out of safe range.".format(candidate))
-    ambient[subsystems.TecUnit.MIOB] = candidate
-
-    # SHGs
-    candidate = temps[subsystems.AuxTemp.SHG]
-    second = temps[subsystems.AuxTemp.CELL]
-    if abs(candidate - second) > cs.TEMP_SPEC_TRAY_DELTA:
-        raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
-    if (candidate < cs.TEMP_HEATSINK_RANGE_SPEC[0]
-            or candidate > cs.TEMP_HEATSINK_RANGE_SPEC[1]):
-        raise ValueError("Spec tray temperature {} out of safe range.".format(candidate))
-    ambient[subsystems.TecUnit.SHGA] = candidate
-    ambient[subsystems.TecUnit.SHGB] = candidate
-
-    return ambient
-
-
-async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
-                          ambient: Dict[subsystems.TecUnit, float]) -> None:
-    """Set `unit` temperature to ambient temp.
-
-    If the TEC is disabled, it will simply set it's raw temperature to the
-    ambient temp.  If TEC is enabled and `ramp_down` is given, the temp. is
-    ramped down.  If `ramp_down` and actual TEC state dont add up, a
-    RuntimeError is raised.
-
-    :raises ConnectionError: Couldn't get reliable values for ambient temp of
-                `unit` or failed to set TEC setpoint.
-    """
-    # Check again, as time has passed.
-    is_tec_on = subs.is_tec_enabled(unit)
-    if is_tec_on:
-        LOGGER.info("Ramping %s to ambient.", unit)
-        subs.set_temp(unit, ambient[unit])
-        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-    else:
-        LOGGER.info("Arming %s.", unit)
-        subs.set_temp(unit, ambient[unit], bypass_ramp=True)
-        subs.set_temp(unit, ambient[unit])  # Init temp ramp.
-        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
-            subs.switch_tec_by_id(unit, True)
-            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        else:
-            raise ConnectionError("Failed to set {} temperature.".format(unit))
-    subs.switch_temp_ramp(unit, True)
+async def engage_lock(subs: subsystems.Subsystems) -> None:
+    """Run the timed procedure needed to engage the frequency lock."""
+    subs.switch_pii_ramp(False)
+    subs.switch_lock(True)
+    await asyncio.sleep(cs.LOCKBOX_P_TO_I_DELAY)
+    subs.switch_integrator(2, True)
+    await asyncio.sleep(cs.LOCKBOX_I_TO_I_DELAY)
+    subs.switch_integrator(1, True)
+    await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
 async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None) -> TecStatus:
@@ -323,36 +268,6 @@ async def heat_up(subs: subsystems.Subsystems) -> None:
     subs.set_temp(subsystems.TecUnit.SHGB, cs.SHGB_WORKING_TEMP)
 
 
-def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
-    """Setup the RF sources for heterodyne detection.
-
-    This provides EOM, AOM and mixer with the correct driving signals.
-    """
-    try:
-        subs.switch_rf_clock_source('external')
-        subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
-        subs.set_aom_frequency(150)  # 150 MHz offset
-
-        # Choose the lowest possible RF amplifiert input amplitude that still
-        # leads to maximum RF power at output. If the input amplitude is set
-        # too high, there will be strong sidebands in output.
-        subs.set_eom_amplitude(.4)
-
-        # This also sets the mixer frequency accordingly.
-        subs.set_eom_frequency(0.300)
-
-        subs.set_mixer_amplitude(1)
-        subs.set_mixer_phase(0)
-
-    # By design of this class, no method may ever throw anything.
-    except Exception:  # pylint: disable=broad-except
-        LOGGER.exception("Initializing RF chain failed.")
-        return ReturnState.FAIL
-
-    LOGGER.info("Successfully initialized RF chain.")
-    return ReturnState.SUCCESS
-
-
 def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
 
@@ -410,6 +325,36 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     return locker
 
 
+def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
+    """Setup the RF sources for heterodyne detection.
+
+    This provides EOM, AOM and mixer with the correct driving signals.
+    """
+    try:
+        subs.switch_rf_clock_source('external')
+        subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
+        subs.set_aom_frequency(150)  # 150 MHz offset
+
+        # Choose the lowest possible RF amplifiert input amplitude that still
+        # leads to maximum RF power at output. If the input amplitude is set
+        # too high, there will be strong sidebands in output.
+        subs.set_eom_amplitude(.4)
+
+        # This also sets the mixer frequency accordingly.
+        subs.set_eom_frequency(0.300)
+
+        subs.set_mixer_amplitude(1)
+        subs.set_mixer_phase(0)
+
+    # By design of this class, no method may ever throw anything.
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.exception("Initializing RF chain failed.")
+        return ReturnState.FAIL
+
+    LOGGER.info("Successfully initialized RF chain.")
+    return ReturnState.SUCCESS
+
+
 async def laser_power_up(subs: subsystems.Subsystems) -> None:
     """Switch on the laser.
 
@@ -464,17 +409,6 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy,
     return locker.engage_and_maintain()
 
 
-async def engage_lock(subs: subsystems.Subsystems) -> None:
-    """Run the timed procedure needed to engage the frequency lock."""
-    subs.switch_pii_ramp(False)
-    subs.switch_lock(True)
-    await asyncio.sleep(cs.LOCKBOX_P_TO_I_DELAY)
-    subs.switch_integrator(2, True)
-    await asyncio.sleep(cs.LOCKBOX_I_TO_I_DELAY)
-    subs.switch_integrator(1, True)
-    await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-
-
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
     """Provide a python interpreter capable of probing the system state."""
 
@@ -493,6 +427,44 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_integrator(1, False)
     subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+
+###############
+##  private  ##
+###############
+
+def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
+    """Get (and judge) ambient temp readings for TEC operation.
+
+    :returns: Dict of two temperatures to use for SHGs and MIOB. VHBG has no "ambient".
+    :raises ConnectionError: Temperature readings are not consistent.
+    :raises ValueError: At least one ambient temp is out of safe bounds for the
+                respective component.
+    """
+    assert len(temps) == len(subsystems.AuxTemp)
+    ambient = {}  # type: Dict[subsystems.TecUnit, float]
+
+    # MiOB
+    candidate = temps[subsystems.AuxTemp.HEATSINK_A]
+    second = temps[subsystems.AuxTemp.HEATSINK_B]
+    if abs(candidate - second) > cs.TEMP_LASER_TRAY_DELTA:
+        raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
+    if (candidate < cs.TEMP_HEATSINK_RANGE_LASER[0]
+            or candidate > cs.TEMP_HEATSINK_RANGE_LASER[1]):
+        raise ValueError("Laser tray temperature {} out of safe range.".format(candidate))
+    ambient[subsystems.TecUnit.MIOB] = candidate
+
+    # SHGs
+    candidate = temps[subsystems.AuxTemp.SHG]
+    second = temps[subsystems.AuxTemp.CELL]
+    if abs(candidate - second) > cs.TEMP_SPEC_TRAY_DELTA:
+        raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
+    if (candidate < cs.TEMP_HEATSINK_RANGE_SPEC[0]
+            or candidate > cs.TEMP_HEATSINK_RANGE_SPEC[1]):
+        raise ValueError("Spec tray temperature {} out of safe range.".format(candidate))
+    ambient[subsystems.TecUnit.SHGA] = candidate
+    ambient[subsystems.TecUnit.SHGB] = candidate
+
+    return ambient
 
 
 def _is_hot_shg(temp: float) -> bool:
@@ -518,6 +490,62 @@ def _is_hot_miob(temp: float) -> bool:
         return False
     return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
             and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
+
+
+async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
+                          ambient: Dict[subsystems.TecUnit, float]) -> None:
+    """Set `unit` temperature to ambient temp.
+
+    If the TEC is disabled, it will simply set it's raw temperature to the
+    ambient temp.  If TEC is enabled and `ramp_down` is given, the temp. is
+    ramped down.  If `ramp_down` and actual TEC state dont add up, a
+    RuntimeError is raised.
+
+    :raises ConnectionError: Couldn't get reliable values for ambient temp of
+                `unit` or failed to set TEC setpoint.
+    """
+    # Check again, as time has passed.
+    is_tec_on = subs.is_tec_enabled(unit)
+    if is_tec_on:
+        LOGGER.info("Ramping %s to ambient.", unit)
+        subs.set_temp(unit, ambient[unit])
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+    else:
+        LOGGER.info("Arming %s.", unit)
+        subs.set_temp(unit, ambient[unit], bypass_ramp=True)
+        subs.set_temp(unit, ambient[unit])  # Init temp ramp.
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
+            subs.switch_tec_by_id(unit, True)
+            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        else:
+            raise ConnectionError("Failed to set {} temperature.".format(unit))
+    subs.switch_temp_ramp(unit, True)
+
+
+def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+    """Get a tuner that utilizes the MO current for frequency tuning."""
+    mo_rng = cs.LD_MO_TUNING_RANGE
+    def mo_getter() -> float:
+        """Returns the normalized MO current setpoint."""
+        setpoint = subs.get_ld_current_setpt(subsystems.LdDriver.MASTER_OSCILLATOR)
+        normalized = (mo_rng[1] - setpoint) / (mo_rng[1] - mo_rng[0])
+        LOGGER.debug("Got %s for current setpoint (normalized %s).", setpoint, normalized)
+        return normalized
+
+    def mo_setter(value: float) -> None:
+        """Set MO current based on normalized `value`."""
+        current = mo_rng[1] - (value * (mo_rng[1] - mo_rng[0]))
+        LOGGER.debug("Setting MO current to %s mA (%s normalized).", current, value)
+        subs.laser.set_mo_current(current)
+
+    return lock_buddy.Tuner(
+        scale=cs.LaserMhz(abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA)),
+        granularity=abs(cs.LD_MO_GRANULARITY_mA / (mo_rng[1] - mo_rng[0])),
+        delay=cs.LD_MO_DELAY_s,
+        getter=mo_getter,
+        setter=mo_setter,
+        name="MO current")
 
 
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
@@ -552,28 +580,3 @@ def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         getter=get_miob_temp,
         setter=set_miob_temp,
         name="MiOB temp")
-
-
-def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
-    """Get a tuner that utilizes the MO current for frequency tuning."""
-    mo_rng = cs.LD_MO_TUNING_RANGE
-    def mo_getter() -> float:
-        """Returns the normalized MO current setpoint."""
-        setpoint = subs.get_ld_current_setpt(subsystems.LdDriver.MASTER_OSCILLATOR)
-        normalized = (mo_rng[1] - setpoint) / (mo_rng[1] - mo_rng[0])
-        LOGGER.debug("Got %s for current setpoint (normalized %s).", setpoint, normalized)
-        return normalized
-
-    def mo_setter(value: float) -> None:
-        """Set MO current based on normalized `value`."""
-        current = mo_rng[1] - (value * (mo_rng[1] - mo_rng[0]))
-        LOGGER.debug("Setting MO current to %s mA (%s normalized).", current, value)
-        subs.laser.set_mo_current(current)
-
-    return lock_buddy.Tuner(
-        scale=cs.LaserMhz(abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA)),
-        granularity=abs(cs.LD_MO_GRANULARITY_mA / (mo_rng[1] - mo_rng[0])),
-        delay=cs.LD_MO_DELAY_s,
-        getter=mo_getter,
-        setter=mo_setter,
-        name="MO current")
