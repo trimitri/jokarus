@@ -71,6 +71,10 @@ class TecError(RuntimeError):
     """Something went wrong with the thermoelectric cooling subsystem."""
     pass
 
+class TecStatusError(RuntimeError):
+    """The system is in the wront `TecStatus`."""
+    pass
+
 
 async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
     """Keep the MO current in the center of its range of motion.
@@ -176,7 +180,6 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
         if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
             subs.switch_tec_by_id(unit, True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-            await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
         else:
             raise ConnectionError("Failed to set {} temperature.".format(unit))
     subs.switch_temp_ramp(unit, True)
@@ -187,6 +190,8 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
 
     :raises TecError: Couldn't get ambient temperatures.
     """
+    # pylint: disable=too-many-return-statements
+    # pylint: disable=too-many-branches
     tec = subsystems.TecUnit
     temps = temps if temps else await subs.get_aux_temps(dont_log=True)
     try:
@@ -221,25 +226,6 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
 
     LOGGER.info("Base TECs OK, ramps on and set..")
 
-    def is_hot_shg(temp: float) -> bool:
-        if not temp:
-            return False
-        mean_temp = (cs.SHGA_WORKING_TEMP + cs.SHGB_WORKING_TEMP) / 2
-        return (temp > mean_temp - cs.TEMP_GENERAL_ERROR
-                and temp < mean_temp + cs.TEMP_GENERAL_ERROR)
-
-    def is_hot_vhbg(temp: float) -> bool:
-        if not temp:
-            return False
-        return (temp > cs.VHBG_WORKING_TEMP - cs.TEMP_GENERAL_ERROR
-                and temp < cs.VHBG_WORKING_TEMP + cs.TEMP_GENERAL_ERROR)
-
-    def is_hot_miob(temp: float) -> bool:
-        if not temp:
-            return False
-        return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
-                and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
-
 
     # Check for legit "HOT" state.  We always do all the checks as it's cheap
     # and easier to read.
@@ -247,7 +233,7 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     # VHBG
     legit = is_on[tec.VHBG]
     for temp in [obj_temp[tec.VHBG], raw_setpt[tec.VHBG], ramp_setpt[tec.VHBG]]:
-        if is_hot_vhbg(temp):
+        if _is_hot_vhbg(temp):
             LOGGER.info("VHBG temps OK.")
         else:
             legit = False
@@ -255,7 +241,7 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
 
     # MiOB
     for temp in [obj_temp[tec.MIOB], raw_setpt[tec.MIOB], ramp_setpt[tec.MIOB]]:
-        if is_hot_miob(temp):
+        if _is_hot_miob(temp):
             LOGGER.info("MIOB temps OK.")
         else:
             legit = False
@@ -264,7 +250,7 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     # SHGs
     for temp in [obj_temp[tec.SHGA], raw_setpt[tec.SHGA], ramp_setpt[tec.SHGA],
                  obj_temp[tec.SHGB], raw_setpt[tec.SHGB], ramp_setpt[tec.SHGB]]:
-        if is_hot_shg(temp):
+        if _is_hot_shg(temp):
             LOGGER.info("SHG temps OK.")
         else:
             legit = False
@@ -275,9 +261,9 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     LOGGER.info("Not legit HOT")
 
     # Check for "HEATING" state.
-    if (is_hot_shg(ramp_setpt[tec.SHGA]) and is_on[tec.SHGA]
-          and is_hot_shg(ramp_setpt[tec.SHGB]) and is_on[tec.SHGB]
-          and is_hot_miob(ramp_setpt[tec.MIOB]) and is_on[tec.MIOB]):
+    if all([_is_hot_shg(ramp_setpt[tec.SHGA]), is_on[tec.SHGA],
+            _is_hot_shg(ramp_setpt[tec.SHGB]), is_on[tec.SHGB],
+            _is_hot_miob(ramp_setpt[tec.MIOB]), is_on[tec.MIOB]]):
         return TecStatus.HEATING
 
     LOGGER.info("not HEATING")
@@ -292,35 +278,47 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
                 return TecStatus.UNDEFINED
 
     return TecStatus.AMBIENT
+    # pylint: enable=too-many-return-statements
+    # pylint: enable=too-many-branches
+
 
 async def heat_up(subs: subsystems.Subsystems) -> None:
     """Ramp temperatures of all controlled  components to their target value.
 
-    If the temperature control is currently active for all those components,
-    nothing happens, even if the current temperatures differs from the target
-    temperatures that would have been set. This is to avoid overriding manual
-    settings.
-    """
-    if is_heating(subs):
-        LOGGER.debug("""Won't "heat up", as TEC is already running.""")
-        return
-    LOGGER.info("Heating up systems...")
-    target_temps = {subsystems.TecUnit.MIOB: 24.850, subsystems.TecUnit.VHBG: 24.856,
-                    subsystems.TecUnit.SHGA: 40.95, subsystems.TecUnit.SHGB: 40.85}
-    for unit in subsystems.TecUnit:
-        pass
-        # if not subs.is_tec_enabled(unit):
-        #     subs.set_temp(unit, AMBIENT_TEMP, True)  # actual setpoint
-        #     subs.set_temp(unit, AMBIENT_TEMP, False)  # ramp target temp
-        #     # Wait for the temp. setpoint to arrive at actual TEC controller.
-        #     await asyncio.sleep(.5)
-        #     subs.switch_tec_by_id(unit, True)
-        #     await asyncio.sleep(3)  # Allow three seconds for thermalization.
-        #     subs.set_temp(unit, target_temps[unit])
-        #     subs.switch_temp_ramp(unit, True)
-        # else:
-        #     LOGGER.warning("Skipping %s TEC, as it was already active.")
+    Raises if system is not TecStatus.AMBIENT.
 
+    :raises TecStatusError: System was not TecStatus.AMBIENT.
+    """
+    status = await get_tec_status(subs)
+    if status == TecStatus.HOT:
+        LOGGER.info("System is hot, nothing to do.")
+        return
+    if status in (TecStatus.UNDEFINED, TecStatus.OFF):
+        raise TecStatusError("TEC subsystem is undefined or off. Can't heat.")
+    if status in (TecStatus.HEATING, TecStatus.AMBIENT):
+        LOGGER.info("System is %s. Running `heat_up()`...", status)
+
+    # VHBG plays a special role, as it can only be heated after the MiOB
+    # finishes.
+    vhbg = subsystems.TecUnit.VHBG
+    assert not subs.is_tec_enabled(vhbg)  # get_tec_status() takes care of that.
+    temp = subs.get_temp(subsystems.TecUnit.MIOB)
+    if _is_hot_miob(temp):
+        LOGGER.info("Heating VHBG...")
+        subs.set_temp(vhbg, temp)
+        subs.set_temp(vhbg, temp, bypass_ramp=True)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        subs.switch_tec_by_id(vhbg, True)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        subs.switch_temp_ramp(vhbg, True)
+    else:
+        LOGGER.warning("Can't heat VHBG, as MiOB is not yet in working range.")
+
+    # The others are simple, as get_tec_status() has checked everything before.
+    miob_target = (cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]) / 2
+    subs.set_temp(subsystems.TecUnit.MIOB, miob_target)
+    subs.set_temp(subsystems.TecUnit.SHGA, cs.SHGA_WORKING_TEMP)
+    subs.set_temp(subsystems.TecUnit.SHGB, cs.SHGB_WORKING_TEMP)
 
 def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
     """Setup the RF sources for heterodyne detection.
@@ -409,32 +407,6 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     return locker
 
 
-def is_heating(subs: subsystems.Subsystems) -> bool:
-    """If this returns True, heat_up() will have no effect.
-
-    The system is currently heating up or already at a stable temperature"""
-    for unit in subsystems.TecUnit:
-        if not subs.is_tec_enabled(unit):
-            return False
-
-        # The temperature ramp wasn't run at all or didn't finish yet. Even if
-        # the temp. ramp finished just now, the actual system temperature might
-        # still be somewhat off due to thermal inertia.  This however is
-        # nothing that running ``heat_up()`` could fix and thus is not checked.
-        if abs(subs.get_temp_setpt(unit) - subs.get_temp_ramp_target(unit)) > NTC_CALCULATION_ERR:
-            return False
-    return True
-
-
-def is_hot(_: subsystems.Subsystems) -> bool:
-    """All subsystems are stabilized to any temperature.
-
-    If there has been no manual adjustment, this will be the temperatures set
-    by heat_up().
-    """
-    pass  # TODO Implement is_hot().
-
-
 async def laser_power_up(subs: subsystems.Subsystems) -> None:
     """Switch on the laser.
 
@@ -518,6 +490,31 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_integrator(1, False)
     subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+
+
+def _is_hot_shg(temp: float) -> bool:
+    """Is `temp` a valid temperature for a "hot" SHG module?"""
+    if not temp:
+        return False
+    mean_temp = (cs.SHGA_WORKING_TEMP + cs.SHGB_WORKING_TEMP) / 2
+    return (temp > mean_temp - cs.TEMP_GENERAL_ERROR
+            and temp < mean_temp + cs.TEMP_GENERAL_ERROR)
+
+
+def _is_hot_vhbg(temp: float) -> bool:
+    """Is `temp` a valid temperature for a "hot" VHBG?"""
+    if not temp:
+        return False
+    return (temp > cs.VHBG_WORKING_TEMP - cs.TEMP_GENERAL_ERROR
+            and temp < cs.VHBG_WORKING_TEMP + cs.TEMP_GENERAL_ERROR)
+
+
+def _is_hot_miob(temp: float) -> bool:
+    """Is `temp` a valid temperature for a "hot" MiOB?"""
+    if not temp:
+        return False
+    return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
+            and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
 
 
 def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
