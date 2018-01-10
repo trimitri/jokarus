@@ -122,11 +122,11 @@ def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
                 respective component.
     """
     assert len(temps) == len(subsystems.AuxTemp)
-    ambient = {}
+    ambient = {}  # type: Dict[subsystems.TecUnit, float]
 
     # MiOB
-    candidate = ambient[subsystems.AuxTemp.HEATSINK_A]
-    second = ambient[subsystems.AuxTemp.HEATSINK_B]
+    candidate = temps[subsystems.AuxTemp.HEATSINK_A]
+    second = temps[subsystems.AuxTemp.HEATSINK_B]
     if abs(candidate - second) > cs.TEMP_LASER_TRAY_DELTA:
         raise ConnectionError("Erroneous laser tray temp reading {}.".format(candidate))
     if (candidate < cs.TEMP_HEATSINK_RANGE_LASER[0]
@@ -135,8 +135,8 @@ def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
     ambient[subsystems.TecUnit.MIOB] = candidate
 
     # SHGs
-    candidate = ambient[subsystems.AuxTemp.SHG]
-    second = ambient[subsystems.AuxTemp.CELL]
+    candidate = temps[subsystems.AuxTemp.SHG]
+    second = temps[subsystems.AuxTemp.CELL]
     if abs(candidate - second) > cs.TEMP_SPEC_TRAY_DELTA:
         raise ConnectionError("Erroneous spec tray temp reading {}".format(candidate))
     if (candidate < cs.TEMP_HEATSINK_RANGE_SPEC[0]
@@ -148,8 +148,9 @@ def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
     return ambient
 
 async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
-                          ramp_down: bool = False, temps: List[float] = None) -> None:
-    """Set a `unit`'s temperature to ambient temp.
+                          ambient: Dict[subsystems.TecUnit, float],
+                          ramp_down: bool = False,) -> None:
+    """Set `unit` temperature to ambient temp.
 
     If the TEC is disabled, it will simply set it's raw temperature to the
     ambient temp.  If TEC is enabled and `ramp_down` is given, the temp. is
@@ -161,39 +162,25 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
     :raises ConnectionError: Couldn't get reliable values for ambient temp of
                 `unit` or failed to set TEC setpoint.
     """
-    temps = temps if temps else await subs.get_aux_temps(dont_log=True)
-    try:
-        ambient = _get_ambient_temps(temps)
-    except (ValueError, ConnectionError) as err:
-        raise TecError("Couldn't get ambient temps.") from err
-
-    async def set_now(unit: subsystems.TecUnit, temp: float) -> None:
-        """Set temp now and switch on TEC, raise otherwise.
-
-        :raises RuntimeError: TEC isn't switched off.
-        """
-        # Check again, as time has passed.
-        is_tec_on = subs.is_tec_enabled(unit)
-        if is_tec_on and ramp_down:
-            subs.set_temp(unit, temp)
-            # FIXME wait!
-        elif not is_tec_on and not ramp_down:
-            subs.set_temp(unit, temp, bypass_ramp=True)
+    # Check again, as time has passed.
+    is_tec_on = subs.is_tec_enabled(unit)
+    if is_tec_on and ramp_down:
+        subs.set_temp(unit, ambient[unit])
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+    elif not is_tec_on and not ramp_down:
+        subs.set_temp(unit, ambient[unit], bypass_ramp=True)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
+            subs.switch_tec_by_id(unit, True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-            if abs(subs.get_temp_setpt(unit) - temp) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
-                subs.switch_tec_by_id(unit, True)
-                await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-            else:
-                raise ConnectionError("Failed to set {} temperature.".format(unit))
         else:
-            raise RuntimeError("Give `ramp_down` param according to TEC state.")
+            raise ConnectionError("Failed to set {} temperature.".format(unit))
+    else:
+        raise RuntimeError("Give `ramp_down` param according to TEC state.")
 
-    for unit in [subsystems.TecUnit.MIOB, subsystems.TecUnit.SHGA, subsystems.TecUnit.SHGB]:
-        asyncio.gather(loop=loop)
 
-async def get_tec_status(subs: subsystems.Subsystems,
-                         temps: List[float] = None,
-                         ambient: Dict[subsystems.TecUnit, float] = None) -> TecStatus:
+
+async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None) -> TecStatus:
     """Analyze the current TEC subsystem status.
 
     :raises TecError: Couldn't get ambient temperatures.
@@ -201,9 +188,11 @@ async def get_tec_status(subs: subsystems.Subsystems,
     tec = subsystems.TecUnit
     temps = temps if temps else await subs.get_aux_temps(dont_log=True)
     try:
-        ambient = ambient if ambient else _get_ambient_temps(temps)
-    except (ValueError, ConnectionError) as err:
+        ambient = _get_ambient_temps(temps)
+    except ConnectionError as err:
         raise TecError("Couldn't get ambient temps.") from err
+    except ValueError as err:
+        raise TecError("Ambient temps out of range.") from err
     assert all([ambient[tec.SHGA], ambient[tec.SHGB], ambient[tec.MIOB]])
 
     is_on = {}  # type: Dict[subsystems.TecUnit, bool]
@@ -269,8 +258,8 @@ async def get_tec_status(subs: subsystems.Subsystems,
 
     # Check for "HEATING" state.
     elif (is_hot_shg(ramp_setpt[tec.SHGA]) and is_on[tec.SHGA]
-            and is_hot_shg(ramp_setpt[tec.SHGB]) and is_on[tec.SHGB]
-            and is_hot_miob(ramp_setpt[tec.MIOB]) and is_on[tec.MIOB]):
+          and is_hot_shg(ramp_setpt[tec.SHGB]) and is_on[tec.SHGB]
+          and is_hot_miob(ramp_setpt[tec.MIOB]) and is_on[tec.MIOB]):
         return TecStatus.HEATING
 
     # Check for "AMBIENT" state.
