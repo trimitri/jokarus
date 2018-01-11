@@ -21,19 +21,6 @@ from ..drivers.ecdl_mopa import LaserState
 
 LOGGER = logging.getLogger('control_flow')
 
-MO_STANDARD_CURRENT = 100.
-"""The default MO current, MO has to be lasing at that current."""
-PA_IDLE_CURRENT = 250.
-"""Safe current for PA, that allows switching MO on or off."""
-PA_STANDARD_CURRENT = 1500.
-"""The working current to use on the power amplifier."""
-NTC_CALCULATION_ERR = 0.1
-"""How far will the NTC temperature readout be apart from the value that was
-set as target, assuming perfectly controlled plant. This is only due to NTC
-calculations and DAC/ADC errors, not related to the actual plant and
-controller!
-"""
-
 class TecStatus(enum.IntEnum):
     """Status of the thermoelectric cooling subsystem."""
 
@@ -354,32 +341,45 @@ async def laser_power_up(subs: subsystems.Subsystems) -> None:
     After running this, the laser power may be adjusted through the PA current,
     the frequency through MO current.
 
-    :raises RuntimeError: Failed to power up laser.
+    :raises TecStatusError: System isn't temperature-controlled.
+    :raises ConnectionError: Lighting up failed.
     """
+    if subs.laser.get_state() == LaserState.ON:
+        LOGGER.info("Laser is already ON. Doing nothing.")
+        return
+    await _ensure_system_is_hot(subs)
     LOGGER.info("Powering up laser...")
-    for unit in subsystems.TecUnit:
-        if not subs.is_tec_enabled(unit):
-            raise RuntimeError("At least one TEC controller is not enabled.")
     subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
-    await asyncio.sleep(3)
-    subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, MO_STANDARD_CURRENT)
-    await asyncio.sleep(3)
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_STANDARD_CURRENT)
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
+    await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
+    mo_working_point = (cs.LD_MO_TUNING_RANGE[0] + cs.LD_MO_TUNING_RANGE[1]) / 2
+    subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, mo_working_point)
+    await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_WORKING_POINT)
+
+    if subs.laser.get_state() != LaserState.ON:
+        raise ConnectionError("Failed to switch on Laser.")
 
 
 async def laser_power_down(subs: subsystems.Subsystems) -> None:
     """Shut down and switch off laser.
 
-    :raises RuntimerError: Failed to switch off laser.
+    :raises ConnectionError: Failed to switch off laser.
     """
+    if subs.laser.get_state() == LaserState.OFF:
+        LOGGER.info("Laser is already OFF. Doing nothing.")
+        return
     LOGGER.info("Powering down laser...")
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, PA_IDLE_CURRENT)
-    await asyncio.sleep(3)
+    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
+    await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
     subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, False)
-    await asyncio.sleep(3)
+    await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
+    await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+
+    if subs.laser.get_state() != LaserState.OFF:
+        raise ConnectionError("Failed to switch off Laser.")
 
 
 def open_backdoor(injected_locals: Dict[str, Any]) -> None:
@@ -462,6 +462,16 @@ def _ensure_laser_is_off(subs: subsystems.Subsystems) -> None:
     laser_state = subs.laser.get_state()  # type: LaserState
     if laser_state != LaserState.OFF:
         raise StateError("Won't touch TECs, as laser is {}.".format(laser_state))
+
+
+async def _ensure_system_is_hot(subs: subsystems.Subsystems) -> None:
+    """Ensure that all TEC is running properly and raise otherwise.
+
+    :raises StateError: System is not `TecStatus.HOT`.
+    """
+    tec_status = await get_tec_status(subs)  # type: TecStatus
+    if tec_status != TecStatus.HOT:
+        raise StateError("TEC system is {}, refusing to do thing.".format(tec_status))
 
 
 def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:

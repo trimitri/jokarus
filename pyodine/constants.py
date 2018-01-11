@@ -87,13 +87,10 @@ When sending a simple request to the menlo stack, it will take at most this
 long until the change will be reflected in the readings.  "Simple" meaning,
 that it doesn't take any hardware (current, temp.) to change.
 """
-# MENLO_MEDIUM_WAIT = .5
-# """The Menlo stack "simple setter" roundtrip time in seconds.
 
-# When sending a normal, immediately fulfillable request (such as setting a
-# setpoint of something or switching something on or off) to the menlo stack, it
-# will take at most this long until the change will be reflected in the readings.
-# """
+MENLO_CURRENT_DRIVER_REALIZATION_WAIT = 3.
+"""After ~ seconds, a set current value is flowing through the diode and read
+back."""
 
 MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
 """Those types of messages can be sent out by pyodine.  Messages of types that
@@ -196,6 +193,14 @@ MILAS_PA_TRANSPARENCY = 200
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
 MILAS_PA_BACKFIRE = 260
 """MiLas value as agreed upon on 5.12., see ecdl_mopa.MopaSpec docstring."""
+MILAS_PA_IDLE = 250
+"""Use this transitional value when powering up or down."""
+MILAS_PA_WORKING_POINT = 1200
+"""The PA current to do Spectroscopy at.
+
+1500 is full power. 1200 gives good SNR but is still strong enough for
+Menlo.
+"""
 
 PD_DO_PUBLISH = False
 """Publish photodiode readings every time they're inquired."""
