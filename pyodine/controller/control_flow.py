@@ -112,6 +112,10 @@ async def engage_lock(subs: subsystems.Subsystems) -> None:
 async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None) -> TecStatus:
     """Analyze the current TEC subsystem status.
 
+    side effect
+        This will initialize all temp. ramps on units that are active but have
+        an undefined ramp state.
+
     :raises TecError: Couldn't get ambient temperatures.
     """
     # pylint: disable=too-many-return-statements
@@ -141,14 +145,23 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     if not any(is_on.values()):
         return TecStatus.OFF
 
-    LOGGER.info("Not OFF")
+    LOGGER.debug("Not OFF")
 
-    if not all([is_on[unit] and ramp_on[unit] and ramp_setpt[unit] for unit
-                in [tec.SHGA, tec.SHGB, tec.MIOB]]):
+    if not all([is_on[unit] for unit in [tec.SHGA, tec.SHGB, tec.MIOB]]):
         # Unexpected number of TECs are active.
         return TecStatus.UNDEFINED
 
-    LOGGER.info("Base TECs OK, ramps on and set..")
+    # If we just launched pyodine and connected to an already running system,
+    # it may well be that everything is fine and the only thing left to do is
+    # to initialize the temp ramps, which we will do here.
+    for unit in tec:
+        if is_on[unit]:
+            if not ramp_setpt[unit]:
+                subs.set_temp(unit, raw_setpt[unit])
+                await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+                subs.switch_temp_ramp(unit, True)
+
+    LOGGER.debug("Base TECs OK, ramps on and set..")
 
 
     # Check for legit "HOT" state.  We always do all the checks as it's cheap
@@ -156,33 +169,33 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     legit = True
     # VHBG
     legit = is_on[tec.VHBG]
-    for temp in [obj_temp[tec.VHBG], raw_setpt[tec.VHBG], ramp_setpt[tec.VHBG]]:
+    for temp in [obj_temp[tec.VHBG], raw_setpt[tec.VHBG]]:
         if _is_hot_vhbg(temp):
-            LOGGER.info("VHBG temps OK.")
+            LOGGER.debug("VHBG temps OK.")
         else:
             legit = False
-            LOGGER.info("VHBG temps NOT OK.")
+            LOGGER.debug("VHBG temps NOT OK.")
 
     # MiOB
-    for temp in [obj_temp[tec.MIOB], raw_setpt[tec.MIOB], ramp_setpt[tec.MIOB]]:
+    for temp in [obj_temp[tec.MIOB], raw_setpt[tec.MIOB]]:
         if _is_hot_miob(temp):
-            LOGGER.info("MIOB temps OK.")
+            LOGGER.debug("MIOB temps OK.")
         else:
             legit = False
-            LOGGER.info("MIOB temps NOT OK.")
+            LOGGER.debug("MIOB temps NOT OK.")
 
     # SHGs
-    for temp in [obj_temp[tec.SHGA], raw_setpt[tec.SHGA], ramp_setpt[tec.SHGA],
-                 obj_temp[tec.SHGB], raw_setpt[tec.SHGB], ramp_setpt[tec.SHGB]]:
+    for temp in [obj_temp[tec.SHGA], raw_setpt[tec.SHGA],
+                 obj_temp[tec.SHGB], raw_setpt[tec.SHGB]]:
         if _is_hot_shg(temp):
-            LOGGER.info("SHG temps OK.")
+            LOGGER.debug("SHG temps OK.")
         else:
             legit = False
-            LOGGER.info("SHG temps NOT OK.")
+            LOGGER.debug("SHG temps NOT OK.")
     if legit:
         return TecStatus.HOT
 
-    LOGGER.info("Not legit HOT")
+    LOGGER.debug("Not legit HOT")
 
     # Check for "HEATING" state.
     if all([_is_hot_shg(ramp_setpt[tec.SHGA]), is_on[tec.SHGA],
@@ -190,7 +203,7 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
             _is_hot_miob(ramp_setpt[tec.MIOB]), is_on[tec.MIOB]]):
         return TecStatus.HEATING
 
-    LOGGER.info("not HEATING")
+    LOGGER.debug("not HEATING")
 
     # Check for "AMBIENT" state.
     # MiOB and SHG TECs are all on (is checked above).

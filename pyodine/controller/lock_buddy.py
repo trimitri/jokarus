@@ -185,7 +185,7 @@ class LockBuddy:
     """Provide management and helper functions for closed-loop locks."""
 
     def __init__(self, lock: Callable[[], Awaitable[None]],
-                 unlock: Callable[[], Optional[Awaitable[None]]],
+                 unlock: Callable[[], Awaitable[None]],
                  locked: Callable[[], Union[LockboxState, Awaitable[LockboxState]]],
                  scanner: Callable[[float], Awaitable[cs.SpecScan]],
                  scanner_range: LaserMhz,
@@ -522,6 +522,10 @@ class LockBuddy:
 
         while True:
             problem = await self.watchdog()
+            # This is where the loop can fail. As watchdog() will refuse to
+            # engage on a railed lock, this is how we get out if the lock is
+            # lost really bad (e.g. light is off).
+
             if problem == LockStatus.RAIL:
                 LOGGER.info("Lock was lost.  Relocking.")
                 await tools.safe_async_call(on_lock_lost)
@@ -554,11 +558,14 @@ class LockBuddy:
         """Watch an engaged lock and return as soon as something goes wrong.
 
         :raises RuntimeError: The lock wasn't on line when the dog was let out.
+                    It will be disabled in this case.
         :returns: The new status. Most definitely not `LockStatus.ON_LINE`.
         """
         status = await self.get_lock_status()
         if status != LockStatus.ON_LINE:
-            raise RuntimeError("Lock is {}. Refusing to start watchdog.".format(status))
+            await self._unlock()
+            raise RuntimeError("Lock was {}. ".format(repr(status)) +
+                               "Refusing to start watchdog. Unlocking.")
         LOGGER.info("Starting to track engaged lock.")
         async def check() -> bool:
             """Inquire current status and save it in scope."""
