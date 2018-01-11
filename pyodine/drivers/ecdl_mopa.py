@@ -4,6 +4,7 @@ A "Master Oscillator"-"Power Amplifier" setup does not allow for arbitrary
 combinations of MO and PA current which is why the fitness of every state
 change must be checked before it is applied.
 """
+import enum
 import collections
 import logging
 from typing import Callable
@@ -28,6 +29,15 @@ left to the informed user. All settings are in milliamps:
 `pa_backfire`:  Below this current, ASE from the _unseeded_ PA is weak enough
             to not damage any internal laser component whatsoever.
 """
+
+class LaserState(enum.IntEnum):
+    """The current running state of the laser."""
+    ON = 10
+    """MO and PA are running in a proper regime."""
+    OFF = 20
+    """MO and PA are both near zero current ("off")."""
+    UNDEFINED = 30
+    """Something is weird or currently transitioning."""
 
 class CallbackError(RuntimeError):
     """There was an error executing one of the callbacks."""
@@ -59,6 +69,8 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
                  disable_mo_callback: Callable[[], None],
                  enable_pa_callback: Callable[[], None],
                  disable_pa_callback: Callable[[], None],
+                 is_mo_enabled: Callable[[], bool],
+                 is_pa_enabled: Callable[[], bool],
                  laser_specification: MopaSpec) -> None:
         self._spec = laser_specification
         self._get_mo_current = get_mo_callback
@@ -69,6 +81,8 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
         self._disable_mo = disable_mo_callback
         self._enable_pa = enable_pa_callback
         self._disable_pa = disable_pa_callback
+        self._is_mo_on = is_mo_enabled
+        self._is_pa_on = is_pa_enabled
 
     @property
     def pa_powerup_current(self) -> float:
@@ -194,33 +208,20 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
 
         :raises ValueError: Turning off MO not allowable in current regime.
                             This is only raised if "force" is not used.
-        :raises CallbackError:
         """
         if not force:
-            self.set_mo_current(0)
-
-        # Zeroing the current is allowable in the current regime or was forced.
-        # Switch off now.
-        try:
-            self._disable_mo()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error excecuting disable_mo_callback:")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
+            self.set_mo_current(0)  # raises ValueError if not allowable
+        self._disable_mo()
 
     def disable_pa(self, force: bool = False) -> None:
         """Switch off power amplifier if safe. Use force to skip checks.
+
+        :raises ValueError: Turning off PA not allowable in current regime.
+                            This is only raised if "force" is not used.
         """
         if not force:
-            self.set_pa_current(0)
-
-        # Zeroing the current is allowable in the current regime or was forced.
-        # Switch off now.
-        try:
-            self._disable_pa()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error excecuting disable_pa_callback.")
-            raise RuntimeError("Failed to execute callback.")
+            self.set_pa_current(0)  # raises ValueError if not allowable
+        self._disable_pa()
 
     def enable_mo(self, force: bool = False) -> None:
         """Switch on master oscillator (setting it to 0 mA).
@@ -230,17 +231,10 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
 
         :raises ValueError: Current regime doesn't allow setting MO to 0 mA. Is
                             only raised if "force" is not used.
-        :raises CallbackError:
         """
         if not force:
-            self.set_mo_current(0)
-
-        try:
-            self._enable_mo()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error while executing enable_mo_callback.")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
+            self.set_mo_current(0)  # raises ValueError if not allowable
+        self._enable_mo()
 
     def enable_pa(self, force: bool = False) -> None:
         """Switch on power amplifier (setting it to 0 mA).
@@ -250,14 +244,21 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
 
         :raises ValueError: Current regime doesn't allow setting PA to 0 mA. Is
                             only raised if "force" is not used.
-        :raises CallbackError:
         """
         if not force:
-            self.set_pa_current(0)
+            self.set_pa_current(0)  # raises ValueError if not allowable
+        self._enable_pa()
 
-        try:
-            self._enable_pa()
-        except:  # pylint: disable=bare-except
-            LOGGER.exception("Error while executing enable_pa_callback.")
-            raise CallbackError("Callback provided to %s raised an exception!",
-                                __name__)
+    def get_status(self) -> LaserState:
+        """Identify the laser's current state."""
+        if not self._is_mo_on() and not self._is_pa_on():
+            return LaserState.OFF
+        mo_current = self.get_mo_current()
+        pa_current = self.get_pa_current()
+        if all([self._is_mo_on(), self._is_pa_on(),
+                mo_current > self._spec.mo_seed,
+                mo_current < self._spec.mo_max,
+                pa_current > self._spec.pa_transparency,
+                pa_current < self._spec.pa_max]):
+            return LaserState.ON
+        return LaserState.UNDEFINED
