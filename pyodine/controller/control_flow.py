@@ -219,12 +219,12 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     # pylint: enable=too-many-branches
 
 
-async def heat_up(subs: subsystems.Subsystems) -> None:
-    """Ramp temperatures of all controlled  components to their target value.
+async def pursue_hot(subs: subsystems.Subsystems) -> None:
+    """Get the system closer to `TecStatus.HOT` state.
 
     Raises if system is not TecStatus.AMBIENT.
 
-    :raises TecStatusError: System was not TecStatus.AMBIENT.
+    :raises TecStatusError: TEC system is undefined or off.
     """
     _ensure_laser_is_off(subs)
     status = await get_tec_status(subs)
@@ -240,6 +240,8 @@ async def heat_up(subs: subsystems.Subsystems) -> None:
     # finishes.
     vhbg = subsystems.TecUnit.VHBG
     subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
+    # If it's running, that's fine. If not, it doesn't do anything.
+
     if subs.is_tec_enabled(vhbg):
         subs.switch_temp_ramp(vhbg, True)
     else:
