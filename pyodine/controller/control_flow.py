@@ -226,6 +226,7 @@ async def heat_up(subs: subsystems.Subsystems) -> None:
 
     :raises TecStatusError: System was not TecStatus.AMBIENT.
     """
+    _ensure_laser_is_off(subs)
     status = await get_tec_status(subs)
     if status == TecStatus.HOT:
         LOGGER.info("System is hot, nothing to do.")
@@ -422,12 +423,14 @@ async def pursue_ambient(subs: subsystems.Subsystems) -> None:
     recommended to call it "watchdog style" until `get_tec_status()` returns
     "AMBIENT".
     """
-    status = get_tec_status(subs)
+    _ensure_laser_is_off(subs)
+    temps = await subs.get_aux_temps()
+    status = await get_tec_status(subs, temps=temps)
     if status == TecStatus.AMBIENT:
         LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
         return
 
-    ambient = _get_ambient_temps(await subs.get_aux_temps())
+    ambient = _get_ambient_temps(temps)
     await _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
     await _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
 
@@ -450,6 +453,16 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
 ###############
 ##  private  ##
 ###############
+
+def _ensure_laser_is_off(subs: subsystems.Subsystems) -> None:
+    """Ensure that Laser is off before doing automated TEC stuff.
+
+    :raises StateError: Laser is not `LaserState.OFF`.
+    """
+    laser_state = subs.laser.get_state()  # type: LaserState
+    if laser_state != LaserState.OFF:
+        raise StateError("Won't touch TECs, as laser is {}.".format(laser_state))
+
 
 def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
     """Get (and judge) ambient temp readings for TEC operation.
@@ -524,9 +537,7 @@ async def _land_vhbg(subs: subsystems.Subsystems) -> None:
     after (has been called until _is_vhbg_airborne() returns true)
         VHBG TEC is off.  MiOB TEC still active.
     """
-    laser_state = subs.laser.get_state()  # type: LaserState
-    if laser_state != LaserState.OFF:
-        raise StateError("Won't land VHBG TEC, as laser is {}.".format(laser_state))
+    _ensure_laser_is_off(subs)
     vhbg = subsystems.TecUnit.VHBG
     miob = subsystems.TecUnit.MIOB
     if not subs.is_tec_enabled(vhbg):
@@ -556,10 +567,7 @@ async def _launch_vhbg(subs: subsystems.Subsystems) -> None:
 
     Will do nothing if MiOB is anything but live.
     """
-    laser_state = subs.laser.get_state()  # type: LaserState
-    if laser_state != LaserState.OFF:
-        raise StateError("Won't launch VHBG TEC, as laser is {}.".format(laser_state))
-
+    _ensure_laser_is_off(subs)
     miob = subsystems.TecUnit.MIOB
     vhbg = subsystems.TecUnit.VHBG
     miob_temp = subs.get_temp(miob)
