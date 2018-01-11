@@ -461,7 +461,7 @@ def _ensure_laser_is_off(subs: subsystems.Subsystems) -> None:
     """
     laser_state = subs.laser.get_state()  # type: LaserState
     if laser_state != LaserState.OFF:
-        raise StateError("Won't touch TECs, as laser is {}.".format(laser_state))
+        raise StateError("Won't touch TECs, as laser is {}.".format(repr(laser_state)))
 
 
 async def _ensure_system_is_hot(subs: subsystems.Subsystems) -> None:
@@ -471,7 +471,7 @@ async def _ensure_system_is_hot(subs: subsystems.Subsystems) -> None:
     """
     tec_status = await get_tec_status(subs)  # type: TecStatus
     if tec_status != TecStatus.HOT:
-        raise StateError("TEC system is {}, refusing to do thing.".format(tec_status))
+        raise StateError("TEC system is {}, refusing to do thing.".format(repr(tec_status)))
 
 
 def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
@@ -564,9 +564,7 @@ async def _land_vhbg(subs: subsystems.Subsystems) -> None:
         subs.switch_temp_ramp(vhbg, False)
         subs.switch_tec_by_id(vhbg, False)
     else:
-        if abs(subs.get_temp_ramp_target(vhbg) - target_temp) > cs.TEMP_GENERAL_ERROR:
-            # Only log once.
-            LOGGER.info("Getting VHBG close to MiOB for shutdown...")
+        LOGGER.info("Getting VHBG close to MiOB for shutdown...")
         subs.set_temp(vhbg, target_temp)
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
         subs.switch_temp_ramp(vhbg, True)
