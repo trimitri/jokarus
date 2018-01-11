@@ -137,9 +137,7 @@ class TemperatureRamp:
 
         passed_time = time.time() - self._last_update
         if passed_time >= 2 * UPDATE_INTERVAL:
-            self.logger.warning("%s seconds passed since last update, which is"
-                                " more than twice the scheduled update"
-                                " interval (%s)", passed_time, UPDATE_INTERVAL)
+            self.logger.debug("Restarting retired ramp.")
             passed_time = UPDATE_INTERVAL
         # Calculate a candidate for next transitional setpoint.
         sign = -1 if self._target < self._current_setpt else 1

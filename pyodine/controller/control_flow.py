@@ -428,15 +428,15 @@ async def pursue_ambient(subs: subsystems.Subsystems) -> None:
         return
 
     ambient = _get_ambient_temps(await subs.get_aux_temps())
-    _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
-    _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
+    await _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
+    await _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
 
     # If VHBG is live, we can't do anything but cool it down first.  If it's
     # dead, we act on MiOB.
     if subs.is_tec_enabled(subsystems.TecUnit.VHBG):
         await _land_vhbg(subs)
     else:
-        _set_to_ambient(subs, subsystems.TecUnit.MIOB, ambient)
+        await _set_to_ambient(subs, subsystems.TecUnit.MIOB, ambient)
 
 
 async def release_lock(subs: subsystems.Subsystems) -> None:
