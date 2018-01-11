@@ -139,7 +139,8 @@ class InstructionHandler:
             if timer_state[wire]:
                 await control_flow.heat_up(self._subs)
             else:
-                await control_flow.cool_down(self._subs)
+                # await control_flow.cool_down(self._subs)
+                pass  # FIXME use pursue_ambient or similar here.
         elif wire == TimerEffect.LASER:
             if timer_state[wire]:
                 await control_flow.laser_power_up(self._subs)

@@ -284,11 +284,11 @@ class MenloStack:
         LOGGER.warning("ADC channel index out of bounds. Returning dummy.")
         return self._dummy_point_series()
 
-    def is_current_driver_enabled(self, unit_number: int) -> Buffer:
-        return self._get_osc_prop(unit_number, 305)
+    def is_current_driver_enabled(self, unit: Union[int, OscCard]) -> Buffer:
+        return self._get_osc_prop(unit, 305)
 
-    def is_tec_enabled(self, unit_number: int) -> Buffer:
-        return self._get_osc_prop(unit_number, 304)
+    def is_tec_enabled(self, unit: Union[int, OscCard]) -> Buffer:
+        return self._get_osc_prop(unit, 304)
 
     def is_lock_enabled(self, unit_number: int) -> Buffer:
         """Is the closed-loop lock currently engaged? Returns a Buffer!"""

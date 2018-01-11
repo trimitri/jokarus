@@ -249,7 +249,7 @@ class EcdlMopa:  # pylint: disable=too-many-instance-attributes
             self.set_pa_current(0)  # raises ValueError if not allowable
         self._enable_pa()
 
-    def get_status(self) -> LaserState:
+    def get_state(self) -> LaserState:
         """Identify the laser's current state."""
         if not self._is_mo_on() and not self._is_pa_on():
             return LaserState.OFF

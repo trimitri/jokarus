@@ -17,6 +17,7 @@ from . import lock_buddy, subsystems
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools
+from ..drivers.ecdl_mopa import LaserState
 
 LOGGER = logging.getLogger('control_flow')
 
@@ -67,6 +68,10 @@ class ReturnState(enum.IntEnum):
     SUCCESS = 0
     FAIL = 1
 
+class StateError(RuntimeError):
+    """Something is unsafe or not possible in the current system state."""
+    pass
+
 class TecError(RuntimeError):
     """Something went wrong with the thermoelectric cooling subsystem."""
     pass
@@ -104,19 +109,6 @@ async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
     await tools.repeat_task(balancer, period=0.6, do_continue=condition)
     LOGGER.warning("Stopped temp drift compensator, as lock is %s.",
                    await locker.get_lock_status())
-
-
-async def cool_down(subs: subsystems.Subsystems) -> None:
-    """Get the system to a state where it can be physically switched off."""
-    LOGGER.info("Cooling down components...")
-    for unit in subsystems.TecUnit:
-        if subs.is_tec_enabled(unit):
-            # subs.set_temp(unit, AMBIENT_TEMP)  # ramp target temp
-            # subs.switch_temp_ramp(unit, True)
-            pass
-        else:
-            LOGGER.warning("Skipping %s on cooldown, as TEC was disabled.",
-                           unit)
 
 
 async def engage_lock(subs: subsystems.Subsystems) -> None:
@@ -389,6 +381,17 @@ async def laser_power_down(subs: subsystems.Subsystems) -> None:
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
 
 
+def open_backdoor(injected_locals: Dict[str, Any]) -> None:
+    """Provide a python interpreter capable of probing the system state."""
+
+    # Provide a custom factory to allow for `locals` injection.
+    def console_factory(streams: Any = None) -> aioconsole.AsynchronousConsole:
+        return aioconsole.AsynchronousConsole(locals=injected_locals,
+                                              streams=streams)
+    asyncio.ensure_future(
+        aioconsole.start_interactive_server(factory=console_factory))
+
+
 async def prelock_and_lock(locker: lock_buddy.LockBuddy,
                            prelock_tuner: lock_buddy.Tuner) -> asyncio.Task:
     """Run the pre-lock algorithm and engage the frequency lock.
@@ -409,15 +412,31 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy,
     return locker.engage_and_maintain()
 
 
-def open_backdoor(injected_locals: Dict[str, Any]) -> None:
-    """Provide a python interpreter capable of probing the system state."""
+async def pursue_ambient(subs: subsystems.Subsystems) -> None:
+    """Do what can be done right now to get system to ambient temperature.
 
-    # Provide a custom factory to allow for `locals` injection.
-    def console_factory(streams: Any = None) -> aioconsole.AsynchronousConsole:
-        return aioconsole.AsynchronousConsole(locals=injected_locals,
-                                              streams=streams)
-    asyncio.ensure_future(
-        aioconsole.start_interactive_server(factory=console_factory))
+    This can be used to cool down before switching off or to arm the TEC system
+    before heating up.
+
+    When cooling down, this must be called at least twice.  It is thus
+    recommended to call it "watchdog style" until `get_tec_status()` returns
+    "AMBIENT".
+    """
+    status = get_tec_status(subs)
+    if status == TecStatus.AMBIENT:
+        LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
+        return
+
+    ambient = _get_ambient_temps(await subs.get_aux_temps())
+    _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
+    _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
+
+    # If VHBG is live, we can't do anything but cool it down first.  If it's
+    # dead, we act on MiOB.
+    if subs.is_tec_enabled(subsystems.TecUnit.VHBG):
+        await _land_vhbg(subs)
+    else:
+        _set_to_ambient(subs, subsystems.TecUnit.MIOB, ambient)
 
 
 async def release_lock(subs: subsystems.Subsystems) -> None:
@@ -490,6 +509,72 @@ def _is_hot_miob(temp: float) -> bool:
         return False
     return (temp > cs.MIOB_TEMP_TUNING_RANGE[0] - cs.TEMP_GENERAL_ERROR
             and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
+
+
+async def _land_vhbg(subs: subsystems.Subsystems) -> None:
+    """Bring VHBG back to MiOB temperature or switch off if there already.
+
+    Similar to the `_pursue...()` family of methods, this encapsulates a
+    multi-step process and thus may need to be called multiple times to reach
+    the desired effect.
+
+    before (has not yet been called)
+        VHBG TEC is on.  MiOB TEC is active.
+
+    after (has been called until _is_vhbg_airborne() returns true)
+        VHBG TEC is off.  MiOB TEC still active.
+    """
+    laser_state = subs.laser.get_state()  # type: LaserState
+    if laser_state != LaserState.OFF:
+        raise StateError("Won't land VHBG TEC, as laser is {}.".format(laser_state))
+    vhbg = subsystems.TecUnit.VHBG
+    miob = subsystems.TecUnit.MIOB
+    if not subs.is_tec_enabled(vhbg):
+        LOGGER.info("""Refusing to "land" VHBG TEC, as it is off already.""")
+        return
+
+    if subs.is_tec_enabled(miob):
+        target_temp = subs.get_temp(miob)
+    else:
+        target_temp = _get_ambient_temps(await subs.get_aux_temps())[miob]
+
+    if abs(subs.get_temp(vhbg) - target_temp) < cs.TEMP_GENERAL_ERROR:
+        LOGGER.info("VHBG temp. is close to MiOB. Switching off TEC.")
+        subs.switch_temp_ramp(vhbg, False)
+        subs.switch_tec_by_id(vhbg, False)
+    else:
+        if abs(subs.get_temp_ramp_target(vhbg) - target_temp) > cs.TEMP_GENERAL_ERROR:
+            # Only log once.
+            LOGGER.info("Getting VHBG close to MiOB for shutdown...")
+        subs.set_temp(vhbg, target_temp)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        subs.switch_temp_ramp(vhbg, True)
+
+
+async def _launch_vhbg(subs: subsystems.Subsystems) -> None:
+    """If MiOB is hot, start VHBG TEC and raise to target temp.
+
+    Will do nothing if MiOB is anything but live.
+    """
+    laser_state = subs.laser.get_state()  # type: LaserState
+    if laser_state != LaserState.OFF:
+        raise StateError("Won't launch VHBG TEC, as laser is {}.".format(laser_state))
+
+    miob = subsystems.TecUnit.MIOB
+    vhbg = subsystems.TecUnit.VHBG
+    miob_temp = subs.get_temp(miob)
+    if not all([_is_hot_miob(temp) for temp
+                in [miob_temp, subs.get_temp_setpt(miob),
+                    subs.get_temp_ramp_target(miob)]]):
+        LOGGER.warning("Refusing to detach VHBG, as MiOB isn't live.")
+        return
+    if not subs.is_tec_enabled(vhbg):
+        subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+        subs.switch_tec_by_id(vhbg, True)
+        await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+    subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
+    subs.switch_temp_ramp(vhbg, True)
 
 
 async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,

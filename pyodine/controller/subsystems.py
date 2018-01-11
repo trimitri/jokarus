@@ -14,9 +14,7 @@ import logging
 import time
 from typing import Dict, List, Tuple, Union
 
-import numpy as np
-
-from . import lock_buddy
+from . import lock_buddy  # for type annotations
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
@@ -399,6 +397,10 @@ class Subsystems:
         """Is the given TEC unit's temp. ramp currently enabled?"""
         return self._temp_ramps[unit].is_running
 
+    def is_ld_enabled(self, unit: LdDriver) -> bool:
+        return self._unwrap_buffer(
+            self._menlo.is_current_driver_enabled(_LD_CARDS[unit])) == 1
+
     def is_lockbox_ramp_enabled(self) -> bool:
         return self._unwrap_buffer(self._menlo.is_ramp_enabled(LOCKBOX_ID)) == 1
 
@@ -754,6 +756,8 @@ class Subsystems:
                          unit=_LD_CARDS[LdDriver.MASTER_OSCILLATOR])
         set_pa = partial(self._menlo.set_current,
                          unit=_LD_CARDS[LdDriver.POWER_AMPLIFIER])
+        mo_on = partial(self.is_ld_enabled, LdDriver.MASTER_OSCILLATOR)
+        pa_on = partial(self.is_ld_enabled, LdDriver.POWER_AMPLIFIER)
 
         # TODO: phase out use of legacy unit indexing
         mo_id = LdDriver.MASTER_OSCILLATOR  # Will be resolved to integers...
@@ -771,8 +775,8 @@ class Subsystems:
             pa_backfire=cs.MILAS_PA_BACKFIRE)
         self.laser = ecdl_mopa.EcdlMopa(
             laser_specification=milas,
-            # _unwrap_buffer may raise if there's no data yet, but EcdlMopa can
-            # handle Exceptions raised in callbacks.
+            # _unwrap_buffer may raise if there's no data yet, spoiling laser
+            # operations.
             get_mo_callback=lambda: self._unwrap_buffer(get_mo()),
             get_pa_callback=lambda: self._unwrap_buffer(get_pa()),
             set_mo_callback=lambda c: set_mo(milliamps=c),
@@ -780,7 +784,9 @@ class Subsystems:
             disable_mo_callback=disable_mo,
             disable_pa_callback=disable_pa,
             enable_mo_callback=enable_mo,
-            enable_pa_callback=enable_pa)
+            enable_pa_callback=enable_pa,
+            is_mo_enabled=mo_on,
+            is_pa_enabled=pa_on)
 
     def _init_temp_ramps(self) -> None:
         """Initialize one TemperatureRamp instance for every TEC controller."""
