@@ -157,6 +157,6 @@ def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
         level += 1
     if timer_state[TimerEffect.BIT_1]:
         level += 2
-    if timer_state[TimerEffect.BIT_1]:
+    if timer_state[TimerEffect.BIT_2]:
         level += 4
     return runlevels.Runlevel(level)
