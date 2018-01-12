@@ -19,7 +19,7 @@ from .. import logger
 from ..util import asyncio_tools as tools
 from ..drivers.ecdl_mopa import LaserState
 
-LOGGER = logging.getLogger('control_flow')
+LOGGER = logging.getLogger('procedures')
 
 class TecStatus(enum.IntEnum):
     """Status of the thermoelectric cooling subsystem."""

@@ -12,7 +12,7 @@ import logging
 
 from . import logger
 from . import constants as cs
-from .controller import (control_flow, interfaces, instruction_handler, subsystems)
+from .controller import (procedures, interfaces, instruction_handler, subsystems)
 from .util import asyncio_tools as tools
 from .util import git_adapter
 
@@ -22,7 +22,7 @@ async def main() -> None:
     LOGGER.info("Running Pyodine...")
 
     subs = subsystems.Subsystems()
-    locker = control_flow.init_locker(subs)
+    locker = procedures.init_locker(subs)
     face = interfaces.Interfaces(subs, locker, start_ws_server=True,
                                  start_serial_server=True)
     await face.init_async()
@@ -36,13 +36,13 @@ async def main() -> None:
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a CLI to Pyodine.
-    control_flow.open_backdoor({'cs': cs,
-                                'face': face,
-                                'flow': control_flow,
-                                'locker': locker,
-                                'subs': subs,
-                                'subsystems': subsystems,
-                                'Tuners': subsystems.Tuners})
+    procedures.open_backdoor({'cs': cs,
+                              'face': face,
+                              'flow': procedures,
+                              'locker': locker,
+                              'subs': subs,
+                              'subsystems': subsystems,
+                              'Tuners': subsystems.Tuners})
 
     await tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),

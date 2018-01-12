@@ -15,7 +15,7 @@ import logging
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
 from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
-from . import interfaces, subsystems, control_flow, lock_buddy
+from . import interfaces, subsystems, procedures, lock_buddy
 from ..transport import texus_relay
 from ..util import asyncio_tools
 
@@ -45,8 +45,8 @@ class InstructionHandler:
         self._locker = locker
 
         self._methods = {
-            'engage_lock': partial(control_flow.engage_lock, self._subs),
-            'release_lock': partial(control_flow.release_lock, self._subs),
+            'engage_lock': partial(procedures.engage_lock, self._subs),
+            'release_lock': partial(procedures.release_lock, self._subs),
             'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
             'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
             'set_mixer_freq': lambda f: self._subs.set_mixer_frequency(
@@ -137,21 +137,21 @@ class InstructionHandler:
 
         if wire == TimerEffect.HOT:
             if timer_state[wire]:
-                # await control_flow.heat_up(self._subs)
+                # await procedures.heat_up(self._subs)
                 pass  # FIXME Heat up.
             else:
-                # await control_flow.cool_down(self._subs)
+                # await procedures.cool_down(self._subs)
                 pass  # FIXME Cool down.
         elif wire == TimerEffect.LASER:
             if timer_state[wire]:
-                await control_flow.laser_power_up(self._subs)
+                await procedures.laser_power_up(self._subs)
             else:
-                await control_flow.laser_power_down(self._subs)
+                await procedures.laser_power_down(self._subs)
         elif wire == TimerEffect.LOCK:
             if timer_state[wire]:
-                await control_flow.prelock_and_lock(self._locker, subsystems.Tuners.MO)
+                await procedures.prelock_and_lock(self._locker, subsystems.Tuners.MO)
             else:
-                await control_flow.release_lock(self._subs)
+                await procedures.release_lock(self._subs)
         else:
             LOGGER.warning("Change in unused timer wire %s detected. Ignoring.",
                            wire)
