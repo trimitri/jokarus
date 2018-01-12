@@ -219,12 +219,11 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     # pylint: enable=too-many-branches
 
 
-async def pursue_hot(subs: subsystems.Subsystems) -> None:
+async def pursue_tec_hot(subs: subsystems.Subsystems) -> None:
     """Get the system closer to `TecStatus.HOT` state.
 
-    Raises if system is not TecStatus.AMBIENT.
-
-    :raises TecStatusError: TEC system is undefined or off.
+    If the system is anything but TecStatus.HOT, HEATING or AMBIENT, take a
+    detour through pursuing AMBIENT first.
     """
     _ensure_laser_is_off(subs)
     status = await get_tec_status(subs)
@@ -232,7 +231,7 @@ async def pursue_hot(subs: subsystems.Subsystems) -> None:
         LOGGER.info("System is hot, nothing to do.")
         return
     if status in (TecStatus.UNDEFINED, TecStatus.OFF):
-        raise TecStatusError("TEC subsystem is undefined or off. Can't heat.")
+        await pursue_tec_ambient(subs)
     if status in (TecStatus.HEATING, TecStatus.AMBIENT):
         LOGGER.info("System is %s. Running `heat_up()`...", status)
 
@@ -362,7 +361,7 @@ async def laser_power_up(subs: subsystems.Subsystems) -> None:
     if subs.laser.get_state() == LaserState.ON:
         LOGGER.info("Laser is already ON. Doing nothing.")
         return
-    await _ensure_system_is_hot(subs)
+    await _ensure_system_is(subs, TecStatus.HOT)
     LOGGER.info("Powering up laser...")
     subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
     subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
@@ -428,7 +427,7 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy,
     return locker.engage_and_maintain()
 
 
-async def pursue_ambient(subs: subsystems.Subsystems) -> None:
+async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
     """Do what can be done right now to get system to ambient temperature.
 
     This can be used to cool down before switching off or to arm the TEC system
@@ -465,6 +464,20 @@ async def release_lock(subs: subsystems.Subsystems) -> None:
     subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
+
+async def tec_off(subs: subsystems.Subsystems) -> None:
+    """Switch off all temperature control if possible.
+
+    This is only allowed, if the system is `TecStatus.AMBIENT`.
+    """
+    status = await get_tec_status(subs)
+    if status == TecStatus.OFF:
+        return
+    await _ensure_system_is(subs, TecStatus.AMBIENT)  # raises
+    tecs = subsystems.TecUnit
+    for unit in tecs.SHGA, tecs.SHGB, tecs.MIOB:
+        subs.switch_tec_by_id(unit, False)
+
 ###############
 ##  private  ##
 ###############
@@ -479,13 +492,13 @@ def _ensure_laser_is_off(subs: subsystems.Subsystems) -> None:
         raise StateError("Won't touch TECs, as laser is {}.".format(repr(laser_state)))
 
 
-async def _ensure_system_is_hot(subs: subsystems.Subsystems) -> None:
-    """Ensure that all TEC is running properly and raise otherwise.
+async def _ensure_system_is(subs: subsystems.Subsystems, status: TecStatus) -> None:
+    """Ensure that the TEC subsystem status is `status` and raise otherwise.
 
-    :raises StateError: System is not `TecStatus.HOT`.
+    :raises StateError: System is not `status`.
     """
     tec_status = await get_tec_status(subs)  # type: TecStatus
-    if tec_status != TecStatus.HOT:
+    if tec_status != status:
         raise StateError("TEC system is {}, refusing to do thing.".format(repr(tec_status)))
 
 

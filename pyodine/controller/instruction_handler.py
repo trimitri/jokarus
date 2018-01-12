@@ -15,7 +15,7 @@ import logging
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
 from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
-from . import interfaces, subsystems, procedures, lock_buddy
+from . import interfaces, lock_buddy, procedures, runlevels, subsystems
 from ..transport import texus_relay
 from ..util import asyncio_tools
 
@@ -27,10 +27,23 @@ LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
 
 class TimerEffect(enum.IntEnum):
-    """The link between actual system responses and TEXUS timer wires."""
-    HOT = texus_relay.TimerWire.TEX_1
-    LASER = texus_relay.TimerWire.TEX_2
-    LOCK = texus_relay.TimerWire.TEX_3
+    """Possible functions any given wire might be assigned to. """
+    BIT_O = texus_relay.TimerWire.TEX_1
+    """The 2^0 digit of the 3-bit runlevel request mechanism."""
+    BIT_1 = texus_relay.TimerWire.TEX_6
+    """The 2^1 digit of the 3-bit runlevel request mechanism."""
+    BIT_2 = texus_relay.TimerWire.TEX_3
+    """The 2^2 digit of the 3-bit runlevel request mechanism."""
+    OFF = texus_relay.TimerWire.TEX_5
+    """The (emergency?) power-off signal."""
+    LO_TIMER = texus_relay.TimerWire.TEX_4
+    """Timer signal fired at lift off.  Not the actual "LiftOff" signal!"""
+    UG_TIMER = texus_relay.TimerWire.TEX_2
+    """Timer signal fired at micro g.  Not the actual "3AxisGo" signal!"""
+    LIFTOFF = texus_relay.TimerWire.LIFT_OFF
+    """The actual rocket's "LiftOff" signal."""
+    THREEXS = texus_relay.TimerWire.MICRO_G
+    """The actual rocket's "3AxisGo" signal."""
 
 # pylint: disable=too-few-public-methods
 # The main method is the single functionality of this class.
@@ -124,34 +137,26 @@ class InstructionHandler:
                              "likely indicates an *actual* problem.")
 
     async def handle_timer_command(self, wire: texus_relay.TimerWire,
-                                   timer_state: List[bool]) -> None:
+                                   timer_state: texus_relay.TimerState) -> None:
         """React to a change in TEXUS timer state.
 
         :raises RuntimerError: One of the associated actions failed.
         """
-        # We don't catch the possible RuntimerError's below, as this function
-        # is only used as a callback. Due to the way callbacks are handled in
-        # pyodine, their Exceptions are always caught and logged.
-        # For Errors raised into here, there also is no smarter action than
-        # just logging them, as this function reports directly to top-level.
+        runlevels.GLOBALS.liftoff = (timer_state[TimerEffect.LIFTOFF]
+                                     or timer_state[TimerEffect.LO_TIMER])
+        runlevels.GLOBALS.microg = (timer_state[TimerEffect.THREEXS]
+                                    or timer_state[TimerEffect.UG_TIMER])
+        runlevels.GLOBALS.off = timer_state[TimerEffect.OFF]
+        runlevels.GLOBALS.requested_level = get_runlevel(timer_state)
 
-        if wire == TimerEffect.HOT:
-            if timer_state[wire]:
-                # await procedures.heat_up(self._subs)
-                pass  # FIXME Heat up.
-            else:
-                # await procedures.cool_down(self._subs)
-                pass  # FIXME Cool down.
-        elif wire == TimerEffect.LASER:
-            if timer_state[wire]:
-                await procedures.laser_power_up(self._subs)
-            else:
-                await procedures.laser_power_down(self._subs)
-        elif wire == TimerEffect.LOCK:
-            if timer_state[wire]:
-                await procedures.prelock_and_lock(self._locker, subsystems.Tuners.MO)
-            else:
-                await procedures.release_lock(self._subs)
-        else:
-            LOGGER.warning("Change in unused timer wire %s detected. Ignoring.",
-                           wire)
+
+def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
+    """Extracts currently requested runlevel (0-7) from TEXUS Timer state."""
+    level = 0
+    if timer_state[TimerEffect.BIT_O]:
+        level += 1
+    if timer_state[TimerEffect.BIT_1]:
+        level += 2
+    if timer_state[TimerEffect.BIT_1]:
+        level += 4
+    return runlevels.Runlevel(level)

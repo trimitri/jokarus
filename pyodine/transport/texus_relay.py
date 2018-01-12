@@ -8,12 +8,12 @@ import logging
 from typing import Awaitable, Callable, Dict, List, Union
 import serial
 
+from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools
 
-LOGGER = logging.getLogger('pyodine.transport.texus_relay')
+LOGGER = logging.getLogger('texus_relay')
 LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
-POLLING_INTERVAL = .63  # Poll for changing TEXUS flags every ~ seconds.
 class TimerWire(enum.IntEnum):
     """Indexing convention for texus timer signal wires."""
     LIFT_OFF = 0
@@ -25,6 +25,8 @@ class TimerWire(enum.IntEnum):
     TEX_6 = 6
     MICRO_G = 7
 
+TimerState = List[bool]
+"""The a full state reading of the TEXUS timer."""
 
 class TexusRelay:
     """Manage the data lines representing TEXUS and experiment state."""
@@ -122,7 +124,7 @@ class TexusRelay:
         self._port2.rts = value
 
     @property
-    def timer_state(self) -> List[bool]:
+    def timer_state(self) -> TimerState:
         """The current state of all TEXUS timer wires.
 
         :returns: A list indexable by ``.TimerWire``.
@@ -141,7 +143,7 @@ class TexusRelay:
         old_state = self.timer_state
         logger.log_quantity('texus_flags', str(old_state))
         while True:
-            await asyncio.sleep(POLLING_INTERVAL)
+            await asyncio.sleep(cs.TEXUS_WIRE_POLLING_INTERVAL)
             new_state = self.timer_state
             for wire in TimerWire:
                 if new_state[wire] != old_state[wire]:

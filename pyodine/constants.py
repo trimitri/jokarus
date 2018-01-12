@@ -207,7 +207,7 @@ PD_DO_PUBLISH = False
 PD_LOG_INTERVAL = 2.7
 """Interval [s] at which the auxiliary photodiode readings are acquired."""
 
-PRELOCK_DIP_DECIDING_DEPTH = (.397 + .231) / 2  # Measured in rev. 5c0ea6 
+PRELOCK_DIP_DECIDING_DEPTH = (.397 + .231) / 2  # Measured in rev. 5c0ea6
 """A dip smaller than this is boldly taken for an indicator that we're on the
 R(56)32-0 transition.
 """
@@ -237,6 +237,17 @@ PRELOCK_TUNER_SPEED_CONSTRAINT = 5
 
 RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
 """Maximum message size in bytes the RS232 relay has to expect from pyodine."""
+
+RUNLEVEL_PURSUE_KICKOFF_TIMEOUT = 3.
+"""None of the group of pursue...() methods in the runlevel mechanism shall
+take longer than this many seconds.  This is important to not block the
+runlevel management loop in case that any of them blocks.
+
+None of those functions do wait for actual work to be finished but instead just
+kick it off and then leave, which is why this timeout is realistic.
+"""
+RUNLEVEL_REFRESH_INTERVAL = 2.
+"""Work on synchronizing system with requested runlevel every ~ seconds."""
 
 SHGA_WORKING_TEMP = 40.95
 SHGB_WORKING_TEMP = 40.85
@@ -277,6 +288,9 @@ TEMP_HEATSINK_RANGE_SPEC = [13, 50]
 """Value outside this range are considered erroneous measurements when powering
 on the SHG TECs.
 """
+
+TEXUS_WIRE_POLLING_INTERVAL =  .63
+"""Poll for changing TEXUS flags every ~ seconds."""
 
 VHBG_WORKING_TEMP = 27.02
 """Working point temperature of volume-holometric bragg grating in °C"""
