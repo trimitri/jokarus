@@ -12,7 +12,8 @@ import logging
 
 from . import logger
 from . import constants as cs
-from .controller import (procedures, interfaces, instruction_handler, subsystems)
+from .controller import (interfaces, instruction_handler, procedures,
+                         runlevels, subsystems)
 from .util import asyncio_tools as tools
 from .util import git_adapter
 
@@ -40,6 +41,7 @@ async def main() -> None:
                               'face': face,
                               'flow': procedures,
                               'locker': locker,
+                              'run': runlevels,
                               'subs': subs,
                               'subsystems': subsystems,
                               'Tuners': subsystems.Tuners})
