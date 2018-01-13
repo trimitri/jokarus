@@ -12,7 +12,7 @@ import enum
 from functools import partial
 import logging
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 from . import lock_buddy  # for type annotations  # pylint: disable=unused-import
 from .temperature_ramp import TemperatureRamp
@@ -20,6 +20,13 @@ from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
 from .. import logger
 from .. import constants as cs
+
+def static_variable(variable_name, initial_value) -> Callable:
+    """A decorator to add a static variable to a function."""
+    def decorator(function):
+        setattr(function, variable_name, initial_value)
+        return function
+    return decorator
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")  # logging.Logger
 LOGGER.setLevel(logging.DEBUG)
@@ -200,6 +207,7 @@ class Subsystems:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
 
+    @static_variable('cache', {'time': 0, 'value': None})
     async def get_aux_temps(self, dont_log: bool = False, dont_cache: bool = False) -> List[float]:
         """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
 
@@ -208,14 +216,10 @@ class Subsystems:
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
-        if 'cache' not in self.get_aux_temps.__dict__:
-            setattr(self.get_aux_temps, 'cache', {'result': None, 'time': 0})
-
-        now = time.time()
         cache = self.get_aux_temps.cache
-        if now - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
+        if time.time() - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
             LOGGER.info("Returning cached temps.")
-            return cache['result']
+            return cache['value']
 
         LOGGER.info("Actually measuring temps.")
         # Keep this synchronized with `AuxTemp`!
@@ -234,6 +238,8 @@ class Subsystems:
             await asyncio.get_event_loop().run_in_executor(None, fetch_readings))
         if not dont_log:
             logger.log_quantity('daq_temps', '\t'.join([str(t) for t in temps]))
+        cache['value'] = temps
+        cache['time'] = time.time()
         return temps
 
     async def get_full_set_of_readings(self, since: float = None) -> Dict[str, Union[Buffer, Dict]]:
