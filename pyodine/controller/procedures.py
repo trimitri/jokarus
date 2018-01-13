@@ -232,6 +232,7 @@ async def pursue_tec_hot(subs: subsystems.Subsystems) -> None:
         return
     if status in (TecStatus.UNDEFINED, TecStatus.OFF):
         await pursue_tec_ambient(subs)
+        return
     if status in (TecStatus.HEATING, TecStatus.AMBIENT):
         LOGGER.info("System is %s. Running `heat_up()`...", status)
 
