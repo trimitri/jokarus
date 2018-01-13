@@ -109,7 +109,7 @@ async def engage_lock(subs: subsystems.Subsystems) -> None:
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
-async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None) -> TecStatus:
+async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
     """Analyze the current TEC subsystem status.
 
     side effect
@@ -121,7 +121,7 @@ async def get_tec_status(subs: subsystems.Subsystems, temps: List[float] = None)
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
     tec = subsystems.TecUnit
-    temps = temps if temps else await subs.get_aux_temps(dont_log=True)
+    temps = await subs.get_aux_temps(dont_log=True)
     try:
         ambient = _get_ambient_temps(temps)
     except ConnectionError as err:
@@ -438,13 +438,12 @@ async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
     "AMBIENT".
     """
     _ensure_laser_is_off(subs)
-    temps = await subs.get_aux_temps()
-    status = await get_tec_status(subs, temps=temps)
+    status = await get_tec_status(subs)
     if status == TecStatus.AMBIENT:
         LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
         return
 
-    ambient = _get_ambient_temps(temps)
+    ambient = _get_ambient_temps(await subs.get_aux_temps())
     await _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
     await _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
 
