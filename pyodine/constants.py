@@ -270,6 +270,13 @@ TEMP_ALLOWABLE_SETTER_ERROR = .5
 This is necessary mostly due to DAC/ADC quantization and arithmetic errors in
 temp. calculation formulas.
 """
+TEMP_CACHE_LIFETIME = 2.
+"""Don't actually measure ambient temperatures but return old values instead if
+the last reading was less than ~ seconds ago.
+
+This is crucial to keep load from the DAQ, as the "runlevel" mechanism inquires
+the temperatures quite frequently.
+"""
 TEMP_GENERAL_ERROR = .8
 """When dealing with actual temps, errors up to ~ K are normal."""
 TEMP_LASER_TRAY_DELTA = 1.
