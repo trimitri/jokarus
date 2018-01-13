@@ -214,7 +214,7 @@ class Subsystems:
             LOGGER.debug("Returning cached temperatures")
             return cache['value']
 
-        LOGGER.info("Actually measuring temperatures.")
+        LOGGER.debug("Actually measuring temperatures.")
         # Keep this synchronized with `AuxTemp`!
         channels = [(DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MO, mccdaq.InputRange.PM_5V),
