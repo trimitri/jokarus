@@ -14,6 +14,10 @@
   // kill the references.
   const CONNECTION = { ws: null };
 
+  const runlevelGages = { requested: null, reported: null };
+  const LEVEL_NAMES = ["UNDEFINED", "SHUTDOWN", "STANDBY", "AMBIENT", "HOT",
+    "PRELOCK", "LOCK", "BALANCED"];
+
   function createMessage(object, type) {
     const wrapper = {};
     wrapper.type = type;
@@ -47,14 +51,29 @@
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
 
-  const updateRunlevel = function (requested, reported, isTransitioning) {
-    JustGage({
+  const updateRunlevel = function (requested, reported) {
+    runlevelGages.requested.refresh(requested);
+    runlevelGages.reported.refresh(reported);
+  };
+
+  const setupRunlevelGauges = function () {
+    runlevelGages.requested = new JustGage({
       id: 'requested_runlevel',
-      value: requested,
+      label: "Requested",
+      max: 7,
+      min: 0,
+      pointer: true,
+      textRenderer: level => LEVEL_NAMES[level],
+      value: 0,
     });
-    JustGage({
+    runlevelGages.reported = new JustGage({
       id: 'reported_runlevel',
-      value: reported,
+      label: "Reported",
+      max: 7,
+      min: 0,
+      pointer: true,
+      textRenderer: level => LEVEL_NAMES[level],
+      value: 0,
     });
   };
 
@@ -300,8 +319,7 @@
           }
         });
       });
-
-      updateRunlevel(3, 4, false);
+      setupRunlevelGauges();
     }
   });
 }());

@@ -41,6 +41,9 @@ section#tab_logging div.plot {
 	flex-shrink: 0;
 	flex-grow: 1;
 }
+div.runlevel_indicator {
+	width: 200px;
+}
 div.slider {
 	width: 400px;
 	display: inline-block;

@@ -8,11 +8,11 @@
 		<link rel="stylesheet" href="styles.css" />
 		<link rel="icon" href="pyodine_logo.png" type="image/png" />
 
+		<script src="lib/jquery-3.2.1.min.js"></script>
+		<script src="lib/jquery-ui-1.12.1.min.js"></script>
 		<script src="lib/jquery.canvasjs.min.js"></script>
 		<script src="lib/raphael-2.1.4.min.js"></script>
 		<script src="lib/justgage.js"></script>
-		<script src="lib/jquery-3.1.1.min.js"></script>
-		<script src="lib/jquery-ui-1.12.1.min.js"></script>
 		<script src="pyodine.js"></script>
 		<script src="plotter.js"></script>
 		<script src="fbg_util.js"></script>
@@ -66,9 +66,57 @@
 			</ul>
 			<div id="tab_texus" class="flex_container">
 				<div class="layout_block">
-					<h2>TEXUS Communication</h2>
-					<div id="requested_runlevel"></div>
-					<div id="reported_runlevel"></div>
+					<h2>JOKARUS Runlevel</h2>
+					<div class="runlevel_indicator" id="requested_runlevel"></div>
+					<div class="runlevel_indicator" id="reported_runlevel"></div>
+					<table>
+						<tr>
+							<td></td>
+							<th>State</th>
+							<th>Updated</th>
+							<th>Switch</th>
+						</tr>
+						<tr>
+							<th>Timer Override</th>
+							<td class="indicator" data-qty="manual_override">N/A</td>
+							<td class="update_indicator" data-qty="manual_override">Never</td>
+							<td>
+								<input type="button" class="command" value="On"
+									data-method="switch_manual_override" data-arguments='[true]' />
+								<input type="button" class="command" value="Off"
+									data-method="switch_manual_override" data-arguments='[false]' />
+							</td>
+						</tr>
+						<tr>
+							<th>Requested Level</th>
+							<td class="numerical indicator" data-qty="requested_runlevel">N/A</td>
+							<td class="update_indicator" data-qty="requested_runlevel">Never</td>
+							<td>
+								<select id="requested_runlevel">
+									<option value="0">UNDEF</option>
+									<option value="1">SHUTDOWN</option>
+									<option value="2">STANDBY</option>
+									<option value="3">AMBIENT</option>
+									<option value="4">HOT</option>
+									<option value="5">PRELOCK</option>
+									<option value="6">LOCK</option>
+									<option value="7">BALANCED</option>
+								</select>
+								<br />
+								<input type="button" class="command" value="Request"
+									data-method="request_runlevel" data-arguments-source="select#requested_runlevel" />
+							</td>
+						</tr>
+						<tr>
+							<th title="The current JOKARUS status is UNDEFINED. This happens between levels.">
+								Currently Undefined
+							</th>
+							<td class="indicator" data-qty="runlevel_undefined">N/A</td>
+							<td class="update_indicator" data-qty="runlevel_undefined">Never</td>
+							<td>
+							</td>
+						</tr>
+					</table>
 				</div>
 				<div class="layout_block">
 					<h2>Incoming Flags</h2>
