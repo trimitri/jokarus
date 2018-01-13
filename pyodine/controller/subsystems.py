@@ -12,21 +12,14 @@ import enum
 from functools import partial
 import logging
 import time
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from . import lock_buddy  # for type annotations  # pylint: disable=unused-import
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
-from ..util import asyncio_tools
+from ..util import asyncio_tools as tools
 from .. import logger
 from .. import constants as cs
-
-def static_variable(variable_name, initial_value) -> Callable:
-    """A decorator to add a static variable to a function."""
-    def decorator(function):
-        setattr(function, variable_name, initial_value)
-        return function
-    return decorator
 
 LOGGER = logging.getLogger("pyodine.controller.subsystems")  # logging.Logger
 LOGGER.setLevel(logging.DEBUG)
@@ -147,7 +140,7 @@ class Subsystems:
         """The event loop all our tasks will run in."""
 
         asyncio.ensure_future(
-            asyncio_tools.poll_resource(
+            tools.poll_resource(
                 lambda: bool(self._menlo), 5, self.reset_menlo,
                 self._init_laser, name="Menlo"))
 
@@ -155,13 +148,13 @@ class Subsystems:
         # We keep the poller alive to monitor the RS232 connection which got
         # stuck sometimes during testing.
         self._dds = None  # type: dds9_control.Dds9Control
-        dds_poller = asyncio_tools.poll_resource(
+        dds_poller = tools.poll_resource(
             self.dds_alive, 15, self.reset_dds, continuous=True, name="DDS")
         self._dds_poller = self._loop.create_task(dds_poller)  # type: asyncio.Task
 
         # The DAQ connection will be established and monitored through polling.
         self._daq = None  # type: mccdaq.MccDaq
-        asyncio.ensure_future(asyncio_tools.poll_resource(
+        asyncio.ensure_future(tools.poll_resource(
             self.daq_alive, 3.7, self.reset_daq, name="DAQ"))
 
         self._temp_ramps = dict()  # type: Dict[int, TemperatureRamp]
@@ -207,7 +200,7 @@ class Subsystems:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
 
-    @static_variable('cache', {'time': 0, 'value': None})
+    @tools.static_variable('cache', {'time': 0, 'value': None})
     async def get_aux_temps(self, dont_log: bool = False, dont_cache: bool = False) -> List[float]:
         """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
 
@@ -216,7 +209,7 @@ class Subsystems:
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
-        cache = self.get_aux_temps.cache
+        cache = self.get_aux_temps.cache  # see decorator  # pylint: disable=no-member
         if time.time() - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
             LOGGER.info("Returning cached temps.")
             return cache['value']

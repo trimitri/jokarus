@@ -117,7 +117,7 @@ async def poll_resource(indicator: Callable[[], Union[bool, Awaitable[bool]]],
     for my_name, callback in (("prober", prober), ("on_connect", on_connect),
                               ("on_disconnect", on_disconnect)):
         if not callable(callback):
-            raise TypeError('Callback "%s" is not callable.', my_name)
+            raise TypeError('Callback {} is not callable.'.format(repr(my_name)))
 
     # This outer loop will only run more than once if the user wants us to keep
     # observing a currently healthy connection.
@@ -173,6 +173,14 @@ async def repeat_task(
     else:  # Run forever.
         while await async_call(do_continue):
             await run_once()
+
+
+def static_variable(variable_name: str, initial_value: Any) -> Callable[[Callable], Callable]:
+    """A decorator to add a static variable to a function."""
+    def decorator(function):
+        setattr(function, variable_name, initial_value)
+        return function
+    return decorator
 
 
 async def watch_loop(on_delay: Callable[[], Any],
