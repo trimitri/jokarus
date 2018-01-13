@@ -14,14 +14,14 @@ import logging
 import time
 from typing import Dict, List, Tuple, Union
 
-from . import lock_buddy  # for type annotations
+from . import lock_buddy  # for type annotations  # pylint: disable=unused-import
 from .temperature_ramp import TemperatureRamp
 from ..drivers import ecdl_mopa, dds9_control, menlo_stack, mccdaq, ms_ntc
 from ..util import asyncio_tools
 from .. import logger
 from .. import constants as cs
 
-LOGGER = logging.getLogger("pyodine.controller.subsystems")
+LOGGER = logging.getLogger("pyodine.controller.subsystems")  # logging.Logger
 LOGGER.setLevel(logging.DEBUG)
 
 # TODO: Drop this and use `TecUnit` below instead.
@@ -200,11 +200,24 @@ class Subsystems:
             raise ConnectionError(
                 "Couldn't fetch signal as DAQ is unavailable.") from err
 
-    async def get_aux_temps(self, dont_log: bool = False) -> List[float]:
+    async def get_aux_temps(self, dont_log: bool = False, dont_cache: bool = False) -> List[float]:
         """Read temperatures of auxiliary sensors, as indexed by AuxTemp.
+
+        This is cached, as it will be inquired very frequently by the runlevel
+        mechanisms and would load up the DAQ otherwise.
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
+        if 'cache' not in self.get_aux_temps.__dict__:
+            self.get_aux_temps.cache = {'result': None, 'time': 0}
+
+        now = time.time()
+        cache = self.get_aux_temps.cache
+        if now - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
+            LOGGER.info("Returning cached temps.")
+            return cache['result']
+
+        LOGGER.info("Actually measuring temps.")
         # Keep this synchronized with `AuxTemp`!
         channels = [(DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MO, mccdaq.InputRange.PM_5V),
