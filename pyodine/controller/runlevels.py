@@ -5,8 +5,11 @@ import enum
 import logging
 from typing import Awaitable, List  # pylint: disable=unused-import
 from . import procedures as proc
+from . import daemons
 from .subsystems import Subsystems
+from .lock_buddy import LockBuddy, LockStatus
 from .. import constants as cs
+from ..drivers.ecdl_mopa import LaserState
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger('runlevels')  # type: logging.Logger
@@ -86,8 +89,28 @@ class Runlevel(enum.IntEnum):
     """The working point is aligned, tuners have maximum range of motion. """
 
 
-async def get_level(subs: Subsystems) -> Runlevel:
-    return Runlevel.UNDEFINED  # FIXME Implement.
+async def get_level(subs: Subsystems, locker: LockBuddy) -> Runlevel:
+    """Determine current runlevel."""
+    tec = await proc.get_tec_status(subs)  # type: proc.TecStatus
+    laser = subs.laser.get_state()  # LaserState
+    lock = await locker.get_lock_status()  # LockStatus
+
+    if tec == proc.TecStatus.OFF and laser == LaserState.OFF:
+        return Runlevel.STANDBY
+    if tec == proc.TecStatus.AMBIENT and laser == LaserState.OFF:
+        return Runlevel.AMBIENT
+    if tec == proc.TecStatus.HOT and laser == LaserState.ON:
+        return Runlevel.HOT
+
+    # TODO: Check for "PRELOCK" runlevel.
+
+    if (tec == proc.TecStatus.HOT and laser == LaserState.ON
+            and lock == LockStatus.ON_LINE):
+        if daemons.is_running(daemons.Service.DRIFT_COMPENSATOR):
+            return Runlevel.BALANCED
+        return Runlevel.LOCK
+
+    return Runlevel.UNDEFINED
 
 
 async def pursue_ambient(subs: Subsystems) -> None:
