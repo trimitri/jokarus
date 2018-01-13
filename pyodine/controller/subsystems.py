@@ -209,7 +209,7 @@ class Subsystems:
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
         if 'cache' not in self.get_aux_temps.__dict__:
-            self.get_aux_temps.cache = {'result': None, 'time': 0}
+            setattr(self.get_aux_temps, 'cache', {'result': None, 'time': 0})
 
         now = time.time()
         cache = self.get_aux_temps.cache
