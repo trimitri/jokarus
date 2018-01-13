@@ -5,7 +5,7 @@ import enum
 import logging
 from typing import Awaitable, List  # pylint: disable=unused-import
 from . import procedures as proc
-from . import daemons
+from . import daemons, subsystems
 from .subsystems import Subsystems
 from .lock_buddy import LockBuddy, LockStatus
 from .. import constants as cs
@@ -123,7 +123,7 @@ async def pursue_ambient(subs: Subsystems) -> None:
 
 
 async def pursue_balanced(subs: Subsystems) -> None:
-    pass  # FIXME Implement.
+    await pursue_lock(subs)  # TODO Implement.
 
 
 async def pursue_hot(subs: Subsystems) -> None:
@@ -135,8 +135,21 @@ async def pursue_hot(subs: Subsystems) -> None:
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def pursue_lock(subs: Subsystems) -> None:
-    pass  # FIXME Implement.
+async def pursue_lock(subs: Subsystems, locker: LockBuddy) -> None:
+    jobs = []  # type: List[Awaitable[None]]
+    jobs.append(proc.pursue_tec_hot(subs))
+    jobs.append(proc.laser_power_up(subs))
+
+    # Try to invoke prelocker.  As with the other procedures above, this might
+    # fail depending on the system state.  But as we don't know which try will
+    # eventually succeed, we're registering our attempt with the daemons
+    # registry.
+    if not daemons.is_running(daemons.Service.PRELOCKER):
+        # FIXME review...
+        prelocker = GLOBALS.loop.create_task(
+            proc.prelock(subs, locker, subsystems.Tuners.MO))
+        daemons.register(daemons.Service.PRELOCKER, prelocker)
+    await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
 async def pursue_standby(subs: Subsystems) -> None:

@@ -225,7 +225,6 @@ async def pursue_tec_hot(subs: subsystems.Subsystems) -> None:
     If the system is anything but TecStatus.HOT, HEATING or AMBIENT, take a
     detour through pursuing AMBIENT first.
     """
-    _ensure_laser_is_off(subs)
     status = await get_tec_status(subs)
     if status == TecStatus.HOT:
         LOGGER.info("System is hot, nothing to do.")
@@ -408,12 +407,11 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
         aioconsole.start_interactive_server(factory=console_factory))
 
 
-async def prelock_and_lock(locker: lock_buddy.LockBuddy,
-                           prelock_tuner: lock_buddy.Tuner) -> asyncio.Task:
-    """Run the pre-lock algorithm and engage the frequency lock.
-
-    :raises lock_buddy.LockError: A lock couldn't be established.
-    """
+async def prelock(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy,
+                  prelock_tuner: lock_buddy.Tuner) -> None:
+    """Run the pre-lock algorithm."""
+    await _ensure_system_is(subs, TecStatus.HOT)
+    _ensure_laser_is(subs, LaserState.ON)
     dip = await locker.doppler_search(
         prelock_tuner, judge=partial(locker.is_correct_line, prelock_tuner, reset=True))
     for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
@@ -425,7 +423,6 @@ async def prelock_and_lock(locker: lock_buddy.LockBuddy,
         dip = await locker.doppler_sweep()
     else:
         raise lock_buddy.DriftError("Unable to center doppler line.")
-    return locker.engage_and_maintain()
 
 
 async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
@@ -438,7 +435,7 @@ async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
     recommended to call it "watchdog style" until `get_tec_status()` returns
     "AMBIENT".
     """
-    _ensure_laser_is_off(subs)
+    _ensure_laser_is(subs, LaserState.OFF)
     status = await get_tec_status(subs)
     if status == TecStatus.AMBIENT:
         LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
@@ -482,14 +479,14 @@ async def tec_off(subs: subsystems.Subsystems) -> None:
 ##  private  ##
 ###############
 
-def _ensure_laser_is_off(subs: subsystems.Subsystems) -> None:
+def _ensure_laser_is(subs: subsystems.Subsystems, state: LaserState) -> None:
     """Ensure that Laser is off before doing automated TEC stuff.
 
     :raises StateError: Laser is not `LaserState.OFF`.
     """
     laser_state = subs.laser.get_state()  # type: LaserState
-    if laser_state != LaserState.OFF:
-        raise StateError("Won't touch TECs, as laser is {}.".format(repr(laser_state)))
+    if laser_state != state:
+        raise StateError("Won't do thing, as laser is {}.".format(repr(laser_state)))
 
 
 async def _ensure_system_is(subs: subsystems.Subsystems, status: TecStatus) -> None:
@@ -575,7 +572,7 @@ async def _land_vhbg(subs: subsystems.Subsystems) -> None:
     after (has been called until _is_vhbg_airborne() returns true)
         VHBG TEC is off.  MiOB TEC still active.
     """
-    _ensure_laser_is_off(subs)
+    _ensure_laser_is(subs, LaserState.OFF)
     vhbg = subsystems.TecUnit.VHBG
     miob = subsystems.TecUnit.MIOB
     if not subs.is_tec_enabled(vhbg):
@@ -603,7 +600,7 @@ async def _launch_vhbg(subs: subsystems.Subsystems) -> None:
 
     Will do nothing if MiOB is anything but live.
     """
-    _ensure_laser_is_off(subs)
+    _ensure_laser_is(subs, LaserState.OFF)
     miob = subsystems.TecUnit.MIOB
     vhbg = subsystems.TecUnit.VHBG
     miob_temp = subs.get_temp(miob)
