@@ -211,10 +211,10 @@ class Subsystems:
         """
         cache = self.get_aux_temps.cache  # see decorator  # pylint: disable=no-member
         if time.time() - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
-            LOGGER.info("Returning cached temps.")
+            LOGGER.debug("Returning cached temperatures")
             return cache['value']
 
-        LOGGER.info("Actually measuring temps.")
+        LOGGER.info("Actually measuring temperatures.")
         # Keep this synchronized with `AuxTemp`!
         channels = [(DaqInput.NTC_CELL, mccdaq.InputRange.PM_5V),
                     (DaqInput.NTC_MO, mccdaq.InputRange.PM_5V),
