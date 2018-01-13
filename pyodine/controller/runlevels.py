@@ -132,6 +132,7 @@ async def pursue_hot(subs: Subsystems) -> None:
     jobs.append(proc.pursue_tec_hot(subs))
     jobs.append(proc.laser_power_up(subs))
     jobs.append(proc.release_lock(subs))
+    await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
 async def pursue_lock(subs: Subsystems) -> None:
