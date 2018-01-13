@@ -3,9 +3,10 @@
 /* eslint no-lone-blocks: "off" */
 /* global Plotter */
 /* global FbgUtil */
+/* global JustGage */
 
 // Require jQuery. Don't use global scope. (IIFE)
-(function jqueryWrapper($) {
+(function scopeWrapper() {
   'use strict';
 
   // Provide a global variable to access the websocket connection although it's
@@ -45,6 +46,17 @@
     container.data('value', newValue);
     $('td.updated', container).html((new Date()).toLocaleTimeString());
   }
+
+  const updateRunlevel = function (requested, reported, isTransitioning) {
+    JustGage({
+      id: 'requested_runlevel',
+      value: requested,
+    });
+    JustGage({
+      id: 'reported_runlevel',
+      value: reported,
+    });
+  };
 
   function updateTexusFlags(newValuesObj) {
     Object.keys(newValuesObj).forEach((key) => {
@@ -288,6 +300,8 @@
           }
         });
       });
+
+      updateRunlevel(3, 4, false);
     }
   });
-}(jQuery));
+}());

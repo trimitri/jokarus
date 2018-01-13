@@ -8,9 +8,11 @@
 		<link rel="stylesheet" href="styles.css" />
 		<link rel="icon" href="pyodine_logo.png" type="image/png" />
 
+		<script src="lib/jquery.canvasjs.min.js"></script>
+		<script src="lib/raphael-2.1.4.min.js"></script>
+		<script src="lib/justgage.js"></script>
 		<script src="lib/jquery-3.1.1.min.js"></script>
 		<script src="lib/jquery-ui-1.12.1.min.js"></script>
-		<script src="lib/jquery.canvasjs.min.js"></script>
 		<script src="pyodine.js"></script>
 		<script src="plotter.js"></script>
 		<script src="fbg_util.js"></script>
@@ -63,6 +65,11 @@
 				<li><a href="#tab_temps">Temperatures</a></li>
 			</ul>
 			<div id="tab_texus" class="flex_container">
+				<div class="layout_block">
+					<h2>TEXUS Communication</h2>
+					<div id="requested_runlevel"></div>
+					<div id="reported_runlevel"></div>
+				</div>
 				<div class="layout_block">
 					<h2>Incoming Flags</h2>
 					<table id="incoming_flags" class="flags">
