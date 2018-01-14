@@ -97,7 +97,8 @@ async def compensate_temp_drifts() -> None:
         return await GL.locker.get_lock_status() == lock_buddy.LockStatus.ON_LINE
 
     if not await condition():
-        raise lock_buddy.LockError("Can only compensate running locks.")
+        LOGGER.debug("Can only compensate running locks. Aborting.")
+        return
 
     await tools.repeat_task(balancer, period=0.6, do_continue=condition)
     LOGGER.warning("Stopped temp drift compensator, as lock is %s.",
