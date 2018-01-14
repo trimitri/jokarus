@@ -146,6 +146,7 @@ async def pursue_lock() -> None:
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.pursue_tec_hot())
     jobs.append(proc.laser_power_up())
+    jobs.append(proc.release_lock())
     daemons.register(daemons.Service.LOCKER,
                      GL.loop.create_task(_lock_runner()))
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
@@ -239,8 +240,11 @@ async def _lock_runner() -> None:
     This will start prelock again, if lock is lost.
     """
     if await GL.locker.get_lock_status() != LockStatus.ON_LINE:
+        LOGGER.info("Running prelock for lock.")
         await proc.prelock(subsystems.Tuners.MO)  # raises on failure
+        LOGGER.info("Engaging lock.")
         await GL.locker.engage_and_maintain()
+        LOGGER.info("Failed lock.")
 
 
 async def _prelock_runner() -> None:
