@@ -251,21 +251,25 @@ class LockBuddy:
         :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
                     is used again if `None` is given.
         :raises InvalidStateError: Lock was not disengaged before.
-        :raises RuntimeError: Callback threw an Exception.
+        :raises ConnectionError: Callback didn't provide readings.
         :raises ValueError: Range is out of ]0, 1].
         """
 
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.
         if not await self.get_lock_status() == LockStatus.OFF:
-            raise RuntimeError("Disengage lock before acquiring signals.")
+            raise InvalidStateError("Disengage lock before acquiring signals.")
 
         if not rel_range:
             rel_range = self.range
         else:
             self.range = rel_range
 
-        self.recent_signal = await self._scanner(rel_range)
+        self.recent_signal = await tools.safe_async_call(self._scanner, rel_range)
+
+        if not self.recent_signal.any():
+            raise ConnectionError("Didn't get readings from callback.")
+
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 

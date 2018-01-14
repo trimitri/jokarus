@@ -257,17 +257,9 @@ class Interfaces:
         :raises lock_buddy.InvalidStateError: Acquiring currently not allowed.
         """
         LOGGER.info("Acquiring error signal...")
-        await self._locker.acquire_signal()
-        raw_data = self._locker.recent_signal
-
-        # Chech if scan went fine. Contrary to pyton lists, numpy arrays don't
-        # always support bool().
-        if not raw_data.any():
-            raise RuntimeError("Couldn't publish signal as no signal was generated.")
-
+        data = await self._locker.acquire_signal()
         LOGGER.info("Acquired error signal...")
-
-        return raw_data
+        return data
 
     async def _publish_message(self, message: str, species: Any) -> None:
         # The vastly different throughput of RS232 vs. Ethernet connections
