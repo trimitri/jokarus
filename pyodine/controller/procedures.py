@@ -498,6 +498,7 @@ async def tec_off() -> None:
     await _ensure_system_is(TecStatus.AMBIENT)  # raises
     tecs = subsystems.TecUnit
     for unit in tecs.SHGA, tecs.SHGB, tecs.MIOB:
+        GL.subs.switch_temp_ramp(unit, False)
         GL.subs.switch_tec_by_id(unit, False)
 
 ###############
