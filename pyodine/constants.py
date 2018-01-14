@@ -247,7 +247,7 @@ runlevel management loop in case that any of them blocks.
 
 Powering the laser up or down takes up to 10 seconds.
 """
-RUNLEVEL_REFRESH_INTERVAL = 2.
+RUNLEVEL_REFRESH_INTERVAL = 5.
 """Work on synchronizing system with requested runlevel every ~ seconds."""
 
 SHGA_WORKING_TEMP = 40.95
@@ -284,6 +284,8 @@ TEMP_LASER_TRAY_DELTA = 1.
 """A temperature gradient of more K than this between the laser tray NTCs
 considered an erroneous reading.
 """
+TEMP_RAMP_UPDATE_INTERVAL = 0.73
+"""The interval at which the setpoint gets updated (in seconds). """
 TEMP_SPEC_TRAY_DELTA = 3.
 """A temperature gradient of more K than this between the SHG and spec cell
 NTCs is considered an erroneous reading.

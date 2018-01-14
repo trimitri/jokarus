@@ -476,6 +476,10 @@ async def pursue_tec_ambient() -> None:
 
 async def release_lock() -> None:
     """Release the laser from frequency lock."""
+    status = GL.locker.get_lock_status()
+    if status == lock_buddy.LockStatus.OFF:
+        LOGGER.debug("Lock is off already, doing nothing.")
+        return
     GL.subs.switch_lock(False)
     GL.subs.switch_pii_ramp(True)
     GL.subs.switch_integrator(1, False)

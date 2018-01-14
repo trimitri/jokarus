@@ -9,17 +9,9 @@ import math
 import time
 from typing import Callable
 
+from .. import constants as cs
+from ..globals import GLOBALS as GL
 from ..util import asyncio_tools as tools
-
-# The interval at which the transitional setpoint gets updated (in seconds). It
-# is advisable to use some weird number here to make sure that asyncio tasks
-# are somewhat spread in time.
-UPDATE_INTERVAL = 0.73
-
-# The distance (in Kelvin) between setpoint and temperature reading that is
-# acceptable during normal operation of the ramp. Do not set this to zero, as
-# it might significantly slow down operation or even impede it.
-ACCEPTABLE_OFFSET = 1.0
 
 
 class TemperatureRamp:
@@ -48,13 +40,16 @@ class TemperatureRamp:
 
         self._target = None  # type: float  # current target temperature
 
+        async def dummy():
+            return
+        self._task = GL.loop.create_task(dummy())  # type: asyncio.Task
+
         # Current transitional setpoint (in deg. Celsius).
         self._current_setpt = None  # type: float
 
         # Previous transitional setpoint (in deg. Celsius).
         self._prev_setpt = None  # type: float
 
-        self._keep_running = False  # Is used to break the loop when runnning.
         self._last_update = time.time()
 
     @property
@@ -73,7 +68,7 @@ class TemperatureRamp:
     @property
     def is_running(self) -> bool:
         """Is the temperature control currently running?"""
-        return self._keep_running
+        return self._task.done()
 
     @property
     def temperature(self) -> float:
@@ -83,8 +78,8 @@ class TemperatureRamp:
         """Start/resume pediodically setting the temp. setpoint."""
 
         # Ensure prerequisites.
-        if self._keep_running:
-            self.logger.warning("%s ramp is already running.", self.name)
+        if self.is_running:
+            self.logger.debug("%s ramp is already running. Ignoring.", self.name)
             return
         if self._target is None or not math.isfinite(self._target):
             self.logger.error(
@@ -92,11 +87,10 @@ class TemperatureRamp:
             return
         self.logger.debug("Starting to ramp temperature.")
 
-        self._keep_running = True
         self._init_ramp()
-        asyncio.ensure_future(tools.repeat_task(
-            self._update_transitional_setpoint, UPDATE_INTERVAL,
-            lambda: self._keep_running))
+        self._task.cancel()
+        GL.loop.create_task(tools.repeat_task(
+            self._update_transitional_setpoint, cs.TEMP_RAMP_UPDATE_INTERVAL))
 
     def pause_ramp(self) -> None:
         """Stop setting new temp. setpoints, stay at current value."""
@@ -106,7 +100,7 @@ class TemperatureRamp:
         # Reset the instance state to the same state as if the ramp wouldn't
         # have been started yet.  This makes sure that the resume procedure has
         # to check for actual current system state.
-        self._keep_running = False
+        self._task.cancel()
         self._current_setpt = None
         self._prev_setpt = None
 
@@ -119,26 +113,26 @@ class TemperatureRamp:
             return
 
         # Are we close enough to the current setpoint to continue?
-        if abs(self.temperature - self._current_setpt) < ACCEPTABLE_OFFSET:
+        if abs(self.temperature - self._current_setpt) < cs.TEMP_GENERAL_ERROR:
             self._set_next_setpoint()
         else:
             # Don't do anything and wait until next invocation for the object
             # temperature to settle.
             self.logger.warning(
                 "Thermal load didn't follow ramp. Delaying ramp continuation "
-                "by %s seconds. (is: %s, want: %s)", UPDATE_INTERVAL,
+                "by %s seconds. (is: %s, want: %s)", cs.TEMP_RAMP_UPDATE_INTERVAL,
                 self.temperature, self._current_setpt)
 
     def _set_next_setpoint(self) -> None:
         # Just set the next point, assuming that sanity test have been run.
         if not self.maximum_gradient > 0:
-            raise ValueError("Invalid temperature gradient (%s) was set.",
-                             self.maximum_gradient)
+            raise ValueError("Invalid temperature gradient "
+                             "({}) was set.".format(repr(self.maximum_gradient)))
 
         passed_time = time.time() - self._last_update
-        if passed_time >= 2 * UPDATE_INTERVAL:
+        if passed_time >= 2 * cs.TEMP_RAMP_UPDATE_INTERVAL:
             self.logger.debug("Restarting retired ramp.")
-            passed_time = UPDATE_INTERVAL
+            passed_time = cs.TEMP_RAMP_UPDATE_INTERVAL
         # Calculate a candidate for next transitional setpoint.
         sign = -1 if self._target < self._current_setpt else 1
         next_setpt = self._current_setpt \
