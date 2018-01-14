@@ -2,7 +2,7 @@
 
 import asyncio
 
-from .controller import lock_buddy, subsystems  # pylint: disable=unused-import
+from .controller import interfaces, lock_buddy, subsystems  # pylint: disable=unused-import
 
 class GLOBALS:  # pylint: disable=too-few-public-methods
     """Stuff that would otherwise get passed around throughout pyodine.
@@ -11,6 +11,8 @@ class GLOBALS:  # pylint: disable=too-few-public-methods
     those objects are only existing at most once throughout the whole program
     lifetime.
     """
+    face = None  # type: interfaces.Interfaces
+    """The interfaces management object."""
     loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
     """The event loop used for scheduling background tasks.
 

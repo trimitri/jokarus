@@ -292,9 +292,12 @@ def init_locker() -> lock_buddy.LockBuddy:
         setter=lambda _: None,  # not used
         name="Lockbox")
 
-    # Log all acquired signals.
-    def on_new_signal(data: np.ndarray) -> None:
-        """Logs the received array as base64 string."""
+    # Log and publish all acquired signals.
+    async def on_new_signal(data: cs.SpecScan) -> None:
+        """Logs the received array as base64 string and publishes."""
+
+        await GL.face.publish_error_signal(data)
+
         data_type = str(data.dtype)
         shape = str(data.shape)
         values = base64.b64encode(data).decode()  # base64-encoded str()

@@ -35,6 +35,9 @@ class LockError(RuntimeError):
 class DriftError(LockError):
     """System behaves in an unstable manner, possibly due to drifts."""
     pass
+class InvalidStateError(LockError):
+    """Action not possible in current run state."""
+    pass
 class SnowblindError(LockError):
     """In search for a feature, we found nothing but an empty void.
 
@@ -247,7 +250,7 @@ class LockBuddy:
 
         :param rel_range: The scan amplitude in ]0, 1]. The last used amplitude
                     is used again if `None` is given.
-        :raises RuntimeError: Lock was not disengaged before.
+        :raises InvalidStateError: Lock was not disengaged before.
         :raises RuntimeError: Callback threw an Exception.
         :raises ValueError: Range is out of ]0, 1].
         """
@@ -262,11 +265,7 @@ class LockBuddy:
         else:
             self.range = rel_range
 
-        try:
-            self.recent_signal = await self._scanner(rel_range)
-        except Exception as err:  # We don't know anything about the callback.
-            raise RuntimeError('"scanner" Callback raised an exception.') from err
-
+        self.recent_signal = await self._scanner(rel_range)
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 

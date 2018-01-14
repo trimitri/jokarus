@@ -18,7 +18,7 @@ from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
 from ..transport import packer
-from ..controller import subsystems
+from ..controller import lock_buddy, subsystems
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
@@ -132,8 +132,8 @@ class Interfaces:
         """
         services = []  # type: List[Awaitable]
         if signal_interval > 0:
-            services.append(asyncio_tools.repeat_task(self.publish_error_signal,
-                                                      signal_interval))
+            services.append(asyncio_tools.repeat_task(
+                self._try_publishing_error_signal, signal_interval))
         if flags_interval > 0:
             services.append(asyncio_tools.repeat_task(self.publish_flags,
                                                       flags_interval))
@@ -157,41 +157,29 @@ class Interfaces:
 
         return asyncio.gather(*services)
 
-    async def publish_error_signal(self) -> None:
+    async def publish_error_signal(self, signal: cs.SpecScan) -> None:
         """Publish the most recently acquired error signal.
 
         As we need to be considerate about bandwidth and the data is only
         intended for display and backup logging, we might apply some
         compression.
         """
-        try:
-            await self._locker.acquire_signal()
-        except RuntimeError:
-            LOGGER.debug("Couldn't publish error signal:", exc_info=True)
-            return
-        raw_data = self._locker.recent_signal
-
-        # Check if a scan was already performed. Contrary to pyton lists, numpy
-        # arrays don't always support bool().
-        if not raw_data.any():
-            LOGGER.warning("Couldn't publish signal as no signal was generated yet")
-            return
 
         # Drop some values before publishing if this was a high-res scan.
-        while raw_data.shape[0] > MAX_SIGNAL_SAMPLES:
+        while signal.shape[0] > MAX_SIGNAL_SAMPLES:
             # Delete one third of the samples. That's not a very elegant way to
             # do it but it gets the job done in OK time.
-            raw_data = np.delete(raw_data, np.arange(1, raw_data.size, 3),
-                                 axis=0)
+            signal = np.delete(signal, np.arange(1, signal.size, 3), axis=0)
 
-        LOGGER.debug("Sending %s uint16 values.", raw_data.size)
+        LOGGER.debug("Sending %s uint16 values.", signal.size)
 
         # Use base64 encoding, as it is common with browsers and saves a lot of
         # bandwidth when compared to plaintext encoding.
-        encoded_string = base64.b64encode(raw_data.tobytes()).decode()
-        payload = {'data': encoded_string, 'shape': raw_data.shape}
+        encoded_string = base64.b64encode(signal.tobytes()).decode()
+        payload = {'data': encoded_string, 'shape': signal.shape}
 
-        await self._publish_message(packer.create_message(payload, 'signal'), 'signal')
+        await self._publish_message(packer.create_message(payload, 'signal'),
+                                    'signal')
         LOGGER.debug("Published error signal.")
 
     async def publish_flags(self) -> None:
@@ -263,6 +251,21 @@ class Interfaces:
         """Register a callback to handle changes in TEXUS time state."""
         self._timer_callback = handler
 
+    async def _acquire_error_signal(self) -> cs.SpecScan:
+        """Fetch an error signal if possible.
+
+        :raises lock_buddy.InvalidStateError: Acquiring currently not allowed.
+        """
+        await self._locker.acquire_signal()
+        raw_data = self._locker.recent_signal
+
+        # Chech if scan went fine. Contrary to pyton lists, numpy arrays don't
+        # always support bool().
+        if not raw_data.any():
+            raise RuntimeError("Couldn't publish signal as no signal was generated.")
+
+        return raw_data
+
     async def _publish_message(self, message: str, species: Any) -> None:
         # The vastly different throughput of RS232 vs. Ethernet connections
         # calls for a nontrivial approach in publication scheduling.
@@ -289,3 +292,9 @@ class Interfaces:
         called at all."""
         self._loop.create_task(self.publish_setup_parameters())
         self._loop.create_task(self.publish_flags())
+
+    async def _try_publishing_error_signal(self) -> None:
+        try:
+            await self.publish_error_signal(await self._acquire_error_signal())
+        except lock_buddy.InvalidStateError:
+            LOGGER.debug("Acquiring error signal was forbidden.")
