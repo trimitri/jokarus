@@ -43,6 +43,7 @@ class TemperatureRamp:
         async def dummy():
             return
         self._task = GL.loop.create_task(dummy())  # type: asyncio.Task
+        self._keep_running = False
 
         # Current transitional setpoint (in deg. Celsius).
         self._current_setpt = None  # type: float
@@ -88,9 +89,11 @@ class TemperatureRamp:
         self.logger.debug("Starting to ramp temperature.")
 
         self._init_ramp()
+        self._keep_running = True
         self._task.cancel()
         GL.loop.create_task(tools.repeat_task(
-            self._update_transitional_setpoint, cs.TEMP_RAMP_UPDATE_INTERVAL))
+            self._update_transitional_setpoint, cs.TEMP_RAMP_UPDATE_INTERVAL,
+            do_continue=lambda: self._keep_running))
 
     def pause_ramp(self) -> None:
         """Stop setting new temp. setpoints, stay at current value."""
@@ -100,6 +103,7 @@ class TemperatureRamp:
         # Reset the instance state to the same state as if the ramp wouldn't
         # have been started yet.  This makes sure that the resume procedure has
         # to check for actual current system state.
+        self._keep_running = False
         self._task.cancel()
         self._current_setpt = None
         self._prev_setpt = None
