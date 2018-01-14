@@ -10,9 +10,12 @@ import base64
 import enum
 from functools import partial
 import logging
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, NamedTuple
+
 import numpy as np
 import aioconsole
+
 from . import lock_buddy, subsystems
 from ..globals import GLOBALS as GL
 from .. import constants as cs
@@ -56,14 +59,16 @@ class ReturnState(enum.IntEnum):
     SUCCESS = 0
     FAIL = 1
 
+PrelockResult = NamedTuple('PrelockResult', [('time', float),
+                                             ('signal', cs.DopplerLine)])
+"""Information about a completed prelock run."""
+
 class StateError(RuntimeError):
     """Something is unsafe or not possible in the current system state."""
     pass
-
 class TecError(RuntimeError):
     """Something went wrong with the thermoelectric cooling subsystem."""
     pass
-
 class TecStatusError(RuntimeError):
     """The system is in the wront `TecStatus`."""
     pass
@@ -408,10 +413,12 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
         aioconsole.start_interactive_server(factory=console_factory))
 
 
-async def prelock(prelock_tuner: lock_buddy.Tuner) -> None:
+async def prelock(prelock_tuner: lock_buddy.Tuner) -> PrelockResult:
     """Run the pre-lock algorithm."""
     await _ensure_system_is(TecStatus.HOT)
     _ensure_laser_is(LaserState.ON)
+    await _ensure_lock_is(lock_buddy.LockStatus.OFF)
+
     dip = await GL.locker.doppler_search(
         prelock_tuner, judge=partial(GL.locker.is_correct_line, prelock_tuner, reset=True))
     for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
@@ -423,6 +430,7 @@ async def prelock(prelock_tuner: lock_buddy.Tuner) -> None:
         dip = await GL.locker.doppler_sweep()
     else:
         raise lock_buddy.DriftError("Unable to center doppler line.")
+    return PrelockResult(time=time.time(), signal=dip)
 
 
 async def pursue_tec_ambient() -> None:
@@ -487,6 +495,16 @@ def _ensure_laser_is(state: LaserState) -> None:
     laser_state = GL.subs.laser.get_state()  # type: LaserState
     if laser_state != state:
         raise StateError("Won't do thing, as laser is {}.".format(repr(laser_state)))
+
+
+async def _ensure_lock_is(status: lock_buddy.LockStatus) -> None:
+    """Ensure that the lockbox status is `status` and raise otherwise.
+
+    :raises StateError: Lockbox is not is not `status`.
+    """
+    lb_status = await GL.locker.get_lock_status()  # type: lock_buddy.LockStatus
+    if lb_status != status:
+        raise StateError("Lockbox is {}, refusing to do thing.".format(repr(lb_status)))
 
 
 async def _ensure_system_is(status: TecStatus) -> None:

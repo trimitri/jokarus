@@ -140,8 +140,8 @@ async def poll_resource(indicator: Callable[[], Union[bool, Awaitable[bool]]],
 
 
 async def repeat_task(
-        coro: Callable[[], Optional[Awaitable[None]]],
-        period: float,
+        coro: Callable[[], Any],
+        period: float = 0,
         do_continue: Callable[[], Union[bool, Awaitable[bool]]] = lambda: True,
         reps: int = 0, min_wait_time: float = 0.1) -> None:
     """Repeat a task at given time intervals forever or ``reps`` times.
@@ -175,7 +175,8 @@ async def repeat_task(
             await run_once()
 
 
-def static_variable(variable_name: str, initial_value: Any) -> Callable[[Callable], Callable]:
+def static_variable(variable_name: str,
+                    initial_value: Any) -> Callable[[Callable], Callable]:
     """A decorator to add a static variable to a function."""
     def decorator(function):
         setattr(function, variable_name, initial_value)

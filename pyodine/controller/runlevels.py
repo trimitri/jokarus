@@ -2,6 +2,7 @@
 
 import asyncio
 import enum
+from functools import partial
 import logging
 from typing import Awaitable, List  # pylint: disable=unused-import
 from . import procedures as proc
@@ -10,7 +11,7 @@ from .lock_buddy import LockStatus
 from .. import constants as cs
 from ..globals import GLOBALS as GL
 from ..drivers.ecdl_mopa import LaserState
-from ..util import asyncio_tools
+from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('runlevels')  # type: logging.Logger
 
@@ -127,6 +128,22 @@ async def pursue_hot() -> None:
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
+async def pursue_prelock() -> None:
+    """Kick-off changes that get the system closer to Runlevel.PRELOCK."""
+    jobs = []  # type: List[Awaitable[None]]
+    jobs.append(proc.pursue_tec_hot())
+    jobs.append(proc.laser_power_up())
+    jobs.append(proc.release_lock())
+
+    # Try to invoke prelocker.  As with the other procedures above, this might
+    # fail depending on the system state.  But as we don't know which try will
+    # eventually succeed, we're registering our attempt with the daemons
+    # registry.
+    if not daemons.is_running(daemons.Service.PRELOCKER):
+        daemons.register(daemons.Service.PRELOCKER,
+                         GL.loop.create_task(_prelock_runner()))
+    await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
+
 async def pursue_lock() -> None:
     """Kick-off changes that get the system closer to Runlevel.LOCK."""
     jobs = []  # type: List[Awaitable[None]]
@@ -156,8 +173,8 @@ async def pursue_standby() -> None:
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def request_runlevel(level: Runlevel) -> None:
-    """Send the system to runlevel `level` and return if it's there already.
+async def pursue_runlevel() -> None:
+    """Kick off changes getting the system closer to the requested runlevel.
 
     This can (and needs to be) called multiple times, usually until the desired
     runlevel is reached.
@@ -173,6 +190,7 @@ async def request_runlevel(level: Runlevel) -> None:
                 it.  This would not usually be a good practice, but in this
                 case, a stable program is preferrable to a debuggable one.
     """
+    level = REQUEST.level
     if level == Runlevel.UNDEFINED:
         LOGGER.warning("Runlevel `UNDEFINED` must not be requested.")
     elif level == Runlevel.SHUTDOWN:
@@ -193,20 +211,24 @@ async def request_runlevel(level: Runlevel) -> None:
         raise ValueError("Unknown runlevel {}.".format(repr(level)))
 
 
-def start_runner() -> asyncio.Task:
+async def start_runner() -> None:
     """Start continuously synchronizing system state with requested state.
 
     :raises RuntimerError: Globals weren't fully set.
     """
-    validate_globals()  # raises
-    async def iteration() -> None:
-        await request_runlevel(REQUEST.level)
-    return GL.loop.create_task(
-        asyncio_tools.repeat_task(iteration, cs.RUNLEVEL_REFRESH_INTERVAL))
+    _validate_request()  # raises
+    await tools.repeat_task(pursue_runlevel, cs.RUNLEVEL_REFRESH_INTERVAL)
 
 
-def validate_globals() -> None:
+def _validate_request() -> None:
     """Make sure all the globals are set.  They are not set on import."""
     for setting in [REQUEST.liftoff, REQUEST.microg, REQUEST.off, REQUEST.level]:
         if setting is None:
             raise RuntimeError("`runlevels.py` doesn't know the system state.")
+
+
+async def _prelock_runner() -> None:
+    """The continuous prelock-only runner."""
+    # Repeat prelock process some seconds after it has completed.
+    await tools.repeat_task(partial(proc.prelock, subsystems.Tuners.MO),
+                            min_wait_time=cs.PRELOCK_REST_PERIOD)

@@ -230,6 +230,8 @@ PRELOCK_MAX_RANGE = LaserMhz(10000)
 """There is no point in "tuning" the laser further than this, as there will be
 mode hops anyway.
 """
+PRELOCK_REST_PERIOD = 5.
+"""After a successful prelock, wait ~ seconds before starting over."""
 PRELOCK_STEP_SIZE = SpecMhz(800)
 """Step size to take when searching for doppler-broadened lines."""
 PRELOCK_TUNER_SPEED_CONSTRAINT = 5

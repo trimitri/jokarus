@@ -9,15 +9,10 @@ class Service(enum.IntEnum):
     """Major pyodine daemons."""
     DRIFT_COMPENSATOR = 10
     """Temperature drift compensator on a running lock (procedures.py). """
-    PRELOCKER = 20
-    """Prelock and lock and basic lock maintenance algorithm.
-
-    If this is running, the system is locked (at least should be).
-    """
-    BALANCER = 30
-    """Adjusts the MiOB temperature in a running lock to allow the MO current
-    tuner to stay in the center of it's range of motion.
-    """
+    LOCKER = 20
+    """Maintains a running lock.  Included relocker and simple balancer."""
+    PRELOCKER = 30
+    """Prelock-maintainer that doesn't actually lock. """
 
 
 TASKS = {}  # type: Dict[Service, asyncio.Task]
