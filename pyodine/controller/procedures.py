@@ -371,9 +371,15 @@ async def laser_power_up() -> None:
     :raises TecStatusError: System isn't temperature-controlled.
     :raises ConnectionError: Lighting up failed.
     """
-    if GL.subs.laser.get_state() == LaserState.ON:
+    state = GL.subs.laser.get_state()
+    if state == LaserState.ON:
         LOGGER.info("Laser is already ON. Doing nothing.")
         return
+    if state == LaserState.UNDEFINED:
+        LOGGER.error("Laser was UNDEFINED switching off instead of on.")
+        await laser_power_down()
+        return
+
     await _ensure_system_is(TecStatus.HOT)
     LOGGER.info("Powering up laser...")
     GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)

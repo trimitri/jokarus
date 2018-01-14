@@ -240,13 +240,12 @@ PRELOCK_TUNER_SPEED_CONSTRAINT = 5
 RS232_MAX_MESSAGE_BYTES = 102400  # 100kiB
 """Maximum message size in bytes the RS232 relay has to expect from pyodine."""
 
-RUNLEVEL_PURSUE_KICKOFF_TIMEOUT = 3.
+RUNLEVEL_PURSUE_KICKOFF_TIMEOUT = 15.
 """None of the group of pursue...() methods in the runlevel mechanism shall
 take longer than this many seconds.  This is important to not block the
 runlevel management loop in case that any of them blocks.
 
-None of those functions do wait for actual work to be finished but instead just
-kick it off and then leave, which is why this timeout is realistic.
+Powering the laser up or down takes up to 10 seconds.
 """
 RUNLEVEL_REFRESH_INTERVAL = 2.
 """Work on synchronizing system with requested runlevel every ~ seconds."""

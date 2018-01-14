@@ -146,12 +146,12 @@ async def pursue_lock() -> None:
     if daemons.is_running(daemons.Service.LOCKER):
         LOGGER.debug("Currently locked.  Doing nothing.")
         return
+    daemons.register(daemons.Service.LOCKER,
+                     GL.loop.create_task(_lock_runner()))
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.pursue_tec_hot())
     jobs.append(proc.laser_power_up())
     jobs.append(proc.release_lock())
-    daemons.register(daemons.Service.LOCKER,
-                     GL.loop.create_task(_lock_runner()))
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
