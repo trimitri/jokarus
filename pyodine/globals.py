@@ -1,8 +1,14 @@
 """Provide a centralized place of access to global objects."""
 
 import asyncio
+import typing
 
-from .controller import interfaces, lock_buddy, subsystems  # pylint: disable=unused-import
+if typing.TYPE_CHECKING:
+    # For the type annotations below to work, we need these "unneeded" imports.
+    # The type annotations, on the other hand, are crucial for mypy and jedi to
+    # work.  And if we don't hide those imports during a normal run, there are
+    # cyclic imports.
+    from .controller import interfaces, lock_buddy, subsystems
 
 class GLOBALS:  # pylint: disable=too-few-public-methods
     """Stuff that would otherwise get passed around throughout pyodine.
