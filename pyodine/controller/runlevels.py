@@ -86,21 +86,24 @@ async def get_level() -> Runlevel:
     """Determine current runlevel."""
     tec = await proc.get_tec_status()  # type: proc.TecStatus
     laser = GL.subs.laser.get_state()  # LaserState
-    lock = await GL.locker.get_lock_status()  # LockStatus
 
     if tec == proc.TecStatus.OFF and laser == LaserState.OFF:
         return Runlevel.STANDBY
+
     if tec == proc.TecStatus.AMBIENT and laser == LaserState.OFF:
         return Runlevel.AMBIENT
+
     if tec == proc.TecStatus.HOT and laser == LaserState.ON:
-        if daemons.is_running(daemons.Service.PRELOCKER):
-            return Runlevel.PRELOCK
-        return Runlevel.HOT
-    if (tec == proc.TecStatus.HOT and laser == LaserState.ON
-            and lock == LockStatus.ON_LINE):
         if daemons.is_running(daemons.Service.DRIFT_COMPENSATOR):
             return Runlevel.BALANCED
-        return Runlevel.LOCK
+
+        if daemons.is_running(daemons.Service.LOCKER):
+            return Runlevel.LOCK
+
+        if daemons.is_running(daemons.Service.PRELOCKER):
+            return Runlevel.PRELOCK
+
+        return Runlevel.HOT
 
     return Runlevel.UNDEFINED
 
