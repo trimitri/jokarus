@@ -8,7 +8,7 @@ from . import procedures as proc
 from . import daemons, subsystems
 from .lock_buddy import LockStatus
 from .. import constants as cs
-from ..main import GLOBALS as GL
+from ..globals import GLOBALS as GL
 from ..drivers.ecdl_mopa import LaserState
 from ..util import asyncio_tools
 

@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, List, Optional, Union  # pylint: di
 import numpy as np
 
 from .. import constants as cs
-from ..main import GLOBALS as GL
+from ..globals import GLOBALS as GL
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay

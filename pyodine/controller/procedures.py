@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 import numpy as np
 import aioconsole
 from . import lock_buddy, subsystems
-from ..main import GLOBALS as GL
+from ..globals import GLOBALS as GL
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools
