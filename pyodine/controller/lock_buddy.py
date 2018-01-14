@@ -412,7 +412,9 @@ class LockBuddy:
             nonlocal balancer
             balancer = self._loop.create_task(self.start_balancer())
 
+        LOGGER.info("LockBuddy._lock")
         await self._lock()
+        LOGGER.info("LockBuddy._lock done")
         try:
             launch_balancer()
             # The balancer may fail during relock operations and thus needs to

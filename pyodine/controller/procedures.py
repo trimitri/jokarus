@@ -106,6 +106,7 @@ async def compensate_temp_drifts() -> None:
 
 async def engage_lock() -> None:
     """Run the timed procedure needed to engage the frequency lock."""
+    LOGGER.info("proc.engage_lock")
     GL.subs.switch_pii_ramp(False)
     GL.subs.switch_lock(True)
     await asyncio.sleep(cs.LOCKBOX_P_TO_I_DELAY)
