@@ -68,7 +68,7 @@ class TemperatureRamp:
     @property
     def is_running(self) -> bool:
         """Is the temperature control currently running?"""
-        return self._task.done()
+        return not self._task.done()
 
     @property
     def temperature(self) -> float:
