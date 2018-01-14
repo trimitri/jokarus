@@ -256,6 +256,7 @@ class Interfaces:
 
         :raises lock_buddy.InvalidStateError: Acquiring currently not allowed.
         """
+        LOGGER.info("Acquiring error signal...")
         await self._locker.acquire_signal()
         raw_data = self._locker.recent_signal
 
@@ -263,6 +264,8 @@ class Interfaces:
         # always support bool().
         if not raw_data.any():
             raise RuntimeError("Couldn't publish signal as no signal was generated.")
+
+        LOGGER.info("Acquired error signal...")
 
         return raw_data
 
@@ -294,7 +297,8 @@ class Interfaces:
         self._loop.create_task(self.publish_flags())
 
     async def _try_publishing_error_signal(self) -> None:
+        LOGGER.info("Trying to publish error signal.")
         try:
             await self.publish_error_signal(await self._acquire_error_signal())
         except lock_buddy.InvalidStateError:
-            LOGGER.debug("Acquiring error signal was forbidden.")
+            LOGGER.warning("Acquiring error signal was forbidden.")
