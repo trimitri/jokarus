@@ -255,6 +255,7 @@ class LockBuddy:
         :raises ValueError: Range is out of ]0, 1].
         """
 
+        LOGGER.info("Acquiring signal...")
         # To avoid inadvertent lock losses, we only allow scanning if the lock
         # is currently disengaged.
         if not await self.get_lock_status() == LockStatus.OFF:
@@ -270,6 +271,7 @@ class LockBuddy:
         if not self.recent_signal.any():
             raise ConnectionError("Didn't get readings from callback.")
 
+        LOGGER.info("Acquired signal...")
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 
