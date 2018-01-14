@@ -401,48 +401,30 @@ class LockBuddy:
         await tuner.set(old_tuner_state)
         raise SnowblindError("Didn't find a doppler dip.")
 
-    def engage_and_maintain(self) -> asyncio.Task:
+    async def engage_and_maintain(self) -> None:
         """Engage the lock and maintain it long-term.
 
-        :param balance: Watch the established lock for imbalance (see
-                    `lock_balancer()` for details).
-        :param relock: Watch the established lock for inadvertent lock losses.
-
         :raises LockError: The initial locking failed.
-
-        :returns: A Task that can be used to cancel the maintenance services.
-                    This task will only finish if something unexpected happens.
-                    Thus, it can also be used to be notified of problems.
         """
         balancer = None  # type: asyncio.Task
-
-        def launch_balancer() -> None:
+        def launch_balancer() -> None:  # We will pass this as callback.
             """Engage the balancer task in the background."""
             nonlocal balancer
             balancer = self._loop.create_task(self.start_balancer())
 
-        async def runner() -> None:
-            """The daemon that will be wrappen in a Task and returned.
-
-            The relocker is easy to maintain.  It just runs continuously.  The
-            balancer however, may fail during relock operations and thus needs
-            to be restarted accordingly.
-
-            This coroutine will only ever complete if something goes wrong or
-            is cancelled.
-            """
-            await self._lock()
-            try:
-                launch_balancer()
-                await self.start_relocker(on_lock_lost=balancer.cancel,
-                                          on_lock_on=launch_balancer)
-                balancer.cancel()
-            except asyncio.CancelledError:
-                LOGGER.info("Lock maintenance was cancelled.")
-                balancer.cancel()
-                raise
-
-        return self._loop.create_task(runner())
+        await self._lock()
+        try:
+            launch_balancer()
+            # The balancer may fail during relock operations and thus needs to
+            # be "paused" during those.  This coroutine will only ever complete
+            # if something goes wrong or is cancelled.
+            await self.start_relocker(on_lock_lost=balancer.cancel,
+                                      on_lock_on=launch_balancer)
+            balancer.cancel()  # In case the relocker fails.
+        except asyncio.CancelledError:
+            LOGGER.info("Lock maintenance was cancelled.")
+            balancer.cancel()
+            raise
 
     async def get_lock_status(self) -> LockStatus:
         """What status is the lock currently in?

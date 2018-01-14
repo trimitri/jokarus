@@ -10,7 +10,7 @@ class Service(enum.IntEnum):
     DRIFT_COMPENSATOR = 10
     """Temperature drift compensator on a running lock (procedures.py). """
     LOCKER = 20
-    """Maintains a running lock.  Included relocker and simple balancer."""
+    """Maintains a running lock.  Includes relocker and simple balancer."""
     PRELOCKER = 30
     """Prelock-maintainer that doesn't actually lock. """
 
@@ -30,6 +30,17 @@ def is_running(service: Service) -> bool:
     except KeyError:
         raise ValueError("Unknown service type.")
 
+
+def cancel(service: Service) -> bool:
+    """Cancel given task (if it was running).
+
+    :returns: Task was running.
+    :raises ValueError: Unknown `service`.
+    """
+    try:
+        return TASKS[service].cancel() if TASKS[service] is not None else False
+    except KeyError:
+        raise ValueError("Unknown service type.")
 
 def register(service: Service, task: asyncio.Task) -> None:
     """Register an externally started task.
