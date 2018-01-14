@@ -380,7 +380,11 @@ async def laser_power_up() -> None:
         await laser_power_down()
         return
 
-    await _ensure_system_is(TecStatus.HOT)
+    try:
+        await _ensure_system_is(TecStatus.HOT)
+    except StateError:
+        LOGGER.debug("couldn't power up laser:", exc_info=True)
+        return
     LOGGER.info("Powering up laser...")
     GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
     GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
