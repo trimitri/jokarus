@@ -459,7 +459,7 @@ async def pursue_tec_ambient() -> None:
     _ensure_laser_is(LaserState.OFF)
     status = await get_tec_status()
     if status == TecStatus.AMBIENT:
-        LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
+        LOGGER.debug("Refusing to run `tec_standby()`, as system is AMBIENT already.")
         return
 
     ambient = _get_ambient_temps(await GL.subs.get_aux_temps())
