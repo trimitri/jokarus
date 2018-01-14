@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 import numpy as np
 import aioconsole
 from . import lock_buddy, subsystems
+from ..main import GLOBALS as GL
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools
@@ -68,7 +69,7 @@ class TecStatusError(RuntimeError):
     pass
 
 
-async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
+async def compensate_temp_drifts() -> None:
     """Keep the MO current in the center of its range of motion.
 
     NOTE: This will only work on an engaged lock.  It may thus fail if the lock
@@ -84,32 +85,32 @@ async def compensate_temp_drifts(locker: lock_buddy.LockBuddy) -> None:
             cs.LOCK_SFG_FACTOR * (await current.get() - 0.5) * current.scale)
         if abs(mo_imbalance) > cs.PRELOCK_TUNING_PRECISION:
             LOGGER.info("Tuning MiOB by %s MHz to balance MO current.", mo_imbalance)
-            await locker.tune(mo_imbalance, subsystems.Tuners.MIOB)
+            await GL.locker.tune(mo_imbalance, subsystems.Tuners.MIOB)
 
     async def condition() -> bool:
         """Does balancing still make sense?"""
-        return await locker.get_lock_status() == lock_buddy.LockStatus.ON_LINE
+        return await GL.locker.get_lock_status() == lock_buddy.LockStatus.ON_LINE
 
     if not await condition():
         raise lock_buddy.LockError("Can only compensate running locks.")
 
     await tools.repeat_task(balancer, period=0.6, do_continue=condition)
     LOGGER.warning("Stopped temp drift compensator, as lock is %s.",
-                   await locker.get_lock_status())
+                   await GL.locker.get_lock_status())
 
 
-async def engage_lock(subs: subsystems.Subsystems) -> None:
+async def engage_lock() -> None:
     """Run the timed procedure needed to engage the frequency lock."""
-    subs.switch_pii_ramp(False)
-    subs.switch_lock(True)
+    GL.subs.switch_pii_ramp(False)
+    GL.subs.switch_lock(True)
     await asyncio.sleep(cs.LOCKBOX_P_TO_I_DELAY)
-    subs.switch_integrator(2, True)
+    GL.subs.switch_integrator(2, True)
     await asyncio.sleep(cs.LOCKBOX_I_TO_I_DELAY)
-    subs.switch_integrator(1, True)
+    GL.subs.switch_integrator(1, True)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
-async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
+async def get_tec_status() -> TecStatus:
     """Analyze the current TEC subsystem status.
 
     side effect
@@ -121,7 +122,7 @@ async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
     tec = subsystems.TecUnit
-    temps = await subs.get_aux_temps(dont_log=True)
+    temps = await GL.subs.get_aux_temps(dont_log=True)
     try:
         ambient = _get_ambient_temps(temps)
     except ConnectionError as err:
@@ -136,11 +137,11 @@ async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
     raw_setpt = {}  # type: Dict[subsystems.TecUnit, float]
     ramp_setpt = {}  # type: Dict[subsystems.TecUnit, float]
     for unit in tec:
-        is_on[unit] = subs.is_tec_enabled(unit)
-        ramp_on[unit] = subs.is_temp_ramp_enabled(unit)
-        obj_temp[unit] = subs.get_temp(unit)
-        raw_setpt[unit] = subs.get_temp_setpt(unit)
-        ramp_setpt[unit] = subs.get_temp_ramp_target(unit)
+        is_on[unit] = GL.subs.is_tec_enabled(unit)
+        ramp_on[unit] = GL.subs.is_temp_ramp_enabled(unit)
+        obj_temp[unit] = GL.subs.get_temp(unit)
+        raw_setpt[unit] = GL.subs.get_temp_setpt(unit)
+        ramp_setpt[unit] = GL.subs.get_temp_ramp_target(unit)
 
     if not any(is_on.values()):
         return TecStatus.OFF
@@ -157,9 +158,9 @@ async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
     for unit in tec:
         if is_on[unit]:
             if not ramp_setpt[unit]:
-                subs.set_temp(unit, raw_setpt[unit])
+                GL.subs.set_temp(unit, raw_setpt[unit])
                 await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-                subs.switch_temp_ramp(unit, True)
+                GL.subs.switch_temp_ramp(unit, True)
 
     LOGGER.debug("Base TECs OK, ramps on and set..")
 
@@ -219,18 +220,18 @@ async def get_tec_status(subs: subsystems.Subsystems) -> TecStatus:
     # pylint: enable=too-many-branches
 
 
-async def pursue_tec_hot(subs: subsystems.Subsystems) -> None:
+async def pursue_tec_hot() -> None:
     """Get the system closer to `TecStatus.HOT` state.
 
     If the system is anything but TecStatus.HOT, HEATING or AMBIENT, take a
     detour through pursuing AMBIENT first.
     """
-    status = await get_tec_status(subs)
+    status = await get_tec_status()
     if status == TecStatus.HOT:
         LOGGER.info("System is hot, nothing to do.")
         return
     if status in (TecStatus.UNDEFINED, TecStatus.OFF):
-        await pursue_tec_ambient(subs)
+        await pursue_tec_ambient()
         return
     if status in (TecStatus.HEATING, TecStatus.AMBIENT):
         LOGGER.info("System is %s. Running `heat_up()`...", status)
@@ -238,36 +239,36 @@ async def pursue_tec_hot(subs: subsystems.Subsystems) -> None:
     # VHBG plays a special role, as it can only be heated after the MiOB
     # finishes.
     vhbg = subsystems.TecUnit.VHBG
-    subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
+    GL.subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
     # If it's running, that's fine. If not, it doesn't do anything.
 
-    if subs.is_tec_enabled(vhbg):
-        subs.switch_temp_ramp(vhbg, True)
+    if GL.subs.is_tec_enabled(vhbg):
+        GL.subs.switch_temp_ramp(vhbg, True)
     else:
-        miob_temp = subs.get_temp(subsystems.TecUnit.MIOB)
+        miob_temp = GL.subs.get_temp(subsystems.TecUnit.MIOB)
         if _is_hot_miob(miob_temp):
             LOGGER.info("Heating VHBG...")
-            subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
+            GL.subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-            subs.switch_tec_by_id(vhbg, True)
+            GL.subs.switch_tec_by_id(vhbg, True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-            subs.switch_temp_ramp(vhbg, True)
+            GL.subs.switch_temp_ramp(vhbg, True)
         else:
             LOGGER.warning("Can't heat VHBG, as MiOB is not yet in working range.")
 
     # The others are simple, as get_tec_status() has checked everything before.
     miob_target = (cs.MIOB_TEMP_TUNING_RANGE[0] + cs.MIOB_TEMP_TUNING_RANGE[1]) / 2
-    subs.set_temp(subsystems.TecUnit.MIOB, miob_target)
-    subs.set_temp(subsystems.TecUnit.SHGA, cs.SHGA_WORKING_TEMP)
-    subs.set_temp(subsystems.TecUnit.SHGB, cs.SHGB_WORKING_TEMP)
+    GL.subs.set_temp(subsystems.TecUnit.MIOB, miob_target)
+    GL.subs.set_temp(subsystems.TecUnit.SHGA, cs.SHGA_WORKING_TEMP)
+    GL.subs.set_temp(subsystems.TecUnit.SHGB, cs.SHGB_WORKING_TEMP)
 
 
-def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
+def init_locker() -> lock_buddy.LockBuddy:
     """Initialize the frequency prelock and lock system."""
 
     # Store tuners as "globals" (into subsystems) for other modules to use.
-    subsystems.Tuners.MO = _spawn_current_tuner(subs)
-    subsystems.Tuners.MIOB = _spawn_miob_tuner(subs)
+    subsystems.Tuners.MO = _spawn_current_tuner()
+    subsystems.Tuners.MIOB = _spawn_miob_tuner()
 
     # The lockbox itself has to be wrapped like a Tuner, as it does
     # effectively tune the laser. All values associated with setting stuff can
@@ -275,7 +276,7 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
     lock = cs.LOCKBOX_RANGE_mV
     lock_range = lock[1] - lock[0]
     def lockbox_getter() -> float:
-        return (lock[1] - subs.get_lockbox_level()) / lock_range
+        return (lock[1] - GL.subs.get_lockbox_level()) / lock_range
 
     lockbox = lock_buddy.Tuner(
         scale=cs.LaserMhz(abs(lock_range * cs.LOCKBOX_MHz_mV)),
@@ -297,48 +298,48 @@ def init_locker(subs: subsystems.Subsystems) -> lock_buddy.LockBuddy:
 
     def nu_locked() -> lock_buddy.LockboxState:
         """What state is the lockbox in?"""
-        if (subs.nu_locked()
-                and subs.lockbox_integrators_enabled()
-                and not subs.is_lockbox_ramp_enabled()):
+        if (GL.subs.nu_locked()
+                and GL.subs.lockbox_integrators_enabled()
+                and not GL.subs.is_lockbox_ramp_enabled()):
             return lock_buddy.LockboxState.ENGAGED
-        if (not subs.nu_locked()
-                and subs.lockbox_integrators_disabled()
-                and subs.is_lockbox_ramp_enabled()):
+        if (not GL.subs.nu_locked()
+                and GL.subs.lockbox_integrators_disabled()
+                and GL.subs.is_lockbox_ramp_enabled()):
             return lock_buddy.LockboxState.DISENGAGED
         return lock_buddy.LockboxState.DEGRADED
 
     # Assemble the actual lock buddy using the tuners above.
-    locker = lock_buddy.LockBuddy(
-        lock=partial(engage_lock, subs),
-        unlock=partial(release_lock, subs),
+    GL.locker = lock_buddy.LockBuddy(
+        lock=partial(engage_lock, GL.subs),
+        unlock=partial(release_lock, GL.subs),
         locked=nu_locked,
         lockbox=lockbox,
-        scanner=subs.fetch_scan,
+        scanner=GL.subs.fetch_scan,
         scanner_range=cs.LaserMhz(700),  # FIXME measure correct scaling coefficient.
         on_new_signal=on_new_signal)
-    return locker
+    return GL.locker
 
 
-def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
+def initialize_rf_chain() -> ReturnState:
     """Setup the RF sources for heterodyne detection.
 
     This provides EOM, AOM and mixer with the correct driving signals.
     """
     try:
-        subs.switch_rf_clock_source('external')
-        subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
-        subs.set_aom_frequency(150)  # 150 MHz offset
+        GL.subs.switch_rf_clock_source('external')
+        GL.subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
+        GL.subs.set_aom_frequency(150)  # 150 MHz offset
 
         # Choose the lowest possible RF amplifiert input amplitude that still
         # leads to maximum RF power at output. If the input amplitude is set
         # too high, there will be strong sidebands in output.
-        subs.set_eom_amplitude(.4)
+        GL.subs.set_eom_amplitude(.4)
 
         # This also sets the mixer frequency accordingly.
-        subs.set_eom_frequency(0.300)
+        GL.subs.set_eom_frequency(0.300)
 
-        subs.set_mixer_amplitude(1)
-        subs.set_mixer_phase(0)
+        GL.subs.set_mixer_amplitude(1)
+        GL.subs.set_mixer_phase(0)
 
     # By design of this class, no method may ever throw anything.
     except Exception:  # pylint: disable=broad-except
@@ -349,7 +350,7 @@ def initialize_rf_chain(subs: subsystems.Subsystems) -> ReturnState:
     return ReturnState.SUCCESS
 
 
-async def laser_power_up(subs: subsystems.Subsystems) -> None:
+async def laser_power_up() -> None:
     """Switch on the laser.
 
     After running this, the laser power may be adjusted through the PA current,
@@ -358,41 +359,41 @@ async def laser_power_up(subs: subsystems.Subsystems) -> None:
     :raises TecStatusError: System isn't temperature-controlled.
     :raises ConnectionError: Lighting up failed.
     """
-    if subs.laser.get_state() == LaserState.ON:
+    if GL.subs.laser.get_state() == LaserState.ON:
         LOGGER.info("Laser is already ON. Doing nothing.")
         return
-    await _ensure_system_is(subs, TecStatus.HOT)
+    await _ensure_system_is(TecStatus.HOT)
     LOGGER.info("Powering up laser...")
-    subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
-    subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
+    GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, True)
+    GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, True)
+    GL.subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
     await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
     mo_working_point = (cs.LD_MO_TUNING_RANGE[0] + cs.LD_MO_TUNING_RANGE[1]) / 2
-    subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, mo_working_point)
+    GL.subs.set_current(subsystems.LdDriver.MASTER_OSCILLATOR, mo_working_point)
     await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_WORKING_POINT)
+    GL.subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_WORKING_POINT)
 
-    if subs.laser.get_state() != LaserState.ON:
+    if GL.subs.laser.get_state() != LaserState.ON:
         raise ConnectionError("Failed to switch on Laser.")
 
 
-async def laser_power_down(subs: subsystems.Subsystems) -> None:
+async def laser_power_down() -> None:
     """Shut down and switch off laser.
 
     :raises ConnectionError: Failed to switch off laser.
     """
-    if subs.laser.get_state() == LaserState.OFF:
+    if GL.subs.laser.get_state() == LaserState.OFF:
         LOGGER.info("Laser is already OFF. Doing nothing.")
         return
     LOGGER.info("Powering down laser...")
-    subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
+    GL.subs.set_current(subsystems.LdDriver.POWER_AMPLIFIER, cs.MILAS_PA_IDLE)
     await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
-    subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, False)
+    GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, False)
     await asyncio.sleep(cs.MENLO_CURRENT_DRIVER_REALIZATION_WAIT)
-    subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
+    GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
-    if subs.laser.get_state() != LaserState.OFF:
+    if GL.subs.laser.get_state() != LaserState.OFF:
         raise ConnectionError("Failed to switch off Laser.")
 
 
@@ -407,25 +408,24 @@ def open_backdoor(injected_locals: Dict[str, Any]) -> None:
         aioconsole.start_interactive_server(factory=console_factory))
 
 
-async def prelock(subs: subsystems.Subsystems, locker: lock_buddy.LockBuddy,
-                  prelock_tuner: lock_buddy.Tuner) -> None:
+async def prelock(prelock_tuner: lock_buddy.Tuner) -> None:
     """Run the pre-lock algorithm."""
-    await _ensure_system_is(subs, TecStatus.HOT)
-    _ensure_laser_is(subs, LaserState.ON)
-    dip = await locker.doppler_search(
-        prelock_tuner, judge=partial(locker.is_correct_line, prelock_tuner, reset=True))
+    await _ensure_system_is(TecStatus.HOT)
+    _ensure_laser_is(LaserState.ON)
+    dip = await GL.locker.doppler_search(
+        prelock_tuner, judge=partial(GL.locker.is_correct_line, prelock_tuner, reset=True))
     for attempt in range(cs.PRELOCK_TUNING_ATTEMPTS):
         error = cs.SpecMhz(dip.distance - cs.PRELOCK_DIST_SWEET_SPOT_TO_DIP)
         if abs(error) < cs.PRELOCK_TUNING_PRECISION:
             LOGGER.info("Took %s jumps to align dip.", attempt)
             break
-        await locker.tune(error, prelock_tuner)
-        dip = await locker.doppler_sweep()
+        await GL.locker.tune(error, prelock_tuner)
+        dip = await GL.locker.doppler_sweep()
     else:
         raise lock_buddy.DriftError("Unable to center doppler line.")
 
 
-async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
+async def pursue_tec_ambient() -> None:
     """Do what can be done right now to get system to ambient temperature.
 
     This can be used to cool down before switching off or to arm the TEC system
@@ -435,66 +435,66 @@ async def pursue_tec_ambient(subs: subsystems.Subsystems) -> None:
     recommended to call it "watchdog style" until `get_tec_status()` returns
     "AMBIENT".
     """
-    _ensure_laser_is(subs, LaserState.OFF)
-    status = await get_tec_status(subs)
+    _ensure_laser_is(LaserState.OFF)
+    status = await get_tec_status()
     if status == TecStatus.AMBIENT:
         LOGGER.info("Refusing to run `tec_standby()`, as system is AMBIENT already.")
         return
 
-    ambient = _get_ambient_temps(await subs.get_aux_temps())
-    await _set_to_ambient(subs, subsystems.TecUnit.SHGA, ambient)
-    await _set_to_ambient(subs, subsystems.TecUnit.SHGB, ambient)
+    ambient = _get_ambient_temps(await GL.subs.get_aux_temps())
+    await _set_to_ambient(subsystems.TecUnit.SHGA, ambient)
+    await _set_to_ambient(subsystems.TecUnit.SHGB, ambient)
 
     # If VHBG is live, we can't do anything but cool it down first.  If it's
     # dead, we act on MiOB.
-    if subs.is_tec_enabled(subsystems.TecUnit.VHBG):
-        await _land_vhbg(subs)
+    if GL.subs.is_tec_enabled(subsystems.TecUnit.VHBG):
+        await _land_vhbg()
     else:
-        await _set_to_ambient(subs, subsystems.TecUnit.MIOB, ambient)
+        await _set_to_ambient(subsystems.TecUnit.MIOB, ambient)
 
 
-async def release_lock(subs: subsystems.Subsystems) -> None:
+async def release_lock() -> None:
     """Release the laser from frequency lock."""
-    subs.switch_lock(False)
-    subs.switch_pii_ramp(True)
-    subs.switch_integrator(1, False)
-    subs.switch_integrator(2, False)
+    GL.subs.switch_lock(False)
+    GL.subs.switch_pii_ramp(True)
+    GL.subs.switch_integrator(1, False)
+    GL.subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
 
 
-async def tec_off(subs: subsystems.Subsystems) -> None:
+async def tec_off() -> None:
     """Switch off all temperature control if possible.
 
     This is only allowed, if the system is `TecStatus.AMBIENT`.
     """
-    status = await get_tec_status(subs)
+    status = await get_tec_status()
     if status == TecStatus.OFF:
         return
-    await _ensure_system_is(subs, TecStatus.AMBIENT)  # raises
+    await _ensure_system_is(TecStatus.AMBIENT)  # raises
     tecs = subsystems.TecUnit
     for unit in tecs.SHGA, tecs.SHGB, tecs.MIOB:
-        subs.switch_tec_by_id(unit, False)
+        GL.subs.switch_tec_by_id(unit, False)
 
 ###############
 ##  private  ##
 ###############
 
-def _ensure_laser_is(subs: subsystems.Subsystems, state: LaserState) -> None:
+def _ensure_laser_is(state: LaserState) -> None:
     """Ensure that Laser is off before doing automated TEC stuff.
 
     :raises StateError: Laser is not `LaserState.OFF`.
     """
-    laser_state = subs.laser.get_state()  # type: LaserState
+    laser_state = GL.subs.laser.get_state()  # type: LaserState
     if laser_state != state:
         raise StateError("Won't do thing, as laser is {}.".format(repr(laser_state)))
 
 
-async def _ensure_system_is(subs: subsystems.Subsystems, status: TecStatus) -> None:
+async def _ensure_system_is(status: TecStatus) -> None:
     """Ensure that the TEC subsystem status is `status` and raise otherwise.
 
     :raises StateError: System is not `status`.
     """
-    tec_status = await get_tec_status(subs)  # type: TecStatus
+    tec_status = await get_tec_status()  # type: TecStatus
     if tec_status != status:
         raise StateError("TEC system is {}, refusing to do thing.".format(repr(tec_status)))
 
@@ -559,7 +559,7 @@ def _is_hot_miob(temp: float) -> bool:
             and temp < cs.MIOB_TEMP_TUNING_RANGE[1] + cs.TEMP_GENERAL_ERROR)
 
 
-async def _land_vhbg(subs: subsystems.Subsystems) -> None:
+async def _land_vhbg() -> None:
     """Bring VHBG back to MiOB temperature or switch off if there already.
 
     Similar to the `_pursue...()` family of methods, this encapsulates a
@@ -572,53 +572,53 @@ async def _land_vhbg(subs: subsystems.Subsystems) -> None:
     after (has been called until _is_vhbg_airborne() returns true)
         VHBG TEC is off.  MiOB TEC still active.
     """
-    _ensure_laser_is(subs, LaserState.OFF)
+    _ensure_laser_is(LaserState.OFF)
     vhbg = subsystems.TecUnit.VHBG
     miob = subsystems.TecUnit.MIOB
-    if not subs.is_tec_enabled(vhbg):
+    if not GL.subs.is_tec_enabled(vhbg):
         LOGGER.info("""Refusing to "land" VHBG TEC, as it is off already.""")
         return
 
-    if subs.is_tec_enabled(miob):
-        target_temp = subs.get_temp(miob)
+    if GL.subs.is_tec_enabled(miob):
+        target_temp = GL.subs.get_temp(miob)
     else:
-        target_temp = _get_ambient_temps(await subs.get_aux_temps())[miob]
+        target_temp = _get_ambient_temps(await GL.subs.get_aux_temps())[miob]
 
-    if abs(subs.get_temp(vhbg) - target_temp) < cs.TEMP_GENERAL_ERROR:
+    if abs(GL.subs.get_temp(vhbg) - target_temp) < cs.TEMP_GENERAL_ERROR:
         LOGGER.info("VHBG temp. is close to MiOB. Switching off TEC.")
-        subs.switch_temp_ramp(vhbg, False)
-        subs.switch_tec_by_id(vhbg, False)
+        GL.subs.switch_temp_ramp(vhbg, False)
+        GL.subs.switch_tec_by_id(vhbg, False)
     else:
         LOGGER.info("Getting VHBG close to MiOB for shutdown...")
-        subs.set_temp(vhbg, target_temp)
+        GL.subs.set_temp(vhbg, target_temp)
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        subs.switch_temp_ramp(vhbg, True)
+        GL.subs.switch_temp_ramp(vhbg, True)
 
 
-async def _launch_vhbg(subs: subsystems.Subsystems) -> None:
+async def _launch_vhbg() -> None:
     """If MiOB is hot, start VHBG TEC and raise to target temp.
 
     Will do nothing if MiOB is anything but live.
     """
-    _ensure_laser_is(subs, LaserState.OFF)
+    _ensure_laser_is(LaserState.OFF)
     miob = subsystems.TecUnit.MIOB
     vhbg = subsystems.TecUnit.VHBG
-    miob_temp = subs.get_temp(miob)
+    miob_temp = GL.subs.get_temp(miob)
     if not all([_is_hot_miob(temp) for temp
-                in [miob_temp, subs.get_temp_setpt(miob),
-                    subs.get_temp_ramp_target(miob)]]):
+                in [miob_temp, GL.subs.get_temp_setpt(miob),
+                    GL.subs.get_temp_ramp_target(miob)]]):
         LOGGER.warning("Refusing to detach VHBG, as MiOB isn't live.")
         return
-    if not subs.is_tec_enabled(vhbg):
-        subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
+    if not GL.subs.is_tec_enabled(vhbg):
+        GL.subs.set_temp(vhbg, miob_temp, bypass_ramp=True)
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        subs.switch_tec_by_id(vhbg, True)
+        GL.subs.switch_tec_by_id(vhbg, True)
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-    subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
-    subs.switch_temp_ramp(vhbg, True)
+    GL.subs.set_temp(vhbg, cs.VHBG_WORKING_TEMP)
+    GL.subs.switch_temp_ramp(vhbg, True)
 
 
-async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
+async def _set_to_ambient(unit: subsystems.TecUnit,
                           ambient: Dict[subsystems.TecUnit, float]) -> None:
     """Set `unit` temperature to ambient temp.
 
@@ -631,30 +631,30 @@ async def _set_to_ambient(subs: subsystems.Subsystems, unit: subsystems.TecUnit,
                 `unit` or failed to set TEC setpoint.
     """
     # Check again, as time has passed.
-    is_tec_on = subs.is_tec_enabled(unit)
+    is_tec_on = GL.subs.is_tec_enabled(unit)
     if is_tec_on:
         LOGGER.info("Ramping %s to ambient.", unit)
-        subs.set_temp(unit, ambient[unit])
+        GL.subs.set_temp(unit, ambient[unit])
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
     else:
         LOGGER.info("Arming %s.", unit)
-        subs.set_temp(unit, ambient[unit], bypass_ramp=True)
-        subs.set_temp(unit, ambient[unit])  # Init temp ramp.
+        GL.subs.set_temp(unit, ambient[unit], bypass_ramp=True)
+        GL.subs.set_temp(unit, ambient[unit])  # Init temp ramp.
         await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
-        if abs(subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
-            subs.switch_tec_by_id(unit, True)
+        if abs(GL.subs.get_temp_setpt(unit) - ambient[unit]) < cs.TEMP_ALLOWABLE_SETTER_ERROR:
+            GL.subs.switch_tec_by_id(unit, True)
             await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
         else:
             raise ConnectionError("Failed to set {} temperature.".format(unit))
-    subs.switch_temp_ramp(unit, True)
+    GL.subs.switch_temp_ramp(unit, True)
 
 
-def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+def _spawn_current_tuner() -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MO current for frequency tuning."""
     mo_rng = cs.LD_MO_TUNING_RANGE
     def mo_getter() -> float:
         """Returns the normalized MO current setpoint."""
-        setpoint = subs.get_ld_current_setpt(subsystems.LdDriver.MASTER_OSCILLATOR)
+        setpoint = GL.subs.get_ld_current_setpt(subsystems.LdDriver.MASTER_OSCILLATOR)
         normalized = (mo_rng[1] - setpoint) / (mo_rng[1] - mo_rng[0])
         LOGGER.debug("Got %s for current setpoint (normalized %s).", setpoint, normalized)
         return normalized
@@ -663,7 +663,7 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         """Set MO current based on normalized `value`."""
         current = mo_rng[1] - (value * (mo_rng[1] - mo_rng[0]))
         LOGGER.debug("Setting MO current to %s mA (%s normalized).", current, value)
-        subs.laser.set_mo_current(current)
+        GL.subs.laser.set_mo_current(current)
 
     return lock_buddy.Tuner(
         scale=cs.LaserMhz(abs((mo_rng[1] - mo_rng[0]) * cs.LD_MO_MHz_mA)),
@@ -674,13 +674,13 @@ def _spawn_current_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         name="MO current")
 
 
-def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
+def _spawn_miob_tuner() -> lock_buddy.Tuner:
     """Get a tuner that utilizes the MiOB temperature for frequency tuning."""
     def get_miob_temp() -> float:
         """Normalized temperature of the micro-optical bench."""
         # This might raise a ConnectionError, but we don't catch here to
-        # prevent the locker from going rogue with some NaNs.
-        temp = subs.get_temp_setpt(subsystems.TecUnit.MIOB)
+        # prevent the GL.locker from going rogue with some NaNs.
+        temp = GL.subs.get_temp_setpt(subsystems.TecUnit.MIOB)
         low = cs.MIOB_TEMP_TUNING_RANGE[0]
         high = cs.MIOB_TEMP_TUNING_RANGE[1]
 
@@ -696,7 +696,7 @@ def _spawn_miob_tuner(subs: subsystems.Subsystems) -> lock_buddy.Tuner:
         # reverse this.
         temp = cs.MIOB_TEMP_TUNING_RANGE[1] - \
                (value * (cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]))
-        subs.set_temp(subsystems.TecUnit.MIOB, temp)
+        GL.subs.set_temp(subsystems.TecUnit.MIOB, temp)
 
     abs_range = cs.MIOB_TEMP_TUNING_RANGE[1] - cs.MIOB_TEMP_TUNING_RANGE[0]
     return lock_buddy.Tuner(

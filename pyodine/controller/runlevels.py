@@ -6,36 +6,28 @@ import logging
 from typing import Awaitable, List  # pylint: disable=unused-import
 from . import procedures as proc
 from . import daemons, subsystems
-from .subsystems import Subsystems
-from .lock_buddy import LockBuddy, LockStatus
+from .lock_buddy import LockStatus
 from .. import constants as cs
+from ..main import GLOBALS as GL
 from ..drivers.ecdl_mopa import LaserState
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger('runlevels')  # type: logging.Logger
 
 
-class GLOBALS:
+class REQUEST:  # pylint: disable=too-few-public-methods
     """Those control variables are set directly from other modules.
 
     They even __need__ to be defined from other modules, as they're invalid on
     import.
     """
-    loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
-    """The event loop used for scheduling background tasks.
-
-    This can be (re-)set externally, but as it will usually be the main thread
-    that is importing this module first, it is set to the default event loop
-    running in the import thread at import time.
-    """
-
     liftoff = None  # type: bool
     """Did the rocket lift off yet?"""
     microg = None  # type: bool
     """Did the lift off phase complete yet?"""
     off = None  # type: bool
     """Is an (emergency?) shutdown requested?"""
-    requested_level = None  # type: Runlevel
+    level = None  # type: Runlevel
     """Which runlevel should the system pursue?"""
 
 
@@ -89,11 +81,11 @@ class Runlevel(enum.IntEnum):
     """The working point is aligned, tuners have maximum range of motion. """
 
 
-async def get_level(subs: Subsystems, locker: LockBuddy) -> Runlevel:
+async def get_level() -> Runlevel:
     """Determine current runlevel."""
-    tec = await proc.get_tec_status(subs)  # type: proc.TecStatus
-    laser = subs.laser.get_state()  # LaserState
-    lock = await locker.get_lock_status()  # LockStatus
+    tec = await proc.get_tec_status()  # type: proc.TecStatus
+    laser = GL.subs.laser.get_state()  # LaserState
+    lock = await GL.locker.get_lock_status()  # LockStatus
 
     if tec == proc.TecStatus.OFF and laser == LaserState.OFF:
         return Runlevel.STANDBY
@@ -113,32 +105,33 @@ async def get_level(subs: Subsystems, locker: LockBuddy) -> Runlevel:
     return Runlevel.UNDEFINED
 
 
-async def pursue_ambient(subs: Subsystems) -> None:
+async def pursue_ambient() -> None:
     """Kick-off changes that get the system closer to Runlevel.AMBIENT."""
     jobs = []  # type: List[Awaitable[None]]
-    jobs.append(proc.release_lock(subs))
-    jobs.append(proc.laser_power_down(subs))
-    jobs.append(proc.pursue_tec_ambient(subs))
+    jobs.append(proc.release_lock())
+    jobs.append(proc.laser_power_down())
+    jobs.append(proc.pursue_tec_ambient())
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def pursue_balanced(subs: Subsystems) -> None:
-    await pursue_lock(subs)  # TODO Implement.
+async def pursue_balanced() -> None:
+    await pursue_lock()  # TODO Implement.
 
 
-async def pursue_hot(subs: Subsystems) -> None:
+async def pursue_hot() -> None:
     """Kick-off changes that get the system closer to Runlevel.HOT."""
     jobs = []  # type: List[Awaitable[None]]
-    jobs.append(proc.pursue_tec_hot(subs))
-    jobs.append(proc.laser_power_up(subs))
-    jobs.append(proc.release_lock(subs))
+    jobs.append(proc.pursue_tec_hot())
+    jobs.append(proc.laser_power_up())
+    jobs.append(proc.release_lock())
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def pursue_lock(subs: Subsystems, locker: LockBuddy) -> None:
+async def pursue_lock() -> None:
+    """Kick-off changes that get the system closer to Runlevel.LOCK."""
     jobs = []  # type: List[Awaitable[None]]
-    jobs.append(proc.pursue_tec_hot(subs))
-    jobs.append(proc.laser_power_up(subs))
+    jobs.append(proc.pursue_tec_hot())
+    jobs.append(proc.laser_power_up())
 
     # Try to invoke prelocker.  As with the other procedures above, this might
     # fail depending on the system state.  But as we don't know which try will
@@ -146,25 +139,24 @@ async def pursue_lock(subs: Subsystems, locker: LockBuddy) -> None:
     # registry.
     if not daemons.is_running(daemons.Service.PRELOCKER):
         # FIXME review...
-        prelocker = GLOBALS.loop.create_task(
-            proc.prelock(subs, locker, subsystems.Tuners.MO))
+        prelocker = GL.loop.create_task(proc.prelock(subsystems.Tuners.MO))
         daemons.register(daemons.Service.PRELOCKER, prelocker)
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def pursue_standby(subs: Subsystems) -> None:
+async def pursue_standby() -> None:
     """Kick-off changes that get the system closer to Runlevel.STANDBY."""
     jobs = []  # type: List[Awaitable[None]]
-    jobs.append(proc.release_lock(subs))
-    jobs.append(proc.laser_power_down(subs))
-    if await proc.get_tec_status(subs) in [proc.TecStatus.AMBIENT, proc.TecStatus.OFF]:
-        jobs.append(proc.tec_off(subs))
+    jobs.append(proc.release_lock())
+    jobs.append(proc.laser_power_down())
+    if await proc.get_tec_status() in [proc.TecStatus.AMBIENT, proc.TecStatus.OFF]:
+        jobs.append(proc.tec_off())
     else:
-        jobs.append(proc.pursue_tec_ambient(subs))
+        jobs.append(proc.pursue_tec_ambient())
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 
-async def request_runlevel(level: Runlevel, subs: Subsystems) -> None:
+async def request_runlevel(level: Runlevel) -> None:
     """Send the system to runlevel `level` and return if it's there already.
 
     This can (and needs to be) called multiple times, usually until the desired
@@ -184,38 +176,37 @@ async def request_runlevel(level: Runlevel, subs: Subsystems) -> None:
     if level == Runlevel.UNDEFINED:
         LOGGER.warning("Runlevel `UNDEFINED` must not be requested.")
     elif level == Runlevel.SHUTDOWN:
-        await pursue_standby(subs)  # TODO: flush files etc.
+        await pursue_standby()  # TODO: flush files etc.
     elif level == Runlevel.STANDBY:
-        await pursue_standby(subs)
+        await pursue_standby()
     elif level == Runlevel.AMBIENT:
-        await pursue_ambient(subs)
+        await pursue_ambient()
     elif level == Runlevel.HOT:
-        await pursue_hot(subs)
+        await pursue_hot()
     elif level == Runlevel.PRELOCK:
-        await pursue_lock(subs)  # TODO: dedicated prelock stage
+        await pursue_lock()  # TODO: dedicated prelock stage
     elif level == Runlevel.LOCK:
-        await pursue_lock(subs)
+        await pursue_lock()
     elif level == Runlevel.BALANCED:
-        await pursue_balanced(subs)
+        await pursue_balanced()
     else:
         raise ValueError("Unknown runlevel {}.".format(repr(level)))
 
 
-def start_runner(subs: Subsystems) -> asyncio.Task:
+def start_runner() -> asyncio.Task:
     """Start continuously synchronizing system state with requested state.
 
     :raises RuntimerError: Globals weren't fully set.
     """
     validate_globals()  # raises
     async def iteration() -> None:
-        await request_runlevel(GLOBALS.requested_level, subs)
-    return GLOBALS.loop.create_task(
+        await request_runlevel(REQUEST.level)
+    return GL.loop.create_task(
         asyncio_tools.repeat_task(iteration, cs.RUNLEVEL_REFRESH_INTERVAL))
 
 
 def validate_globals() -> None:
     """Make sure all the globals are set.  They are not set on import."""
-    for setting in [GLOBALS.liftoff, GLOBALS.microg, GLOBALS.off,
-                    GLOBALS.requested_level]:
+    for setting in [REQUEST.liftoff, REQUEST.microg, REQUEST.off, REQUEST.level]:
         if setting is None:
             raise RuntimeError("`runlevels.py` doesn't know the system state.")

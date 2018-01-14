@@ -96,12 +96,6 @@ def init() -> None:
     root_logger.addHandler(stderr)
 
 
-def is_ok() -> bool:
-    """Currently logging successfully."""
-    # FIXME: do some actual checks here.
-    return True
-
-
 def log_quantity(qty_id: str, value: Union[float, str], time: float = None) -> None:
     """Append "value" to the logfile of given name.
 

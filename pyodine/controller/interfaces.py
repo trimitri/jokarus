@@ -13,11 +13,12 @@ from typing import Any, Awaitable, Callable, List, Optional, Union  # pylint: di
 import numpy as np
 
 from .. import constants as cs
+from ..main import GLOBALS as GL
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
 from ..transport import packer
-from ..controller import lock_buddy, subsystems
+from ..controller import subsystems
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
@@ -32,9 +33,7 @@ class Interfaces:
     """
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, subsystem_controller: subsystems.Subsystems,
-                 locker: lock_buddy.LockBuddy,
-                 start_ws_server: bool = True,
+    def __init__(self, start_ws_server: bool = True,
                  start_serial_server: bool = False,
                  on_receive: Callable[[str], Optional[Awaitable[None]]] = None) -> None:
         # pylint: disable=unsubscriptable-object
@@ -45,8 +44,8 @@ class Interfaces:
         self._ws = None  # type: WebsocketServer
         self._rs232 = None  # type: QueueingSerialServer
         self._texus = None  # type: texus_relay.TexusRelay
-        self._subs = subsystem_controller
-        self._locker = locker
+        self._subs = GL.subs
+        self._locker = GL.locker
         self._loop = asyncio.get_event_loop()
         self._rcv_callback = on_receive
         self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], Union[Awaitable[None], None]]  # pylint: disable=line-too-long

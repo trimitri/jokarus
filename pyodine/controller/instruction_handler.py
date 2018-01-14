@@ -15,7 +15,8 @@ import logging
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
 from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
-from . import interfaces, lock_buddy, procedures, runlevels, subsystems
+from . import interfaces, procedures, runlevels, subsystems
+from ..main import GLOBALS as GL
 from ..transport import texus_relay
 from ..util import asyncio_tools
 
@@ -50,12 +51,10 @@ class TimerEffect(enum.IntEnum):
 class InstructionHandler:
     """This class receives external commands and forwards them."""
 
-    def __init__(self, subsystem_controller: subsystems.Subsystems,
-                 interface_controller: interfaces.Interfaces,
-                 locker: lock_buddy.LockBuddy) -> None:
-        self._subs = subsystem_controller
+    def __init__(self, interface_controller: interfaces.Interfaces) -> None:
+        self._subs = GL.subs
         self._face = interface_controller
-        self._locker = locker
+        self._locker = GL.locker
 
         self._methods = {
             'engage_lock': partial(procedures.engage_lock, self._subs),
@@ -142,12 +141,12 @@ class InstructionHandler:
 
         :raises RuntimerError: One of the associated actions failed.
         """
-        runlevels.GLOBALS.liftoff = (timer_state[TimerEffect.LIFTOFF]
+        runlevels.REQUEST.liftoff = (timer_state[TimerEffect.LIFTOFF]
                                      or timer_state[TimerEffect.LO_TIMER])
-        runlevels.GLOBALS.microg = (timer_state[TimerEffect.THREEXS]
+        runlevels.REQUEST.microg = (timer_state[TimerEffect.THREEXS]
                                     or timer_state[TimerEffect.UG_TIMER])
-        runlevels.GLOBALS.off = timer_state[TimerEffect.OFF]
-        runlevels.GLOBALS.requested_level = get_runlevel(timer_state)
+        runlevels.REQUEST.off = timer_state[TimerEffect.OFF]
+        runlevels.REQUEST.level = get_runlevel(timer_state)
 
 
 def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:

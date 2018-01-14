@@ -12,26 +12,45 @@ import logging
 
 from . import logger
 from . import constants as cs
-from .controller import (interfaces, instruction_handler, procedures,
-                         runlevels, subsystems)
+from .controller import (interfaces, instruction_handler, lock_buddy,
+                         procedures, runlevels, subsystems)
 from .util import asyncio_tools as tools
 from .util import git_adapter
+
+
+class GLOBALS:  # pylint: disable=too-few-public-methods
+    """Stuff that would otherwise get passed around throughout pyodine.
+
+    Passing stuff around is usually the better practice, but in this case all
+    those objects are only existing at most once throughout the whole program
+    lifetime.
+    """
+    loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
+    """The event loop used for scheduling background tasks.
+
+    This can be (re-)set externally, but as it will usually be the main thread
+    that is importing this module first, it is set to the default event loop
+    running in the import thread at import time.
+    """
+    subs = None  # type: subsystems.Subsystems
+    """The subsystems controller."""
+    locker = None  # type: lock_buddy.LockBuddy
+    """The lock controller."""
 
 
 async def main() -> None:
     """Start the pyodine server."""
     LOGGER.info("Running Pyodine...")
 
-    subs = subsystems.Subsystems()
-    locker = procedures.init_locker(subs)
-    face = interfaces.Interfaces(subs, locker, start_ws_server=True,
-                                 start_serial_server=True)
+    GLOBALS.subs = subsystems.Subsystems()
+    GLOBALS.locker = procedures.init_locker()
+    face = interfaces.Interfaces(start_ws_server=True, start_serial_server=True)
     await face.init_async()
     face.start_publishing_regularly(
         readings_interval=.8, flags_interval=1.3, setup_interval=3.1,
         signal_interval=4, status_update_interval=0, aux_temps_interval=6.9)
 
-    handler = instruction_handler.InstructionHandler(subs, face, locker)
+    handler = instruction_handler.InstructionHandler(face)
     face.register_on_receive_callback(handler.handle_instruction)
     face.register_timer_handler(handler.handle_timer_command)
 
@@ -40,9 +59,9 @@ async def main() -> None:
     procedures.open_backdoor({'cs': cs,
                               'face': face,
                               'flow': procedures,
-                              'locker': locker,
+                              'locker': GLOBALS.locker,
                               'run': runlevels,
-                              'subs': subs,
+                              'subs': GLOBALS.subs,
                               'subsystems': subsystems,
                               'Tuners': subsystems.Tuners})
 
@@ -63,10 +82,8 @@ if __name__ == '__main__':
 
     LOOP = asyncio.get_event_loop()
     # event_loop.set_debug(True)
+    GLOBALS.loop = LOOP
 
-    if not logger.is_ok:
-        # FIXME: make sure this doesn't fire unexpectedly (#123)
-        raise OSError("Failed to set up logging.")
     logger.log_quantity('git_revision',
                         tools.safe_call(git_adapter.get_revision))
 
