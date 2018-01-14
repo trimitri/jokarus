@@ -15,7 +15,7 @@ import logging
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
 from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
-from . import interfaces, procedures, runlevels, subsystems
+from . import procedures, runlevels, subsystems
 from ..globals import GLOBALS as GL
 from ..transport import texus_relay
 from ..util import asyncio_tools
@@ -51,57 +51,53 @@ class TimerEffect(enum.IntEnum):
 class InstructionHandler:
     """This class receives external commands and forwards them."""
 
-    def __init__(self, interface_controller: interfaces.Interfaces) -> None:
-        self._subs = GL.subs
-        self._face = interface_controller
-        self._locker = GL.locker
-
+    def __init__(self) -> None:
         self._methods = {
-            'engage_lock': partial(procedures.engage_lock, self._subs),
-            'release_lock': partial(procedures.release_lock, self._subs),
-            'set_aom_freq': lambda f: self._subs.set_aom_frequency(float(f)),
-            'set_eom_freq': lambda f: self._subs.set_eom_frequency(float(f)),
-            'set_mixer_freq': lambda f: self._subs.set_mixer_frequency(
+            'engage_lock': partial(procedures.engage_lock, GL.subs),
+            'release_lock': partial(procedures.release_lock, GL.subs),
+            'set_aom_freq': lambda f: GL.subs.set_aom_frequency(float(f)),
+            'set_eom_freq': lambda f: GL.subs.set_eom_frequency(float(f)),
+            'set_mixer_freq': lambda f: GL.subs.set_mixer_frequency(
                 float(f)),
-            'set_mixer_phase': lambda p: self._subs.set_mixer_phase(float(p)),
-            'set_aom_amplitude': lambda a: self._subs.set_aom_amplitude(
+            'set_mixer_phase': lambda p: GL.subs.set_mixer_phase(float(p)),
+            'set_aom_amplitude': lambda a: GL.subs.set_aom_amplitude(
                 float(a)),
-            'set_eom_amplitude': lambda a: self._subs.set_eom_amplitude(
+            'set_eom_amplitude': lambda a: GL.subs.set_eom_amplitude(
                 float(a)),
-            'set_mixer_amplitude': lambda a: self._subs.set_mixer_amplitude(
+            'set_mixer_amplitude': lambda a: GL.subs.set_mixer_amplitude(
                 float(a)),
 
-            'set_mo_current_set': lambda c: self._subs.set_current(
+            'set_mo_current_set': lambda c: GL.subs.set_current(
                 subsystems.LdDriver.MASTER_OSCILLATOR, float(c)),
-            'set_vhbg_temp_set': lambda t: self._subs.set_temp(TecUnit.VHBG, float(t)),
-            'set_vhbg_temp_raw_set': lambda t: self._subs.set_temp(
+            'set_vhbg_temp_set': lambda t: GL.subs.set_temp(TecUnit.VHBG, float(t)),
+            'set_vhbg_temp_raw_set': lambda t: GL.subs.set_temp(
                 TecUnit.VHBG, float(t), bypass_ramp=True),
 
-            'set_pa_current_set': lambda c: self._subs.set_current(
+            'set_pa_current_set': lambda c: GL.subs.set_current(
                 subsystems.LdDriver.POWER_AMPLIFIER, float(c)),
-            'set_miob_temp_set': lambda t: self._subs.set_temp(TecUnit.MIOB, float(t)),
-            'set_miob_temp_raw_set': lambda t: self._subs.set_temp(
+            'set_miob_temp_set': lambda t: GL.subs.set_temp(TecUnit.MIOB, float(t)),
+            'set_miob_temp_raw_set': lambda t: GL.subs.set_temp(
                 TecUnit.MIOB, float(t), bypass_ramp=True),
 
-            'set_shga_temp_set': lambda t: self._subs.set_temp(TecUnit.SHGA, float(t)),
-            'set_shga_temp_raw_set': lambda t: self._subs.set_temp(
+            'set_shga_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGA, float(t)),
+            'set_shga_temp_raw_set': lambda t: GL.subs.set_temp(
                 TecUnit.SHGA, float(t), bypass_ramp=True),
 
-            'set_shgb_temp_set': lambda t: self._subs.set_temp(TecUnit.SHGB, float(t)),
-            'set_shgb_temp_raw_set': lambda t: self._subs.set_temp(
+            'set_shgb_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGB, float(t)),
+            'set_shgb_temp_raw_set': lambda t: GL.subs.set_temp(
                 TecUnit.SHGB, float(t), bypass_ramp=True),
 
-            'set_nu_prop': self._subs.set_error_scale,
-            'set_nu_offset': self._subs.set_error_offset,
-            'switch_rf_clock_source': self._subs.switch_rf_clock_source,
-            'switch_mo': lambda on: self._subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on),
-            'switch_pa': lambda on: self._subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on),
-            'switch_nu_ramp': self._subs.switch_pii_ramp,
-            'switch_nu_lock': self._subs.switch_lock,
-            'switch_temp_ramp': self._subs.switch_temp_ramp,
-            'switch_tec': self._subs.switch_tec,
-            'switch_integrator': self._subs.switch_integrator,
-            'setflag': self._face.set_flag}  # type: Dict[str, LegalCall]
+            'set_nu_prop': GL.subs.set_error_scale,
+            'set_nu_offset': GL.subs.set_error_offset,
+            'switch_rf_clock_source': GL.subs.switch_rf_clock_source,
+            'switch_mo': lambda on: GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on),
+            'switch_pa': lambda on: GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on),
+            'switch_nu_ramp': GL.subs.switch_pii_ramp,
+            'switch_nu_lock': GL.subs.switch_lock,
+            'switch_temp_ramp': GL.subs.switch_temp_ramp,
+            'switch_tec': GL.subs.switch_tec,
+            'switch_integrator': GL.subs.switch_integrator,
+            'setflag': GL.face.set_flag}  # type: Dict[str, LegalCall]
 
     async def handle_instruction(self, message: str) -> None:
         """Extract an instruction from `message` and execute it."""

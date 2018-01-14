@@ -256,9 +256,9 @@ class Interfaces:
 
         :raises lock_buddy.InvalidStateError: Acquiring currently not allowed.
         """
-        LOGGER.info("Acquiring error signal...")
+        LOGGER.debug("Acquiring error signal...")
         data = await self._locker.acquire_signal()
-        LOGGER.info("Acquired error signal...")
+        LOGGER.debug("Acquired error signal...")
         return data
 
     async def _publish_message(self, message: str, species: Any) -> None:
