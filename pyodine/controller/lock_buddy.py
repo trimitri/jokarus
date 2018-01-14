@@ -437,6 +437,7 @@ class LockBuddy:
         """What status is the lock currently in?
 
         :returns: The current lock status.
+        :raises ConnectionError: Couldn't determine lockbox on/off state.
         """
         state = await tools.safe_async_call(self._locked)
         if state == LockboxState.DISENGAGED:
@@ -448,7 +449,7 @@ class LockBuddy:
             if level < cs.LOCKBOX_RAIL_ZONE / 2 or level > 1 - (cs.LOCKBOX_RAIL_ZONE / 2):
                 return LockStatus.RAIL
             return LockStatus.ON_LINE
-        raise RuntimeError("Couldn't get lockbox state from callback.")
+        raise ConnectionError("Couldn't get lockbox state from callback.")
 
     async def is_correct_line(self, tuner: Tuner, hint: DopplerLine = None,
                               reset: bool = False) -> bool:

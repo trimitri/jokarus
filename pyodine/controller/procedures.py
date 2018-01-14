@@ -306,7 +306,10 @@ def init_locker() -> lock_buddy.LockBuddy:
 
 
     def nu_locked() -> lock_buddy.LockboxState:
-        """What state is the lockbox in?"""
+        """What state is the lockbox in?
+
+        :raises ConnectionError: State cannot be determined (yet).
+        """
         if (GL.subs.nu_locked()
                 and GL.subs.lockbox_integrators_enabled()
                 and not GL.subs.is_lockbox_ramp_enabled()):

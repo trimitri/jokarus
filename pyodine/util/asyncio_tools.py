@@ -75,7 +75,8 @@ async def safe_async_call(callback: Callable, *args: Any, **kwargs: Any) -> Any:
     try:
         return await async_call(callback, *args, **kwargs)
     except Exception:  # It might raise hell. # pylint: disable=broad-except
-        LOGGER.exception("""Error calling callback "%s"!""", callback.__name__)
+        LOGGER.error("Error calling callback {}!".format(callback.__name__))
+        LOGGER.debug("Exception info:", exc_info=True)
 
 
 async def poll_resource(indicator: Callable[[], Union[bool, Awaitable[bool]]],
