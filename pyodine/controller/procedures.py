@@ -234,7 +234,7 @@ async def pursue_tec_hot() -> None:
     """
     status = await get_tec_status()
     if status == TecStatus.HOT:
-        LOGGER.info("System is hot, nothing to do.")
+        LOGGER.debug("System is hot, nothing to do.")
         return
     if status in (TecStatus.UNDEFINED, TecStatus.OFF):
         await pursue_tec_ambient()
@@ -373,7 +373,7 @@ async def laser_power_up() -> None:
     """
     state = GL.subs.laser.get_state()
     if state == LaserState.ON:
-        LOGGER.info("Laser is already ON. Doing nothing.")
+        LOGGER.debug("Laser is already ON. Doing nothing.")
         return
     if state == LaserState.UNDEFINED:
         LOGGER.error("Laser was UNDEFINED switching off instead of on.")
