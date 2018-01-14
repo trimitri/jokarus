@@ -292,5 +292,6 @@ class Interfaces:
         LOGGER.info("Trying to publish error signal.")
         try:
             await self.publish_error_signal(await self._acquire_error_signal())
-        except lock_buddy.InvalidStateError:
-            LOGGER.warning("Acquiring error signal was forbidden.")
+        except (lock_buddy.InvalidStateError, ConnectionError):
+            LOGGER.debug("Acquiring error signal was forbidden or failed.",
+                         exc_info=True)
