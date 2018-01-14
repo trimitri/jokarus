@@ -289,7 +289,7 @@ class Interfaces:
         self._loop.create_task(self.publish_flags())
 
     async def _try_publishing_error_signal(self) -> None:
-        LOGGER.info("Trying to publish error signal.")
+        LOGGER.debug("Trying to publish error signal.")
         try:
             await self.publish_error_signal(await self._acquire_error_signal())
         except (lock_buddy.InvalidStateError, ConnectionError):
