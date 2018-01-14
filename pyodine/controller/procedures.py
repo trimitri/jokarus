@@ -316,8 +316,8 @@ def init_locker() -> lock_buddy.LockBuddy:
 
     # Assemble the actual lock buddy using the tuners above.
     GL.locker = lock_buddy.LockBuddy(
-        lock=partial(engage_lock, GL.subs),
-        unlock=partial(release_lock, GL.subs),
+        lock=engage_lock,
+        unlock=release_lock,
         locked=nu_locked,
         lockbox=lockbox,
         scanner=GL.subs.fetch_scan,
