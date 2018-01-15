@@ -41,21 +41,30 @@ class TexusRelay:
                                   "TEXUS relay.")
         self._recent_state = None  # type: List[bool]
 
-    def get_full_set(self) -> Dict[str, bool]:
-        """Return a Dict of all signal lines."""
-        ret = {'liftoff': self.liftoff,
-               'microg': self.microg,
-               'tex1': self.tex1,
-               'tex2': self.tex2,
-               'tex3': self.tex3,
-               'tex4': self.tex4,
-               'tex5': self.tex5,
-               'tex6': self.tex6,
-               'jok1': self.jok1,
-               'jok2': self.jok2,
-               'jok3': self.jok3,
-               'jok4': self.jok4}
-        return ret
+    async def get_full_set(self) -> Dict[str, bool]:
+        """Return a Dict of all signal lines.
+
+        :raises ConnectionError: Serial didn't give us data.
+        """
+        def hw_blocking_call() -> Dict[str, bool]:
+            """Get the data. This is prone to H/W blocking."""
+            try:
+                return {'liftoff': self.liftoff,
+                        'microg': self.microg,
+                        'tex1': self.tex1,
+                        'tex2': self.tex2,
+                        'tex3': self.tex3,
+                        'tex4': self.tex4,
+                        'tex5': self.tex5,
+                        'tex6': self.tex6,
+                        'jok1': self.jok1,
+                        'jok2': self.jok2,
+                        'jok3': self.jok3,
+                        'jok4': self.jok4}
+            except Exception as err:
+                raise ConnectionError("Failed to get TEXUS flags.") from err
+
+        return await GL.loop.run_in_executor(None, hw_blocking_call)
 
     @property
     def tex1(self) -> bool:

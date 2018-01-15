@@ -299,6 +299,15 @@
             callRemoteMethod(CONNECTION, commandName, args);
           });
         });
+      const advancedBtns = document.querySelectorAll('input[type=button][data-method][data-arguments-source]');
+      for (const btn of advancedBtns) {
+        btn.addEventListener('click', () => {
+          const command = btn.dataset.method;
+          const src = document.querySelectorAll(btn.dataset.argumentsSource);
+          const args = src.value;
+          callRemoteMethod(CONNECTION, command, args);
+        });
+      }
 
       // TOOLS
 

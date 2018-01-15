@@ -102,24 +102,24 @@
 							<td class="update_indicator" data-qty="requested_runlevel">Never</td>
 							<td>
 								<select id="requested_runlevel">
-									<option value="0">UNDEF</option>
-									<option value="1">SHUTDOWN</option>
-									<option value="2">STANDBY</option>
-									<option value="3">AMBIENT</option>
-									<option value="4">HOT</option>
-									<option value="5">PRELOCK</option>
-									<option value="6">LOCK</option>
-									<option value="7">BALANCED</option>
+									<option value='["level", 0]'>UNDEF</option>
+									<option value='["level", 1]'>SHUTDOWN</option>
+									<option value='["level", 2]'>STANDBY</option>
+									<option value='["level", 3]'>AMBIENT</option>
+									<option value='["level", 4]'>HOT</option>
+									<option value='["level", 5]'>PRELOCK</option>
+									<option value='["level", 6]'>LOCK</option>
+									<option value='["level", 7]'>BALANCED</option>
 								</select>
 								<br />
 								<input type="button" class="command" value="Request"
-									data-method="request_runlevel" data-arguments-source="select#requested_runlevel" />
+									data-method="texus_override" data-arguments-source="select#requested_runlevel" />
 							</td>
 						</tr>
 						<tr>
 							<th>Liftoff</th>
-							<td class="indicator" data-qty="liftoff">N/A</td>
-							<td class="update_indicator" data-qty="liftoff">Never</td>
+							<td class="indicator" data-qty="anyliftoff">N/A</td>
+							<td class="update_indicator" data-qty="anyliftoff">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
 									data-method="texus_override" data-arguments='["liftoff", true]' />
@@ -129,8 +129,8 @@
 						</tr>
 						<tr>
 							<th>MicroG</th>
-							<td class="indicator" data-qty="microg">N/A</td>
-							<td class="update_indicator" data-qty="microg">Never</td>
+							<td class="indicator" data-qty="anymicrog">N/A</td>
+							<td class="update_indicator" data-qty="anymicrog">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
 									data-method="texus_override" data-arguments='["microg", true]' />

@@ -8,7 +8,7 @@ import base64
 from functools import partial
 import logging
 import time
-from typing import Any, Awaitable, Callable, List, Optional, Union  # pylint: disable=unused-import
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union  # pylint: disable=unused-import
 
 import numpy as np
 
@@ -193,8 +193,18 @@ class Interfaces:
     async def publish_flags(self) -> None:
         """Inquire and publish TEXUS status flags."""
         if isinstance(self._texus, texus_relay.TexusRelay):
-            data = self._texus.get_full_set()
-            await self._publish_message(packer.create_message(data, 'texus'), 'texus')
+            data = dict()  # type: Dict[str, Union[bool, int]]
+            try:
+                data = await self._texus.get_full_set()  # type: ignore
+            except ConnectionError:
+                LOGGER.exception("Couldn't get raw flags. Just sending processed state.")
+
+            data['anyliftoff'] = runlevels.REQUEST.liftoff
+            data['anymicrog'] = runlevels.REQUEST.microg
+            data['off'] = runlevels.REQUEST.off
+            data['level'] = int(runlevels.REQUEST.level)
+            await self._publish_message(packer.create_message(data, 'texus'),
+                                        'texus')
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
@@ -241,6 +251,7 @@ class Interfaces:
             asdict['time'] = time.time()
             await self._publish_message(
                 packer.create_message(asdict, 'light_levels'), 'light_levels')
+
 
     def set_flag(self, entity_id: str, value: bool) -> None:
         """Set an outgoing "Jokarus" flag."""
