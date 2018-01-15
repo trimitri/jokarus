@@ -79,7 +79,7 @@ class TemperatureRamp:
         """Start/resume pediodically setting the temp. setpoint."""
 
         # Ensure prerequisites.
-        if self.is_running:
+        if self._keep_running:
             self.logger.debug("%s ramp is already running. Ignoring.", self.name)
             return
         if self._target is None or not math.isfinite(self._target):
@@ -92,7 +92,7 @@ class TemperatureRamp:
 
         self.logger.debug("Starting to ramp temperature.")
 
-        self._keep_running = True
+        self._keep_running = True  # Is used to cancel _task gracefully.
         self._init_ramp()
         GL.loop.create_task(tools.repeat_task(
             self._update_transitional_setpoint, cs.TEMP_RAMP_UPDATE_INTERVAL,
@@ -107,7 +107,6 @@ class TemperatureRamp:
         # have been started yet.  This makes sure that the resume procedure has
         # to check for actual current system state.
         self._keep_running = False
-        self._task.cancel()
         self._current_setpt = None
         self._prev_setpt = None
 
