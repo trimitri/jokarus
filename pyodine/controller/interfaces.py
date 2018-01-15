@@ -130,8 +130,7 @@ class Interfaces:
                     those params.
         """
         services = []  # type: List[Awaitable]
-        if signal_interval > 0 and await runlevels.get_level() in [
-                runlevels.Runlevel.HOT, runlevels.Runlevel.UNDEFINED]:
+        if signal_interval > 0:
             services.append(asyncio_tools.repeat_task(
                 self._try_publishing_error_signal, signal_interval))
         if flags_interval > 0:
@@ -164,7 +163,14 @@ class Interfaces:
         intended for display and backup logging, we might apply some
         compression.
         """
-
+        try:
+            level = await runlevels.get_level()
+        except ConnectionError:
+            LOGGER.warning("Couldn't publish error signal, as DAQ is offline.")
+            return
+        if level not in [runlevels.Runlevel.HOT,
+                         runlevels.Runlevel.UNDEFINED]:
+            LOGGER.debug("Won't publish error signal, as runlevel is %s.", level)
         # Drop some values before publishing if this was a high-res scan.
         while signal.shape[0] > MAX_SIGNAL_SAMPLES:
             # Delete one third of the samples. That's not a very elegant way to
