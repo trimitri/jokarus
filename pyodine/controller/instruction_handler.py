@@ -49,57 +49,15 @@ class TimerEffect(enum.IntEnum):
     THREEXS = texus_relay.TimerWire.MICRO_G
     """The actual rocket's "3AxisGo" signal."""
 
-_METHODS = {
-    'engage_lock': partial(procedures.engage_lock, GL.subs),
-    'release_lock': partial(procedures.release_lock, GL.subs),
-    'set_aom_freq': lambda f: GL.subs.set_aom_frequency(float(f)),
-    'set_eom_freq': lambda f: GL.subs.set_eom_frequency(float(f)),
-    'set_mixer_freq': lambda f: GL.subs.set_mixer_frequency(float(f)),
-    'set_mixer_phase': lambda p: GL.subs.set_mixer_phase(float(p)),
-    'set_aom_amplitude': lambda a: GL.subs.set_aom_amplitude(float(a)),
-    'set_eom_amplitude': lambda a: GL.subs.set_eom_amplitude(float(a)),
-    'set_mixer_amplitude': lambda a: GL.subs.set_mixer_amplitude(float(a)),
-
-    'set_mo_current_set': lambda c: GL.subs.set_current(
-        subsystems.LdDriver.MASTER_OSCILLATOR, float(c)),
-    'set_vhbg_temp_set': lambda t: GL.subs.set_temp(TecUnit.VHBG, float(t)),
-    'set_vhbg_temp_raw_set': lambda t: GL.subs.set_temp(
-        TecUnit.VHBG, float(t), bypass_ramp=True),
-
-    'set_pa_current_set': lambda c: GL.subs.set_current(
-        subsystems.LdDriver.POWER_AMPLIFIER, float(c)),
-    'set_miob_temp_set': lambda t: GL.subs.set_temp(TecUnit.MIOB, float(t)),
-    'set_miob_temp_raw_set': lambda t: GL.subs.set_temp(
-        TecUnit.MIOB, float(t), bypass_ramp=True),
-
-    'set_shga_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGA, float(t)),
-    'set_shga_temp_raw_set': lambda t: GL.subs.set_temp(
-        TecUnit.SHGA, float(t), bypass_ramp=True),
-
-    'set_shgb_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGB, float(t)),
-    'set_shgb_temp_raw_set': lambda t: GL.subs.set_temp(
-        TecUnit.SHGB, float(t), bypass_ramp=True),
-
-    'set_nu_prop': GL.subs.set_error_scale,
-    'set_nu_offset': GL.subs.set_error_offset,
-    'switch_rf_clock_source': GL.subs.switch_rf_clock_source,
-    'switch_mo': lambda on: GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on),
-    'switch_pa': lambda on: GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on),
-    'switch_nu_ramp': GL.subs.switch_pii_ramp,
-    'switch_nu_lock': GL.subs.switch_lock,
-    'switch_temp_ramp': GL.subs.switch_temp_ramp,
-    'switch_tec': GL.subs.switch_tec,
-    'switch_integrator': GL.subs.switch_integrator,
-    'setflag': GL.face.set_flag,
-
-    'texus_override_enable': _enable_texus_override,
-    'texus_override': _texus_override_parser}  # type: Dict[str, LegalCall]
+_METHODS = dict()  # type: Dict[str, LegalCall]
 """Whitelist of legal methods to call."""
 
 # pylint: disable=too-few-public-methods
 # The main method is the single functionality of this class.
 class InstructionHandler:
     """This class receives external commands and forwards them."""
+    def __init__(self) -> None:
+        _init_methods()
 
     async def handle_instruction(self, message: str) -> None:
         """Extract an instruction from `message` and execute it."""
@@ -161,6 +119,54 @@ def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
 def _enable_texus_override(yes: bool) -> None:
     global TEXUS_OVERRIDE
     TEXUS_OVERRIDE = bool(yes)
+
+def _init_methods() -> None:
+    """We need to wait before all the globals have been initialized."""
+    assert GL.subs
+    _METHODS['engage_lock'] = partial(procedures.engage_lock, GL.subs)
+    _METHODS['release_lock'] = partial(procedures.release_lock, GL.subs)
+    _METHODS['set_aom_freq'] = lambda f: GL.subs.set_aom_frequency(float(f))
+    _METHODS['set_eom_freq'] = lambda f: GL.subs.set_eom_frequency(float(f))
+    _METHODS['set_mixer_freq'] = lambda f: GL.subs.set_mixer_frequency(float(f))
+    _METHODS['set_mixer_phase'] = lambda p: GL.subs.set_mixer_phase(float(p))
+    _METHODS['set_aom_amplitude'] = lambda a: GL.subs.set_aom_amplitude(float(a))
+    _METHODS['set_eom_amplitude'] = lambda a: GL.subs.set_eom_amplitude(float(a))
+    _METHODS['set_mixer_amplitude'] = lambda a: GL.subs.set_mixer_amplitude(float(a))
+
+    _METHODS['set_mo_current_set'] = lambda c: GL.subs.set_current(
+        subsystems.LdDriver.MASTER_OSCILLATOR, float(c))
+    _METHODS['set_vhbg_temp_set'] = lambda t: GL.subs.set_temp(TecUnit.VHBG, float(t))
+    _METHODS['set_vhbg_temp_raw_set'] = lambda t: GL.subs.set_temp(
+        TecUnit.VHBG, float(t), bypass_ramp=True)
+
+    _METHODS['set_pa_current_set'] = lambda c: GL.subs.set_current(
+        subsystems.LdDriver.POWER_AMPLIFIER, float(c))
+    _METHODS['set_miob_temp_set'] = lambda t: GL.subs.set_temp(TecUnit.MIOB, float(t))
+    _METHODS['set_miob_temp_raw_set'] = lambda t: GL.subs.set_temp(
+        TecUnit.MIOB, float(t), bypass_ramp=True)
+
+    _METHODS['set_shga_temp_set'] = lambda t: GL.subs.set_temp(TecUnit.SHGA, float(t))
+    _METHODS['set_shga_temp_raw_set'] = lambda t: GL.subs.set_temp(
+        TecUnit.SHGA, float(t), bypass_ramp=True)
+
+    _METHODS['set_shgb_temp_set'] = lambda t: GL.subs.set_temp(TecUnit.SHGB, float(t))
+    _METHODS['set_shgb_temp_raw_set'] = lambda t: GL.subs.set_temp(
+        TecUnit.SHGB, float(t), bypass_ramp=True)
+
+    _METHODS['set_nu_prop'] = GL.subs.set_error_scale
+    _METHODS['set_nu_offset'] = GL.subs.set_error_offset
+    _METHODS['switch_rf_clock_source'] = GL.subs.switch_rf_clock_source
+    _METHODS['switch_mo'] = lambda on: GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on)
+    _METHODS['switch_pa'] = lambda on: GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on)
+    _METHODS['switch_nu_ramp'] = GL.subs.switch_pii_ramp
+    _METHODS['switch_nu_lock'] = GL.subs.switch_lock
+    _METHODS['switch_temp_ramp'] = GL.subs.switch_temp_ramp
+    _METHODS['switch_tec'] = GL.subs.switch_tec
+    _METHODS['switch_integrator'] = GL.subs.switch_integrator
+    _METHODS['setflag'] = GL.face.set_flag
+
+    _METHODS['texus_override_enable'] = _enable_texus_override
+    _METHODS['texus_override'] = _texus_override_parser
 
 def _texus_override_parser(entity: str, value: Union[bool, int]) -> None:
     if not TEXUS_OVERRIDE:
