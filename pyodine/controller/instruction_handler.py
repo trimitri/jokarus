@@ -171,6 +171,7 @@ def _init_methods() -> None:
 def _texus_override_parser(entity: str, value: Union[bool, int]) -> None:
     if not TEXUS_OVERRIDE:
         LOGGER.error("Won't accept TEXUS override, as manual override is disabled.")
+        return
 
     LOGGER.info("Overriding %s to be %s...", entity, value)
     try:
