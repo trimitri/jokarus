@@ -228,17 +228,15 @@ async def pursue_runlevel() -> None:
 async def pursue_standby() -> None:
     """Kick-off changes that get the system closer to Runlevel.STANDBY."""
     LOGGER.debug('Pursuing "STANDBY" runlevel.')
-    jobs = []  # type: List[Awaitable[None]]
-    jobs.append(proc.release_lock())
-    jobs.append(proc.laser_power_down())
-    tec_status = await proc.get_tec_status()
-    if tec_status == proc.TecStatus.HOT:
-        jobs.append(proc.pursue_tec_ambient())
-    elif tec_status == proc.TecStatus.AMBIENT:
-        jobs.append(proc.tec_off())
+    current = await get_level()
+    if current == Runlevel.STANDBY:
+        LOGGER.debug("Already on STANDBY.")
+        return
+    if current == Runlevel.AMBIENT:
+        LOGGER.debug("System is AMBIENT, going to STANDBY now.")
+        await proc.tec_off()
     else:
-        LOGGER.debug("System is %s, not doing anything.", tec_status)
-    await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
+        await pursue_ambient()
 
 
 async def start_runner() -> None:

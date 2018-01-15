@@ -29,8 +29,7 @@ class TemperatureRamp:
 
         # As there tend to be multiple instances of this class, we keep a
         # separate, named logger for each of them.
-        self.logger = logging.getLogger("pyodine.controller.temperature_ramp ("
-                                        + self.name + ")")
+        self.logger = logging.getLogger("temperature_ramp {}".format(self.name))
 
         # None of these are checked for sanity here, as asyncio_tools.safe_call
         # will be used.
