@@ -77,14 +77,23 @@
 							<th>Switch</th>
 						</tr>
 						<tr>
+							<th title="The current JOKARUS status is UNDEFINED. This happens between levels.">
+								Currently Undefined
+							</th>
+							<td class="indicator" data-qty="runlevel_undefined">N/A</td>
+							<td class="update_indicator" data-qty="runlevel_undefined">Never</td>
+							<td>
+							</td>
+						</tr>
+						<tr>
 							<th>Timer Override</th>
 							<td class="indicator" data-qty="manual_override">N/A</td>
 							<td class="update_indicator" data-qty="manual_override">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
-									data-method="switch_manual_override" data-arguments='[true]' />
+									data-method="texus_override_enable" data-arguments='[true]' />
 								<input type="button" class="command" value="Off"
-									data-method="switch_manual_override" data-arguments='[false]' />
+									data-method="texus_override_enable" data-arguments='[false]' />
 							</td>
 						</tr>
 						<tr>
@@ -108,12 +117,36 @@
 							</td>
 						</tr>
 						<tr>
-							<th title="The current JOKARUS status is UNDEFINED. This happens between levels.">
-								Currently Undefined
-							</th>
-							<td class="indicator" data-qty="runlevel_undefined">N/A</td>
-							<td class="update_indicator" data-qty="runlevel_undefined">Never</td>
+							<th>Liftoff</th>
+							<td class="indicator" data-qty="liftoff">N/A</td>
+							<td class="update_indicator" data-qty="liftoff">Never</td>
 							<td>
+								<input type="button" class="command" value="On"
+									data-method="texus_override" data-arguments='["liftoff", true]' />
+								<input type="button" class="command" value="Off"
+									data-method="texus_override" data-arguments='["liftoff", false]' />
+							</td>
+						</tr>
+						<tr>
+							<th>MicroG</th>
+							<td class="indicator" data-qty="microg">N/A</td>
+							<td class="update_indicator" data-qty="microg">Never</td>
+							<td>
+								<input type="button" class="command" value="On"
+									data-method="texus_override" data-arguments='["microg", true]' />
+								<input type="button" class="command" value="Off"
+									data-method="texus_override" data-arguments='["microg", false]' />
+							</td>
+						</tr>
+						<tr>
+							<th>OFF!</th>
+							<td class="indicator" data-qty="off">N/A</td>
+							<td class="update_indicator" data-qty="off">Never</td>
+							<td>
+								<input type="button" class="command" value="On"
+									data-method="texus_override" data-arguments='["off", true]' />
+								<input type="button" class="command" value="Off"
+									data-method="texus_override" data-arguments='["off", false]' />
 							</td>
 						</tr>
 					</table>

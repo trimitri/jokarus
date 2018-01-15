@@ -14,7 +14,7 @@ import logging
 # We use Dict in type annotations, but not in the code. Thus we need to tell
 # both flake8 and pylint to ignore the "unused import" warning for the
 # following line.
-from typing import Awaitable, Callable, Dict, List, Optional  # pylint: disable=unused-import
+from typing import Awaitable, Callable, Dict, Optional, Union  # pylint: disable=unused-import
 from . import procedures, runlevels, subsystems
 from ..globals import GLOBALS as GL
 from ..transport import texus_relay
@@ -26,6 +26,9 @@ LegalCall = Callable[..., Optional[Awaitable[None]]]  # pylint: disable=invalid-
 
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
+
+TEXUS_OVERRIDE = False
+"""Should changes in the TEXUS timer wires be ignored? """
 
 class TimerEffect(enum.IntEnum):
     """Possible functions any given wire might be assigned to. """
@@ -46,58 +49,57 @@ class TimerEffect(enum.IntEnum):
     THREEXS = texus_relay.TimerWire.MICRO_G
     """The actual rocket's "3AxisGo" signal."""
 
+_METHODS = {
+    'engage_lock': partial(procedures.engage_lock, GL.subs),
+    'release_lock': partial(procedures.release_lock, GL.subs),
+    'set_aom_freq': lambda f: GL.subs.set_aom_frequency(float(f)),
+    'set_eom_freq': lambda f: GL.subs.set_eom_frequency(float(f)),
+    'set_mixer_freq': lambda f: GL.subs.set_mixer_frequency(float(f)),
+    'set_mixer_phase': lambda p: GL.subs.set_mixer_phase(float(p)),
+    'set_aom_amplitude': lambda a: GL.subs.set_aom_amplitude(float(a)),
+    'set_eom_amplitude': lambda a: GL.subs.set_eom_amplitude(float(a)),
+    'set_mixer_amplitude': lambda a: GL.subs.set_mixer_amplitude(float(a)),
+
+    'set_mo_current_set': lambda c: GL.subs.set_current(
+        subsystems.LdDriver.MASTER_OSCILLATOR, float(c)),
+    'set_vhbg_temp_set': lambda t: GL.subs.set_temp(TecUnit.VHBG, float(t)),
+    'set_vhbg_temp_raw_set': lambda t: GL.subs.set_temp(
+        TecUnit.VHBG, float(t), bypass_ramp=True),
+
+    'set_pa_current_set': lambda c: GL.subs.set_current(
+        subsystems.LdDriver.POWER_AMPLIFIER, float(c)),
+    'set_miob_temp_set': lambda t: GL.subs.set_temp(TecUnit.MIOB, float(t)),
+    'set_miob_temp_raw_set': lambda t: GL.subs.set_temp(
+        TecUnit.MIOB, float(t), bypass_ramp=True),
+
+    'set_shga_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGA, float(t)),
+    'set_shga_temp_raw_set': lambda t: GL.subs.set_temp(
+        TecUnit.SHGA, float(t), bypass_ramp=True),
+
+    'set_shgb_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGB, float(t)),
+    'set_shgb_temp_raw_set': lambda t: GL.subs.set_temp(
+        TecUnit.SHGB, float(t), bypass_ramp=True),
+
+    'set_nu_prop': GL.subs.set_error_scale,
+    'set_nu_offset': GL.subs.set_error_offset,
+    'switch_rf_clock_source': GL.subs.switch_rf_clock_source,
+    'switch_mo': lambda on: GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on),
+    'switch_pa': lambda on: GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on),
+    'switch_nu_ramp': GL.subs.switch_pii_ramp,
+    'switch_nu_lock': GL.subs.switch_lock,
+    'switch_temp_ramp': GL.subs.switch_temp_ramp,
+    'switch_tec': GL.subs.switch_tec,
+    'switch_integrator': GL.subs.switch_integrator,
+    'setflag': GL.face.set_flag,
+
+    'texus_override_enable': _enable_texus_override,
+    'texus_override': _texus_override_parser}  # type: Dict[str, LegalCall]
+"""Whitelist of legal methods to call."""
+
 # pylint: disable=too-few-public-methods
 # The main method is the single functionality of this class.
 class InstructionHandler:
     """This class receives external commands and forwards them."""
-
-    def __init__(self) -> None:
-        self._methods = {
-            'engage_lock': partial(procedures.engage_lock, GL.subs),
-            'release_lock': partial(procedures.release_lock, GL.subs),
-            'set_aom_freq': lambda f: GL.subs.set_aom_frequency(float(f)),
-            'set_eom_freq': lambda f: GL.subs.set_eom_frequency(float(f)),
-            'set_mixer_freq': lambda f: GL.subs.set_mixer_frequency(
-                float(f)),
-            'set_mixer_phase': lambda p: GL.subs.set_mixer_phase(float(p)),
-            'set_aom_amplitude': lambda a: GL.subs.set_aom_amplitude(
-                float(a)),
-            'set_eom_amplitude': lambda a: GL.subs.set_eom_amplitude(
-                float(a)),
-            'set_mixer_amplitude': lambda a: GL.subs.set_mixer_amplitude(
-                float(a)),
-
-            'set_mo_current_set': lambda c: GL.subs.set_current(
-                subsystems.LdDriver.MASTER_OSCILLATOR, float(c)),
-            'set_vhbg_temp_set': lambda t: GL.subs.set_temp(TecUnit.VHBG, float(t)),
-            'set_vhbg_temp_raw_set': lambda t: GL.subs.set_temp(
-                TecUnit.VHBG, float(t), bypass_ramp=True),
-
-            'set_pa_current_set': lambda c: GL.subs.set_current(
-                subsystems.LdDriver.POWER_AMPLIFIER, float(c)),
-            'set_miob_temp_set': lambda t: GL.subs.set_temp(TecUnit.MIOB, float(t)),
-            'set_miob_temp_raw_set': lambda t: GL.subs.set_temp(
-                TecUnit.MIOB, float(t), bypass_ramp=True),
-
-            'set_shga_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGA, float(t)),
-            'set_shga_temp_raw_set': lambda t: GL.subs.set_temp(
-                TecUnit.SHGA, float(t), bypass_ramp=True),
-
-            'set_shgb_temp_set': lambda t: GL.subs.set_temp(TecUnit.SHGB, float(t)),
-            'set_shgb_temp_raw_set': lambda t: GL.subs.set_temp(
-                TecUnit.SHGB, float(t), bypass_ramp=True),
-
-            'set_nu_prop': GL.subs.set_error_scale,
-            'set_nu_offset': GL.subs.set_error_offset,
-            'switch_rf_clock_source': GL.subs.switch_rf_clock_source,
-            'switch_mo': lambda on: GL.subs.switch_ld(subsystems.LdDriver.MASTER_OSCILLATOR, on),
-            'switch_pa': lambda on: GL.subs.switch_ld(subsystems.LdDriver.POWER_AMPLIFIER, on),
-            'switch_nu_ramp': GL.subs.switch_pii_ramp,
-            'switch_nu_lock': GL.subs.switch_lock,
-            'switch_temp_ramp': GL.subs.switch_temp_ramp,
-            'switch_tec': GL.subs.switch_tec,
-            'switch_integrator': GL.subs.switch_integrator,
-            'setflag': GL.face.set_flag}  # type: Dict[str, LegalCall]
 
     async def handle_instruction(self, message: str) -> None:
         """Extract an instruction from `message` and execute it."""
@@ -119,8 +121,8 @@ class InstructionHandler:
                              "members.")
                 return
 
-            if method in self._methods:
-                await asyncio_tools.safe_async_call(self._methods[method],
+            if method in _METHODS:
+                await asyncio_tools.safe_async_call(_METHODS[method],
                                                     *arguments)
             else:
                 LOGGER.error("Unknown method name (%s). Doing nothing.",
@@ -128,14 +130,15 @@ class InstructionHandler:
 
         # As this is a server process, broad-except is permissible:
         except Exception:  # pylint: disable=broad-except
-            LOGGER.exception("We caught an unexpected exception. This most "
-                             "likely indicates an *actual* problem.")
+            LOGGER.exception("handle_instrunction() encountered a problem.")
 
     async def handle_timer_command(self, timer_state: texus_relay.TimerState) -> None:
-        """React to a change in TEXUS timer state.
+        """React to a change in TEXUS timer state. """
 
-        :raises RuntimerError: One of the associated actions failed.
-        """
+        if TEXUS_OVERRIDE:
+            LOGGER.warning("Manual override active: ignoring TEXUS timer command.")
+            return
+
         runlevels.REQUEST.liftoff = (timer_state[TimerEffect.LIFTOFF]
                                      or timer_state[TimerEffect.LO_TIMER])
         runlevels.REQUEST.microg = (timer_state[TimerEffect.THREEXS]
@@ -154,3 +157,27 @@ def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
     if timer_state[TimerEffect.BIT_2]:
         level += 4
     return runlevels.Runlevel(level)
+
+def _enable_texus_override(yes: bool) -> None:
+    global TEXUS_OVERRIDE
+    TEXUS_OVERRIDE = bool(yes)
+
+def _texus_override_parser(entity: str, value: Union[bool, int]) -> None:
+    if not TEXUS_OVERRIDE:
+        LOGGER.error("Won't accept TEXUS override, as manual override is disabled.")
+
+    LOGGER.info("Overriding %s to be %s...", entity, value)
+    try:
+        if entity == 'liftoff':
+            runlevels.REQUEST.liftoff = bool(value)
+        elif entity == 'microg':
+            runlevels.REQUEST.microg = bool(value)
+        elif entity == 'off':
+            runlevels.REQUEST.off = bool(value)
+        elif entity == 'level':
+            runlevels.REQUEST.level = runlevels.Runlevel(int(value))
+        else:
+            LOGGER.error("Unknown TEXUS quantity ('%s').", entity)
+    except (ValueError, TypeError, ArithmeticError):  # who knows...
+        LOGGER.error("Error parsing value %s for TEXUS override.", value)
+        LOGGER.debug("Exc. info: ", exc_info=True)
