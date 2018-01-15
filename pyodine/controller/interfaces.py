@@ -163,16 +163,6 @@ class Interfaces:
         intended for display and backup logging, we might apply some
         compression.
         """
-        try:
-            level = await runlevels.get_level()
-        except ConnectionError:
-            LOGGER.warning("Couldn't publish error signal, as DAQ is offline.")
-            return
-        if level not in [runlevels.Runlevel.HOT,
-                         runlevels.Runlevel.UNDEFINED]:
-            LOGGER.debug("Won't publish error signal, as runlevel is %s.", level)
-            return
-
         # Drop some values before publishing if this was a high-res scan.
         while signal.shape[0] > MAX_SIGNAL_SAMPLES:
             # Delete one third of the samples. That's not a very elegant way to
@@ -311,6 +301,16 @@ class Interfaces:
         self._loop.create_task(self.publish_flags())
 
     async def _try_publishing_error_signal(self) -> None:
+        try:
+            level = await runlevels.get_level()
+        except ConnectionError:
+            LOGGER.warning("Couldn't publish error signal, as DAQ is offline.")
+            return
+        if level not in [runlevels.Runlevel.HOT,
+                         runlevels.Runlevel.UNDEFINED]:
+            LOGGER.debug("Won't publish error signal, as runlevel is %s.", level)
+            return
+
         LOGGER.debug("Trying to publish error signal.")
         try:
             await self.publish_error_signal(await self._acquire_error_signal())
