@@ -50,7 +50,7 @@ class TemperatureRamp:
         # Previous transitional setpoint (in deg. Celsius).
         self._prev_setpt = None  # type: float
 
-        self._keep_running = False
+        self._keep_running = False  # Is used to cancel _task gracefully.
         self._last_update = time.time()
 
     @property
@@ -92,11 +92,11 @@ class TemperatureRamp:
 
         self.logger.debug("Starting to ramp temperature.")
 
-        self._keep_running = True  # Is used to cancel _task gracefully.
+        self._keep_running = True
         self._init_ramp()
-        GL.loop.create_task(tools.repeat_task(
+        self._task = GL.loop.create_task(tools.repeat_task(
             self._update_transitional_setpoint, cs.TEMP_RAMP_UPDATE_INTERVAL,
-            do_continue=lambda: self._keep_running))
+            lambda: self._keep_running))
 
     def pause_ramp(self) -> None:
         """Stop setting new temp. setpoints, stay at current value."""
