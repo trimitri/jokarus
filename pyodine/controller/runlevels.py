@@ -110,6 +110,7 @@ async def get_level() -> Runlevel:
 
 async def pursue_ambient() -> None:
     """Kick-off changes that get the system closer to Runlevel.AMBIENT."""
+    LOGGER.debug('Pursuing "AMBIENT" runlevel.')
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.release_lock())
     jobs.append(proc.laser_power_down())
@@ -119,6 +120,7 @@ async def pursue_ambient() -> None:
 
 async def pursue_balanced() -> None:
     """Kick-off changes that get the system closer to Runlevel.BALANCED. """
+    LOGGER.debug('Pursuing "BALANCED" runlevel.')
     if daemons.is_running(daemons.Service.LOCKER):
         if daemons.is_running(daemons.Service.DRIFT_COMPENSATOR):
             LOGGER.debug("Drift compensator is already running.")
@@ -131,6 +133,7 @@ async def pursue_balanced() -> None:
 
 async def pursue_hot() -> None:
     """Kick-off changes that get the system closer to Runlevel.HOT."""
+    LOGGER.debug('Pursuing "HOT" runlevel.')
     daemons.cancel(daemons.Service.PRELOCKER)
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.pursue_tec_hot())
@@ -141,6 +144,7 @@ async def pursue_hot() -> None:
 
 async def pursue_lock() -> None:
     """Kick-off changes that get the system closer to Runlevel.LOCK."""
+    LOGGER.debug('Pursuing "LOCK" runlevel.')
     daemons.cancel(daemons.Service.DRIFT_COMPENSATOR)
     # Prelocker is cancelled in `pursue_runlevel()`.
     if daemons.is_running(daemons.Service.LOCKER):
@@ -157,6 +161,7 @@ async def pursue_lock() -> None:
 
 async def pursue_prelock() -> None:
     """Kick-off changes that get the system closer to Runlevel.PRELOCK."""
+    LOGGER.debug('Pursuing "PRELOCK" runlevel.')
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.pursue_tec_hot())
     jobs.append(proc.laser_power_up())
@@ -191,6 +196,7 @@ async def pursue_runlevel() -> None:
                 case, a stable program is preferrable to a debuggable one.
     """
     level = REQUEST.level
+    LOGGER.debug("pursue_runlevel(%s) called.", level)
 
     # This avoids having to add these lines to all the pursue_  functions().
     if level != Runlevel.PRELOCK:
@@ -221,13 +227,17 @@ async def pursue_runlevel() -> None:
 
 async def pursue_standby() -> None:
     """Kick-off changes that get the system closer to Runlevel.STANDBY."""
+    LOGGER.debug('Pursuing "STANDBY" runlevel.')
     jobs = []  # type: List[Awaitable[None]]
     jobs.append(proc.release_lock())
     jobs.append(proc.laser_power_down())
-    if await proc.get_tec_status() in [proc.TecStatus.AMBIENT, proc.TecStatus.OFF]:
+    tec_status = await proc.get_tec_status()
+    if tec_status == proc.TecStatus.HOT:
+        jobs.append(proc.pursue_tec_ambient())
+    elif tec_status == proc.TecStatus.AMBIENT:
         jobs.append(proc.tec_off())
     else:
-        jobs.append(proc.pursue_tec_ambient())
+        LOGGER.debug("System is %s, not doing anything.", tec_status)
     await asyncio.wait(jobs, timeout=cs.RUNLEVEL_PURSUE_KICKOFF_TIMEOUT)
 
 

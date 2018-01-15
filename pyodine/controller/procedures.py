@@ -13,7 +13,6 @@ import logging
 import time
 from typing import Any, Dict, List, NamedTuple
 
-import numpy as np
 import aioconsole
 
 from . import lock_buddy, subsystems
@@ -70,7 +69,7 @@ class TecError(RuntimeError):
     """Something went wrong with the thermoelectric cooling subsystem."""
     pass
 class TecStatusError(RuntimeError):
-    """The system is in the wront `TecStatus`."""
+    """The system is in the wrong `TecStatus` for this action."""
     pass
 
 
@@ -369,7 +368,6 @@ async def laser_power_up() -> None:
     After running this, the laser power may be adjusted through the PA current,
     the frequency through MO current.
 
-    :raises TecStatusError: System isn't temperature-controlled.
     :raises ConnectionError: Lighting up failed.
     """
     state = GL.subs.laser.get_state()
@@ -383,7 +381,7 @@ async def laser_power_up() -> None:
 
     try:
         await _ensure_system_is(TecStatus.HOT)
-    except StateError:
+    except TecStatusError:
         LOGGER.debug("couldn't power up laser:", exc_info=True)
         return
     LOGGER.info("Powering up laser...")
@@ -497,10 +495,14 @@ async def tec_off() -> None:
 
     This is only allowed, if the system is `TecStatus.AMBIENT`.
     """
-    status = await get_tec_status()
-    if status == TecStatus.OFF:
+    if await get_tec_status() == TecStatus.OFF:
+        LOGGER.debug("""Won't "tec_off()", as system is OFF already.""")
         return
-    await _ensure_system_is(TecStatus.AMBIENT)  # raises
+    try:
+        await _ensure_system_is(TecStatus.AMBIENT)  # raises
+    except TecStatusError:
+        LOGGER.debug("""Can't "tec_off()", as system is not AMBIENT.""")
+        return
     tecs = subsystems.TecUnit
     for unit in tecs.SHGA, tecs.SHGB, tecs.MIOB:
         GL.subs.switch_temp_ramp(unit, False)
@@ -533,11 +535,12 @@ async def _ensure_lock_is(status: lock_buddy.LockStatus) -> None:
 async def _ensure_system_is(status: TecStatus) -> None:
     """Ensure that the TEC subsystem status is `status` and raise otherwise.
 
-    :raises StateError: System is not `status`.
+    :raises TecStatusError: System is not `status`.
     """
     tec_status = await get_tec_status()  # type: TecStatus
     if tec_status != status:
-        raise StateError("TEC system is {}, refusing to do thing.".format(repr(tec_status)))
+        raise TecStatusError(
+            "TEC system is {}, refusing to do thing.".format(repr(tec_status)))
 
 
 def _get_ambient_temps(temps: List[float]) -> Dict[subsystems.TecUnit, float]:
