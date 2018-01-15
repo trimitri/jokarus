@@ -48,7 +48,7 @@ class Interfaces:
         self._locker = GL.locker
         self._loop = asyncio.get_event_loop()
         self._rcv_callback = on_receive
-        self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerWire, List[bool]], Union[Awaitable[None], None]]  # pylint: disable=line-too-long
+        self._timer_callback = lambda *_: None  # type: Callable[[texus_relay.TimerState], Optional[Awaitable[None]]]  # pylint: disable=line-too-long
         """If set, this handles timer change events."""
 
         # Keep track of when we sent the prev. publication to the clients.
@@ -89,8 +89,9 @@ class Interfaces:
             # the class member also has to change the callback. Otherwise the
             # initial dummy function would get passed. Thus we create a "window
             # function" into this class's scope.
-            async def scope_window(wire: texus_relay.TimerWire, state: List[bool]) -> None:
-                await self._timer_callback(wire, state)
+            async def scope_window(state: texus_relay.TimerState) -> None:
+                await self._timer_callback(state)
+
             self._loop.create_task(self._texus.poll_for_change(scope_window))
             LOGGER.info("Started TEXUS relay.")
 
@@ -245,8 +246,7 @@ class Interfaces:
 
     def register_timer_handler(
             self,
-            handler: Callable[[texus_relay.TimerWire, List[bool]],
-                              Union[None, Awaitable[None]]]) -> None:
+            handler: Callable[[texus_relay.TimerState], Optional[Awaitable[None]]]) -> None:
         """Register a callback to handle changes in TEXUS time state."""
         self._timer_callback = handler
 

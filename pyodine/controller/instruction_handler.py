@@ -131,8 +131,7 @@ class InstructionHandler:
             LOGGER.exception("We caught an unexpected exception. This most "
                              "likely indicates an *actual* problem.")
 
-    async def handle_timer_command(self, wire: texus_relay.TimerWire,
-                                   timer_state: texus_relay.TimerState) -> None:
+    async def handle_timer_command(self, timer_state: texus_relay.TimerState) -> None:
         """React to a change in TEXUS timer state.
 
         :raises RuntimerError: One of the associated actions failed.

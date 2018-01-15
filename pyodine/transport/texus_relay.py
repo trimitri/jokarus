@@ -5,12 +5,13 @@ Provides callbacks for start and stop of specific flight phases, etc.
 import asyncio
 import enum
 import logging
-from typing import Awaitable, Callable, Dict, List, Union
+from typing import Awaitable, Callable, Dict, List, Optional
 import serial
 
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools
+from ..globals import GLOBALS as GL
 
 LOGGER = logging.getLogger('texus_relay')
 LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']
@@ -38,6 +39,7 @@ class TexusRelay:
         except (FileNotFoundError, serial.SerialException):
             raise ConnectionError("Couldn't open serial ports assigned to "
                                   "TEXUS relay.")
+        self._recent_state = None  # type: List[bool]
 
     def get_full_set(self) -> Dict[str, bool]:
         """Return a Dict of all signal lines."""
@@ -123,31 +125,47 @@ class TexusRelay:
         LOGGER.info("Setting jok4 to %s", value)
         self._port2.rts = value
 
-    @property
-    def timer_state(self) -> TimerState:
+    async def get_timer_state(self) -> TimerState:
         """The current state of all TEXUS timer wires.
 
         :returns: A list indexable by ``.TimerWire``.
         """
-        return [self.liftoff, self.tex1, self.tex2, self.tex3,
-                self.tex4, self.tex5, self.tex6, self.microg]
+        def get_state() -> List[bool]:
+            """HW blocking call."""
+            try:
+                self._recent_state = [self.liftoff, self.tex1, self.tex2,
+                                      self.tex3, self.tex4, self.tex5,
+                                      self.tex6, self.microg]
+            except Exception:  # likes to throw OSErrors...
+                LOGGER.exception("Couldn't get timer state. Returning old one.")
+            return self._recent_state
+
+        return await GL.loop.run_in_executor(None, get_state)
 
     async def poll_for_change(
             self,
-            on_state_change: Callable[[TimerWire, List[bool]],
-                                      Union[None, Awaitable[None]]] = lambda *_: None) -> None:  # pylint: disable=bad-whitespace
+            on_state_change: Callable[[TimerState], Optional[Awaitable[None]]] = lambda *_: None) -> None:
         """Start polling the incoming timer wires for change indefinitely.
 
         This will (async) block.
         """
-        old_state = self.timer_state
+        old_state = await self.get_timer_state()
         logger.log_quantity('texus_flags', str(old_state))
         while True:
             await asyncio.sleep(cs.TEXUS_WIRE_POLLING_INTERVAL)
-            new_state = self.timer_state
-            for wire in TimerWire:
-                if new_state[wire] != old_state[wire]:
-                    await asyncio_tools.safe_async_call(on_state_change, wire,
-                                                        new_state)
+            new_state = await self.get_timer_state()
+            if new_state != old_state:
+                check_state = await self.get_timer_state()
+
+                # Check the state again and only proceed if it didn't change.
+                # As the signals will never be set and read at the exact same
+                # time, it is possible that we read a request that is currently
+                # in transition and thus possibly invalid and harmful.
+                if check_state == new_state:
+                    LOGGER.info("New TEXUS state: %s", new_state)
                     logger.log_quantity('texus_flags', str(new_state))
-            old_state = new_state
+                    old_state = new_state
+                    await asyncio_tools.safe_async_call(on_state_change, new_state)
+                else:
+                    LOGGER.warning("New TEXUS request wasn't stable, waiting "
+                                   "for next iteration.")
