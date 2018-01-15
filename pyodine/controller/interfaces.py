@@ -171,6 +171,8 @@ class Interfaces:
         if level not in [runlevels.Runlevel.HOT,
                          runlevels.Runlevel.UNDEFINED]:
             LOGGER.debug("Won't publish error signal, as runlevel is %s.", level)
+            return
+
         # Drop some values before publishing if this was a high-res scan.
         while signal.shape[0] > MAX_SIGNAL_SAMPLES:
             # Delete one third of the samples. That's not a very elegant way to
