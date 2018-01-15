@@ -192,9 +192,12 @@ async def pursue_runlevel() -> None:
     """
     level = REQUEST.level
 
+    # This avoids having to add these lines to all the pursue_  functions().
     if level != Runlevel.PRELOCK:
-        # This avoids having to add this line to all the pursue_  functions().
         daemons.cancel(daemons.Service.PRELOCKER)
+    if level != Runlevel.BALANCED:
+        daemons.cancel(daemons.Service.DRIFT_COMPENSATOR)
+
 
     if level == Runlevel.UNDEFINED:
         LOGGER.warning("Runlevel `UNDEFINED` must not be requested.")
@@ -234,7 +237,7 @@ async def start_runner() -> None:
     :raises RuntimerError: Globals weren't fully set.
     """
     _validate_request()  # raises
-    await tools.repeat_task(pursue_runlevel, cs.RUNLEVEL_REFRESH_INTERVAL)
+    await tools.repeat_task(pursue_runlevel, min_wait_time=cs.RUNLEVEL_REFRESH_INTERVAL)
 
 
 async def _lock_runner() -> None:
