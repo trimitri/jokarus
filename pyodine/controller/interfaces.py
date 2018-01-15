@@ -210,7 +210,11 @@ class Interfaces:
         As acquiring the DAQ readings is a blocking operation, this must not be
         called too frequently.
         """
-        aux_temps = await self._subs.get_aux_temps()
+        try:
+            aux_temps = await self._subs.get_aux_temps()
+        except ConnectionError:
+            LOGGER.warning("Couldn't publish aux. temps as DAQ is offline.")
+            return
         human_readable = {sensor.name: aux_temps[sensor]
                           for sensor in subsystems.AuxTemp}
         human_readable['time'] = time.time()
