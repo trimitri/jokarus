@@ -209,6 +209,9 @@ class Subsystems:
 
         :raises ConnectionError: Couldn't convince the DAQ to send us data.
         """
+        if not self._daq:
+            raise ConnectionError("DAQ not initialized.")
+
         cache = self.get_aux_temps.cache  # see decorator  # pylint: disable=no-member
         if time.time() - cache['time'] < cs.TEMP_CACHE_LIFETIME and not dont_cache:
             LOGGER.debug("Returning cached temperatures")
