@@ -14,11 +14,11 @@ import numpy as np
 
 from .. import constants as cs
 from ..globals import GLOBALS as GL
+from . import lock_buddy, runlevels, subsystems
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
 from ..transport import packer
-from ..controller import lock_buddy, subsystems
 from ..util import asyncio_tools
 
 LOGGER = logging.getLogger("pyodine.controller.interfaces")
@@ -94,12 +94,10 @@ class Interfaces:
             self._loop.create_task(self._texus.poll_for_change(scope_window))
             LOGGER.info("Started TEXUS relay.")
 
-    def start_publishing_regularly(self, readings_interval: float,
-                                   flags_interval: float,
-                                   setup_interval: float,
-                                   signal_interval: float,
-                                   status_update_interval: float,
-                                   aux_temps_interval: float) -> asyncio.Task:
+    async def start_publishing_regularly(
+            self, readings_interval: float, flags_interval: float,
+            setup_interval: float, signal_interval: float,
+            status_update_interval: float, aux_temps_interval: float) -> asyncio.Task:
         """Schedule asyncio tasks to publish data regularly.
 
         This includes the following types of data:
@@ -131,7 +129,8 @@ class Interfaces:
                     those params.
         """
         services = []  # type: List[Awaitable]
-        if signal_interval > 0:
+        if signal_interval > 0 and await runlevels.get_level() in [
+                runlevels.Runlevel.HOT, runlevels.Runlevel.UNDEFINED]:
             services.append(asyncio_tools.repeat_task(
                 self._try_publishing_error_signal, signal_interval))
         if flags_interval > 0:

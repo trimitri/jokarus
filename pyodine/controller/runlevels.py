@@ -84,7 +84,13 @@ class Runlevel(enum.IntEnum):
 
 async def get_level() -> Runlevel:
     """Determine current runlevel."""
-    tec = await proc.get_tec_status()  # type: proc.TecStatus
+    try:
+        tec = await proc.get_tec_status()  # type: proc.TecStatus
+    except proc.TecError:
+        LOGGER.error("Couldn't get TEC status")
+        LOGGER.debug("Couldn't get TEC status", exc_info=True)
+        return Runlevel.UNDEFINED
+
     laser = GL.subs.laser.get_state()  # LaserState
 
     if tec == proc.TecStatus.OFF and laser == LaserState.OFF:
