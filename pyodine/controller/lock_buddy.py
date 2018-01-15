@@ -271,7 +271,6 @@ class LockBuddy:
         if not self.recent_signal.any():
             raise ConnectionError("Didn't get readings from callback.")
 
-        LOGGER.debug("Acquired signal...")
         await tools.safe_async_call(self._on_new_signal, self.recent_signal)
         return self.recent_signal
 
