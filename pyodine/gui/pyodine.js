@@ -303,8 +303,8 @@
       for (const btn of advancedBtns) {
         btn.addEventListener('click', () => {
           const command = btn.dataset.method;
-          const src = document.querySelectorAll(btn.dataset.argumentsSource);
-          const args = src.value;
+          const src = document.querySelector(btn.dataset.argumentsSource);
+          const args = JSON.parse(src.value);
           callRemoteMethod(CONNECTION, command, args);
         });
       }
