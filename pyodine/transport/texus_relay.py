@@ -147,10 +147,15 @@ class TexusRelay:
             on_state_change: Callable[[TimerState], Optional[Awaitable[None]]] = lambda *_: None) -> None:
         """Start polling the incoming timer wires for change indefinitely.
 
-        This will (async) block.
+        Callback is called once with the current state.
+        This method blocks (async).
         """
         old_state = await self.get_timer_state()
         logger.log_quantity('texus_flags', str(old_state))
+
+        # Broadcast a "change" once to init whatever depends on the flags.
+        await asyncio_tools.safe_async_call(on_state_change, old_state)
+
         while True:
             await asyncio.sleep(cs.TEXUS_WIRE_POLLING_INTERVAL)
             new_state = await self.get_timer_state()
