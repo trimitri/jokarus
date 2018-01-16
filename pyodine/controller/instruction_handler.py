@@ -161,6 +161,9 @@ def _init_methods() -> None:
     _METHODS['switch_integrator'] = GL.subs.switch_integrator
     _METHODS['setflag'] = GL.face.set_flag
 
+    _METHODS['start_runlevel'] = runlevels.start_runner
+    _METHODS['stop_runlevel'] = runlevels.stop_runner
+
     _METHODS['texus_override_enable'] = _enable_texus_override
     _METHODS['texus_override'] = _texus_override_parser
 

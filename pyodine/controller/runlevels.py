@@ -267,12 +267,26 @@ async def pursue_standby() -> None:
 
 
 async def start_runner() -> None:
-    """Start continuously synchronizing system state with requested state.
+    """Start the runlevel-pursuing runner task.
+
+    Start continuously synchronizing system state with requested state.
 
     :raises RuntimerError: Globals weren't fully set.
     """
     _validate_request()  # raises
-    await tools.repeat_task(pursue_runlevel, min_wait_time=cs.RUNLEVEL_REFRESH_INTERVAL)
+    if daemons.is_running(daemons.Service.RUNLEVEL):
+        LOGGER.info("Runlevel runner is already running. -.- ")
+        return
+
+    LOGGER.info("Started runlevel runner task.")
+    daemons.register(daemons.Service.RUNLEVEL, GL.loop.create_task(
+        tools.repeat_task(pursue_runlevel,
+                          min_wait_time=cs.RUNLEVEL_REFRESH_INTERVAL)))
+
+
+async def stop_runner() -> None:
+    """Stop the runlevel-pursuing runner task."""
+    daemons.cancel(daemons.Service.RUNLEVEL)
 
 
 async def _lock_runner() -> None:

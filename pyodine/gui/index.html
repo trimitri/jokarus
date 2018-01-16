@@ -85,7 +85,7 @@
 							<td>
 							</td>
 						</tr>
-						<tr>
+						<tr data-flag="override">
 							<th>Timer Override</th>
 							<td class="indicator" data-qty="manual_override">N/A</td>
 							<td class="update_indicator" data-qty="manual_override">Never</td>
@@ -96,10 +96,21 @@
 									data-method="texus_override_enable" data-arguments='[false]' />
 							</td>
 						</tr>
-						<tr>
+						<tr data-flag="is_task_runlevel">
+							<th>Runlevel runner</th>
+							<td class="indicator">N/A</td>
+							<td class="update_indicator">Never</td>
+							<td>
+								<input type="button" class="command" value="On"
+									data-method="start_runlevel" />
+								<input type="button" class="command" value="Off"
+									data-method="stop_runlevel" />
+							</td>
+						</tr>
+						<tr data-flag="requested_runlevel">
 							<th>Requested Level</th>
-							<td class="numerical indicator" data-qty="requested_runlevel">N/A</td>
-							<td class="update_indicator" data-qty="requested_runlevel">Never</td>
+							<td class="numerical indicator">N/A</td>
+							<td class="update_indicator">Never</td>
 							<td>
 								<select id="requested_runlevel">
 									<option value='["level", 0]'>UNDEF</option>
@@ -116,10 +127,10 @@
 									data-method="texus_override" data-arguments-source="select#requested_runlevel" />
 							</td>
 						</tr>
-						<tr>
+						<tr data-flag="anyliftoff">
 							<th>Liftoff</th>
-							<td class="indicator" data-qty="anyliftoff">N/A</td>
-							<td class="update_indicator" data-qty="anyliftoff">Never</td>
+							<td class="indicator">N/A</td>
+							<td class="update_indicator">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
 									data-method="texus_override" data-arguments='["liftoff", true]' />
@@ -127,10 +138,10 @@
 									data-method="texus_override" data-arguments='["liftoff", false]' />
 							</td>
 						</tr>
-						<tr>
+						<tr data-flag="anymicrog">
 							<th>MicroG</th>
-							<td class="indicator" data-qty="anymicrog">N/A</td>
-							<td class="update_indicator" data-qty="anymicrog">Never</td>
+							<td class="indicator">N/A</td>
+							<td class="update_indicator">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
 									data-method="texus_override" data-arguments='["microg", true]' />
@@ -138,10 +149,10 @@
 									data-method="texus_override" data-arguments='["microg", false]' />
 							</td>
 						</tr>
-						<tr>
+						<tr data-flag="off">
 							<th>OFF!</th>
-							<td class="indicator" data-qty="off">N/A</td>
-							<td class="update_indicator" data-qty="off">Never</td>
+							<td class="indicator">N/A</td>
+							<td class="update_indicator">Never</td>
 							<td>
 								<input type="button" class="command" value="On"
 									data-method="texus_override" data-arguments='["off", true]' />
