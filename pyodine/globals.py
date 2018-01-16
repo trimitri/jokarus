@@ -1,7 +1,13 @@
 """Provide a centralized place of access to global objects."""
 
 import asyncio
+import logging
 import typing
+
+from .util import asyncio_tools as tools
+from . import constants as cs
+
+LOGGER = logging.getLogger("globals")
 
 if typing.TYPE_CHECKING:
     # For the type annotations below to work, we need these "unneeded" imports.
@@ -30,3 +36,18 @@ class GLOBALS:  # pylint: disable=too-few-public-methods
     """The subsystems controller."""
     locker = None  # type: lock_buddy.LockBuddy
     """The lock controller."""
+
+async def systems_online(timeout: float = cs.SYSTEMS_INIT_TIMOUT) -> None:
+    """Wait until all systems are online and raise a TimeoutError on failure.
+
+    :raises TimeoutError: Not all systems are online, even after waiting.
+    """
+    def check() -> bool:
+        return all([GLOBALS.face, GLOBALS.face.has_texus(),
+                    GLOBALS.locker,
+                    GLOBALS.subs, GLOBALS.subs.laser, GLOBALS.subs.has_menlo()])
+    if check():
+        return
+    await asyncio.wait_for(  # raises TimeoutError
+        tools.poll_resource(check, .5), timeout, loop=GLOBALS.loop)
+    LOGGER.info("Subsystems are now online.")

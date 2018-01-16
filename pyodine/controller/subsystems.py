@@ -162,6 +162,9 @@ class Subsystems:
 
         LOGGER.info("Initialized Subsystems.")
 
+    def has_menlo(self) -> bool:
+        return bool(self._menlo)
+
     def daq_alive(self) -> bool:
         """The DAQ is connected and healthy."""
         if self._daq and self._daq.ping():

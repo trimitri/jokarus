@@ -12,7 +12,7 @@ import logging
 
 from . import logger
 from . import constants as cs
-from .globals import GLOBALS as GL
+from .globals import (GLOBALS as GL, systems_online)
 from .controller import (daemons, interfaces, instruction_handler, procedures,
                          runlevels, subsystems)
 from .util import asyncio_tools as tools
@@ -27,6 +27,7 @@ async def main() -> None:
     GL.locker = procedures.init_locker()
     GL.face = interfaces.Interfaces(start_ws_server=True, start_serial_server=True)
     await GL.face.init_async()
+    await systems_online()
     await GL.face.start_publishing_regularly(
         readings_interval=.8, flags_interval=1.3, setup_interval=3.1,
         signal_interval=4, status_update_interval=0, aux_temps_interval=6.9)
