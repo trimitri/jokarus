@@ -424,6 +424,7 @@ class Subsystems:
 
         :raises ConnectionError: No values have been received (yet).
         """
+        self._ensure_menlo()  # raises ConnectionError
         try:
             return self._unwrap_buffer(self._menlo.is_tec_enabled(unit)) == 1
         except ValueError:
@@ -759,6 +760,10 @@ class Subsystems:
 
 
     # Private Methods
+
+    def _ensure_menlo(self) -> None:
+        if not self._menlo:
+            raise ConnectionError("Menlo stack is not initialized yet.")
 
     def _init_laser(self) -> None:
         # Initalize a laser controller class using the methods that the menlo
