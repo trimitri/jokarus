@@ -136,8 +136,9 @@ class Interfaces:
             services.append(asyncio_tools.repeat_task(
                 self._try_publishing_error_signal, signal_interval))
         if flags_interval > 0:
-            services.append(asyncio_tools.repeat_task(self.publish_flags,
-                                                      flags_interval))
+            daemons.register(daemons.Service.PUBLISH_FLAGS,
+                             GL.loop.create_task(asyncio_tools.repeat_task(
+                                 self.publish_flags, flags_interval)))
         if readings_interval > 0:
             services.append(asyncio_tools.repeat_task(self.publish_readings,
                                                       readings_interval))

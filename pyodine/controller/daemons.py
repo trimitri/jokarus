@@ -13,6 +13,8 @@ class Service(enum.IntEnum):
     """Maintains a running lock.  Includes relocker and simple balancer."""
     PRELOCKER = 30
     """Prelock-maintainer that doesn't actually lock. """
+    PUBLISH_FLAGS = 60
+    """Regularly publishes the system state."""
     RUNLEVEL = 40
     """The task that continuously pursues the requested runlevel. """
     TEXUS_TIMER = 50
