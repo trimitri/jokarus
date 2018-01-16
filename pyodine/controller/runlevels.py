@@ -224,11 +224,14 @@ async def pursue_runlevel() -> None:
     if level != Runlevel.BALANCED:
         daemons.cancel(daemons.Service.DRIFT_COMPENSATOR)
 
+    if REQUEST.off:
+        await pursue_shutdown()
+        return
 
     if level == Runlevel.UNDEFINED:
         LOGGER.warning("Runlevel `UNDEFINED` must not be requested.")
     elif level == Runlevel.SHUTDOWN:
-        await pursue_standby()  # TODO: flush files etc.
+        await pursue_shutdown()
     elif level == Runlevel.STANDBY:
         await pursue_standby()
     elif level == Runlevel.AMBIENT:
@@ -243,6 +246,10 @@ async def pursue_runlevel() -> None:
         await pursue_balanced()
     else:
         raise ValueError("Unknown runlevel {}.".format(repr(level)))
+
+
+async def pursue_shutdown() -> None:
+    await pursue_standby()  # TODO: flush files etc.
 
 
 async def pursue_standby() -> None:
