@@ -258,7 +258,7 @@ SPEC_MIN_LOG_DIP_DEPTH = 0.1
 valid?  In Volts.
 """
 
-SYSTEMS_INIT_TIMOUT = 10.
+SYSTEMS_INIT_TIMOUT = 30.
 """Wait at most ~ seconds before considering the init of systems failed."""
 
 TEC_GRANULARITY_K = 0.0005

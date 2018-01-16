@@ -12,6 +12,7 @@ import logging
 
 from . import logger
 from . import constants as cs
+from . import globals as gl
 from .globals import (GLOBALS as GL, systems_online)
 from .controller import (daemons, interfaces, instruction_handler, procedures,
                          runlevels, subsystems)
@@ -27,19 +28,20 @@ async def main() -> None:
     GL.locker = procedures.init_locker()
     GL.face = interfaces.Interfaces(start_ws_server=True, start_serial_server=True)
     await GL.face.init_async()
+    handler = instruction_handler.InstructionHandler()
+    GL.face.register_on_receive_callback(handler.handle_instruction)
+    GL.face.register_timer_handler(handler.handle_timer_command)
     await systems_online()
     await GL.face.start_publishing_regularly(
         readings_interval=.8, flags_interval=1.3, setup_interval=3.1,
         signal_interval=4, status_update_interval=0, aux_temps_interval=6.9)
 
-    handler = instruction_handler.InstructionHandler()
-    GL.face.register_on_receive_callback(handler.handle_instruction)
-    GL.face.register_timer_handler(handler.handle_timer_command)
 
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a CLI to Pyodine.
     procedures.open_backdoor({'cs': cs,
                               'daemons': daemons,
+                              'gl': gl,
                               'GL': GL,
                               'proc': procedures,
                               'run': runlevels,
