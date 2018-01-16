@@ -16,7 +16,7 @@ import logging
 # following line.
 from typing import Awaitable, Callable, Dict, Optional, Union  # pylint: disable=unused-import
 from . import procedures, runlevels, subsystems
-from ..globals import GLOBALS as GL
+from ..pyodine_globals import GLOBALS as GL
 from ..transport import texus_relay
 from ..util import asyncio_tools
 

@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Union  # pyli
 import numpy as np
 
 from .. import constants as cs
-from ..globals import GLOBALS as GL
+from ..pyodine_globals import GLOBALS as GL
 from . import daemons, lock_buddy, runlevels, subsystems
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer

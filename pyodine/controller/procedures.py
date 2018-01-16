@@ -16,7 +16,7 @@ from typing import Any, Dict, List, NamedTuple
 import aioconsole
 
 from . import lock_buddy, subsystems
-from ..globals import GLOBALS as GL
+from ..pyodine_globals import GLOBALS as GL
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools

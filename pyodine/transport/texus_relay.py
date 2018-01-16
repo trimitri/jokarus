@@ -11,7 +11,7 @@ import serial
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools
-from ..globals import GLOBALS as GL
+from ..pyodine_globals import GLOBALS as GL
 
 LOGGER = logging.getLogger('texus_relay')
 LEGAL_SETTERS = ['jok1', 'jok2', 'jok3', 'jok4']

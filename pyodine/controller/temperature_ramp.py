@@ -10,7 +10,7 @@ import time
 from typing import Callable
 
 from .. import constants as cs
-from ..globals import GLOBALS as GL
+from ..pyodine_globals import GLOBALS as GL
 from ..util import asyncio_tools as tools
 
 

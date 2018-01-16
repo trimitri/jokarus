@@ -7,7 +7,7 @@ import typing
 from .util import asyncio_tools as tools
 from . import constants as cs
 
-LOGGER = logging.getLogger("globals")
+LOGGER = logging.getLogger("pyodine_globals")
 
 if typing.TYPE_CHECKING:
     # For the type annotations below to work, we need these "unneeded" imports.
