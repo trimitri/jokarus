@@ -13,7 +13,7 @@ import logging
 from . import logger
 from . import constants as cs
 from .globals import GLOBALS as GL
-from .controller import (interfaces, instruction_handler, procedures,
+from .controller import (daemons, interfaces, instruction_handler, procedures,
                          runlevels, subsystems)
 from .util import asyncio_tools as tools
 from .util import git_adapter
@@ -38,6 +38,7 @@ async def main() -> None:
     # Start a asyncio-capable interactive python console on port 8000 as a
     # backdoor, practically providing a CLI to Pyodine.
     procedures.open_backdoor({'cs': cs,
+                              'daemons': daemons,
                               'GL': GL,
                               'proc': procedures,
                               'run': runlevels,
