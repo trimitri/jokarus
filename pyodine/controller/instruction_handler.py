@@ -27,9 +27,6 @@ LegalCall = Callable[..., Optional[Awaitable[None]]]  # pylint: disable=invalid-
 LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
 
-TEXUS_OVERRIDE = False
-"""Should changes in the TEXUS timer wires be ignored? """
-
 class TimerEffect(enum.IntEnum):
     """Possible functions any given wire might be assigned to. """
     BIT_O = texus_relay.TimerWire.TEX_1
@@ -93,8 +90,8 @@ class InstructionHandler:
     async def handle_timer_command(self, timer_state: texus_relay.TimerState) -> None:
         """React to a change in TEXUS timer state. """
 
-        if TEXUS_OVERRIDE:
-            LOGGER.warning("Manual override active: ignoring TEXUS timer command.")
+        if runlevels.REQUEST.is_override:
+            LOGGER.debug("Manual override active: ignoring TEXUS timer command.")
             return
 
         runlevels.REQUEST.liftoff = (timer_state[TimerEffect.LIFTOFF]
@@ -102,10 +99,10 @@ class InstructionHandler:
         runlevels.REQUEST.microg = (timer_state[TimerEffect.THREEXS]
                                     or timer_state[TimerEffect.UG_TIMER])
         runlevels.REQUEST.off = timer_state[TimerEffect.OFF]
-        runlevels.REQUEST.level = get_runlevel(timer_state)
+        runlevels.REQUEST.level = parse_runlevel(timer_state)
 
 
-def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
+def parse_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
     """Extracts currently requested runlevel (0-7) from TEXUS Timer state."""
     level = 0
     if timer_state[TimerEffect.BIT_O]:
@@ -117,8 +114,7 @@ def get_runlevel(timer_state: texus_relay.TimerState) -> runlevels.Runlevel:
     return runlevels.Runlevel(level)
 
 def _enable_texus_override(yes: bool) -> None:
-    global TEXUS_OVERRIDE
-    TEXUS_OVERRIDE = bool(yes)
+    runlevels.REQUEST.is_override = bool(yes)
 
 def _init_methods() -> None:
     """We need to wait before all the globals have been initialized."""
@@ -169,7 +165,7 @@ def _init_methods() -> None:
     _METHODS['texus_override'] = _texus_override_parser
 
 def _texus_override_parser(entity: str, value: Union[bool, int]) -> None:
-    if not TEXUS_OVERRIDE:
+    if not runlevels.REQUEST.is_override:
         LOGGER.error("Won't accept TEXUS override, as manual override is disabled.")
         return
 

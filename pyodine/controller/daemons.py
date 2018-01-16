@@ -13,11 +13,15 @@ class Service(enum.IntEnum):
     """Maintains a running lock.  Includes relocker and simple balancer."""
     PRELOCKER = 30
     """Prelock-maintainer that doesn't actually lock. """
+    RUNLEVEL = 40
+    """The task that continuously pursues the requested runlevel. """
+    TEXUS_TIMER = 50
+    """The poller monitoring the incoming TEXUS timer wires."""
 
 
 TASKS = {}  # type: Dict[Service, asyncio.Task]
-for serv in Service:
-    TASKS[serv] = None
+for _serv in Service:
+    TASKS[_serv] = None
 
 
 def is_running(service: Service) -> bool:

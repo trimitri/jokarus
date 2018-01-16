@@ -4,7 +4,7 @@ import asyncio
 import enum
 from functools import partial
 import logging
-from typing import Awaitable, List  # pylint: disable=unused-import
+from typing import Awaitable, List, Tuple  # pylint: disable=unused-import
 from . import procedures as proc
 from . import daemons, subsystems
 from .lock_buddy import LockStatus
@@ -22,14 +22,16 @@ class REQUEST:  # pylint: disable=too-few-public-methods
     They even __need__ to be defined from other modules, as they're invalid on
     import.
     """
+    is_override = False
+    """Are the TEXUS timer commands overriden by manual control? """
+    level = None  # type: Runlevel
+    """Which runlevel should the system pursue?"""
     liftoff = None  # type: bool
     """Did the rocket lift off yet?"""
     microg = None  # type: bool
     """Did the lift off phase complete yet?"""
     off = None  # type: bool
     """Is an (emergency?) shutdown requested?"""
-    level = None  # type: Runlevel
-    """Which runlevel should the system pursue?"""
 
 
 class Runlevel(enum.IntEnum):
@@ -113,6 +115,18 @@ async def get_level() -> Runlevel:
 
     return Runlevel.UNDEFINED
 
+
+@tools.static_variable('last_level', 0)
+async def get_reported_level() -> Tuple[Runlevel, bool]:
+    """
+    :returns: A tuple like (<most recent valid runlevel>,
+                            <current runlevel is undefined>).
+    """
+    current_level = await get_level()
+    if current_level == Runlevel.UNDEFINED:
+        return (get_reported_level.last_level, True)  # type: ignore
+    get_reported_level.last_level = current_level  # type: ignore
+    return (current_level, False)
 
 async def pursue_ambient() -> None:
     """Kick-off changes that get the system closer to Runlevel.AMBIENT."""

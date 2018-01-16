@@ -14,7 +14,7 @@ import numpy as np
 
 from .. import constants as cs
 from ..globals import GLOBALS as GL
-from . import lock_buddy, runlevels, subsystems
+from . import daemons, lock_buddy, runlevels, subsystems
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
 from ..transport import texus_relay
@@ -92,7 +92,9 @@ class Interfaces:
             async def scope_window(state: texus_relay.TimerState) -> None:
                 await self._timer_callback(state)
 
-            self._loop.create_task(self._texus.poll_for_change(scope_window))
+            assert not daemons.is_running(daemons.Service.TEXUS_TIMER)
+            task = self._loop.create_task(self._texus.poll_timer(scope_window))
+            daemons.register(daemons.Service.TEXUS_TIMER, task)
             LOGGER.info("Started TEXUS relay.")
 
     async def start_publishing_regularly(
@@ -189,10 +191,17 @@ class Interfaces:
             except ConnectionError:
                 LOGGER.exception("Couldn't get raw flags. Just sending processed state.")
 
+            last_good, is_undefined = await runlevels.get_reported_level()
+            data['is_undefined'] = is_undefined
+            data['reported_level'] = last_good
+
             data['anyliftoff'] = runlevels.REQUEST.liftoff
             data['anymicrog'] = runlevels.REQUEST.microg
+            data['is_task_runlevel'] = daemons.is_running(daemons.Service.RUNLEVEL)
+            data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
             data['off'] = runlevels.REQUEST.off
-            data['level'] = int(runlevels.REQUEST.level)
+            data['override'] = runlevels.REQUEST.is_override
+            data['requested_level'] = int(runlevels.REQUEST.level)
             await self._publish_message(packer.create_message(data, 'texus'),
                                         'texus')
 

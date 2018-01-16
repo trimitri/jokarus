@@ -151,24 +151,21 @@ class TexusRelay:
 
         return await GL.loop.run_in_executor(None, get_state)
 
-    async def poll_for_change(
+    async def poll_timer(
             self,
-            on_state_change: Callable[[TimerState], Optional[Awaitable[None]]] = lambda *_: None) -> None:
-        """Start polling the incoming timer wires for change indefinitely.
+            handler: Callable[[TimerState], Optional[Awaitable[None]]] = lambda *_: None) -> None:
+        """Start polling the incoming timer wires indefinitely.
 
-        Callback is called once with the current state.
         This method blocks (async).
         """
         old_state = await self.get_timer_state()
         logger.log_quantity('texus_flags', str(old_state))
 
-        # Broadcast a "change" once to init whatever depends on the flags.
-        await asyncio_tools.safe_async_call(on_state_change, old_state)
-
         while True:
-            await asyncio.sleep(cs.TEXUS_WIRE_POLLING_INTERVAL)
             new_state = await self.get_timer_state()
-            if new_state != old_state:
+            if new_state == old_state:
+                await asyncio_tools.safe_async_call(handler, new_state)
+            else:
                 check_state = await self.get_timer_state()
 
                 # Check the state again and only proceed if it didn't change.
@@ -179,7 +176,8 @@ class TexusRelay:
                     LOGGER.info("New TEXUS state: %s", new_state)
                     logger.log_quantity('texus_flags', str(new_state))
                     old_state = new_state
-                    await asyncio_tools.safe_async_call(on_state_change, new_state)
+                    await asyncio_tools.safe_async_call(handler, new_state)
                 else:
                     LOGGER.warning("New TEXUS request wasn't stable, waiting "
                                    "for next iteration.")
+            await asyncio.sleep(cs.TEXUS_WIRE_POLLING_INTERVAL)
