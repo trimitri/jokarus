@@ -31,13 +31,13 @@ class TimerEffect(enum.IntEnum):
     """Possible functions any given wire might be assigned to. """
     BIT_O = texus_relay.TimerWire.TEX_1
     """The 2^0 digit of the 3-bit runlevel request mechanism."""
-    BIT_1 = texus_relay.TimerWire.TEX_6
+    BIT_1 = texus_relay.TimerWire.TEX_4
     """The 2^1 digit of the 3-bit runlevel request mechanism."""
     BIT_2 = texus_relay.TimerWire.TEX_3
     """The 2^2 digit of the 3-bit runlevel request mechanism."""
     OFF = texus_relay.TimerWire.TEX_5
     """The (emergency?) power-off signal."""
-    LO_TIMER = texus_relay.TimerWire.TEX_4
+    LO_TIMER = texus_relay.TimerWire.TEX_6
     """Timer signal fired at lift off.  Not the actual "LiftOff" signal!"""
     UG_TIMER = texus_relay.TimerWire.TEX_2
     """Timer signal fired at micro g.  Not the actual "3AxisGo" signal!"""
