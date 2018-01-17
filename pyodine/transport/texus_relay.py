@@ -68,35 +68,35 @@ class TexusRelay:
 
     @property
     def tex1(self) -> bool:
-        return self._port1.getCD()
+        return not self._port1.getCD()
 
     @property
     def tex2(self) -> bool:
-        return self._port1.getDSR()
+        return not self._port1.getDSR()
 
     @property
     def tex3(self) -> bool:
-        return self._port1.getCTS()
+        return not self._port1.getCTS()
 
     @property
     def tex4(self) -> bool:
-        return self._port1.getRI()
+        return not self._port1.getRI()
 
     @property
     def tex5(self) -> bool:
-        return self._port2.getCD()
+        return not self._port2.getCD()
 
     @property
     def tex6(self) -> bool:
-        return self._port2.getDSR()
+        return not self._port2.getDSR()
 
     @property
     def microg(self) -> bool:
-        return self._port2.getCTS()
+        return not self._port2.getCTS()
 
     @property
     def liftoff(self) -> bool:
-        return self._port2.getRI()
+        return not self._port2.getRI()
 
     @property
     def jok1(self) -> bool:
