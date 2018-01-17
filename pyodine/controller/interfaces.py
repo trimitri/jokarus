@@ -139,9 +139,11 @@ class Interfaces:
             services.append(asyncio_tools.repeat_task(
                 self._try_publishing_error_signal, signal_interval))
         if flags_interval > 0:
-            daemons.register(daemons.Service.PUBLISH_FLAGS,
-                             GL.loop.create_task(asyncio_tools.repeat_task(
-                                 self.publish_flags, flags_interval)))
+            services.append(asyncio_tools.repeat_task(self.publish_flags,
+                                                      flags_interval))
+            # daemons.register(daemons.Service.PUBLISH_FLAGS,
+            #                  GL.loop.create_task(asyncio_tools.repeat_task(
+            #                      self.publish_flags, flags_interval)))
         if readings_interval > 0:
             services.append(asyncio_tools.repeat_task(self.publish_readings,
                                                       readings_interval))
@@ -188,25 +190,28 @@ class Interfaces:
 
     async def publish_flags(self) -> None:
         """Inquire and publish TEXUS status flags."""
-        data = dict()  # type: Dict[str, Union[bool, int]]
         try:
-            data = await self._texus.get_full_set()  # type: ignore
-        except ConnectionError:
-            LOGGER.exception("Couldn't get raw flags. Just sending processed state.")
+            data = dict()  # type: Dict[str, Union[bool, int]]
+            try:
+                data = await self._texus.get_full_set()  # type: ignore
+            except ConnectionError:
+                LOGGER.exception("Couldn't get raw flags. Just sending processed state.")
 
-        last_good, is_undefined = await runlevels.get_reported_level()
-        data['is_undefined'] = is_undefined
-        data['reported_level'] = last_good
+            last_good, is_undefined = await runlevels.get_reported_level()
+            data['is_undefined'] = is_undefined
+            data['reported_level'] = last_good
 
-        data['anyliftoff'] = runlevels.REQUEST.liftoff
-        data['anymicrog'] = runlevels.REQUEST.microg
-        data['is_task_runlevel'] = daemons.is_running(daemons.Service.RUNLEVEL)
-        data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
-        data['off'] = runlevels.REQUEST.off
-        data['override'] = runlevels.REQUEST.is_override
-        data['requested_level'] = int(runlevels.REQUEST.level)
-        await self._publish_message(packer.create_message(data, 'texus'),
-                                    'texus')
+            data['anyliftoff'] = runlevels.REQUEST.liftoff
+            data['anymicrog'] = runlevels.REQUEST.microg
+            data['is_task_runlevel'] = daemons.is_running(daemons.Service.RUNLEVEL)
+            data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
+            data['off'] = runlevels.REQUEST.off
+            data['override'] = runlevels.REQUEST.is_override
+            data['requested_level'] = int(runlevels.REQUEST.level)
+            await self._publish_message(packer.create_message(data, 'texus'),
+                                        'texus')
+        except Exception:
+            pass
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
