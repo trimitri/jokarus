@@ -38,7 +38,8 @@ class SerialWebsocket():
         n_bytes = len(bytestream)
         n_transmitted_bytes = self._serial.write(bytestream)
         if n_transmitted_bytes == n_bytes:
-            LOGGER.info("Transmitted Message: %s", logger.ellipsicate(message))
+            LOGGER.info("To RS232: %s", logger.ellipsicate(message))
+            LOGGER.debug("To RS232: %s", message)
         else:
             LOGGER.warning("Error transmitting Message.")
 
@@ -53,7 +54,8 @@ class SerialWebsocket():
                 if collector.n_pending() > 0:
                     messages = collector.harvest()
                     for msg in messages:
-                        LOGGER.info("Forwarding message: %s", logger.ellipsicate(msg))
+                        LOGGER.info("To WS: %s", logger.ellipsicate(msg))
+                        LOGGER.debug("To WS: %s", msg)
                         asyncio.ensure_future(self._ws_server.publish(msg))
             else:
                 await asyncio.sleep(0.1)  # OPTIMIZE: Do this elegantly.
@@ -65,7 +67,7 @@ async def launch():
     socket.start_server()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     asyncio.ensure_future(launch())
     LOOP = asyncio.get_event_loop()
     LOOP.run_forever()
