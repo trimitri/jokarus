@@ -167,6 +167,7 @@
         break;
       case 'texus':
         updateTexusFlags(message.data);
+        updateRunlevel(message.data.requested_level, message.data.reported_level);
         break;
       case 'aux_temps':
         Plotter.updateTemperatureMonitor(document.getElementById('temp_monitor'), message.data);
