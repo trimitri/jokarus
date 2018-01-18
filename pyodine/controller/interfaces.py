@@ -211,7 +211,7 @@ class Interfaces:
             await self._publish_message(packer.create_message(data, 'texus'),
                                         'texus')
         except Exception:
-            pass
+            LOGGER.exception("Failed to publish flags.")
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
