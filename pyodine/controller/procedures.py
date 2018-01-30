@@ -77,7 +77,7 @@ async def compensate_temp_drifts() -> None:
     """Keep the MO current in the center of its range of motion.
 
     NOTE: This will only work on an engaged lock.  It may thus fail if the lock
-    is relocking _just now_.
+    is relocking *just now*.
 
     :param loop: Event loop to use for scheduling.
     :raises LockError: Lock wasn't engaged initially.
