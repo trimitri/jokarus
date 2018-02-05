@@ -27,12 +27,12 @@ def create_message(payload: dict, msg_type: str) -> str:
 
 
 def is_valid_message(msg: str) -> bool:
-    return has_msg_suffix(msg) and has_msg_prefix(msg)
+    return _has_msg_suffix(msg) and _has_msg_prefix(msg)
 
 
-def has_msg_suffix(msg: str) -> bool:
+def _has_msg_suffix(msg: str) -> bool:
     return msg[-4:] == '}\n\n\n'
 
 
-def has_msg_prefix(msg: str) -> bool:
+def _has_msg_prefix(msg: str) -> bool:
     return msg[0] == '{'
