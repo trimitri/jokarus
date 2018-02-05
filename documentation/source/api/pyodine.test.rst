@@ -8,7 +8,6 @@ Submodules
 
    pyodine.test.asyncio_sanity
    pyodine.test.test_dds9_control
-   pyodine.test.test_mccdaq
    pyodine.test.websockets_sanity
 
 Module contents
