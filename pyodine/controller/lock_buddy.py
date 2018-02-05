@@ -7,7 +7,6 @@ from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union
 
 import numpy as np
 
-from . import feature_locator
 from .subsystems import Tuners as Ts
 from .. import constants as cs
 from ..constants import DopplerLine, LaserMhz, SpecMhz
@@ -61,25 +60,6 @@ class _RivalryError(LockError):
     """
     pass
 
-class Line(enum.Enum):
-    """A map of where in the spectrum to find the target transitions."""
-    # The first line's position depends on how much padding is added to the
-    # reference left of the first line. All positions are in MHz.
-    a_1 = 200.  # FIXME put real value here (see script)
-    a_2 = a_1 + 259.698
-    a_3 = a_1 + 285.511
-    a_4 = a_1 + 286.220
-    a_5 = a_1 + 311.366
-    a_6 = a_1 + 401.478
-    a_7 = a_1 + 416.994
-    a_8 = a_1 + 439.626
-    a_9 = a_1 + 455.343
-    a_10 = a_1 + 571.542
-    a_11 = a_1 + 698.055
-    a_12 = a_1 + 702.754
-    a_13 = a_1 + 726.030
-    a_14 = a_1 + 732.207
-    a_15 = a_1 + 857.954
 class LockStatus(enum.IntEnum):
     """Asessment of the current lock situation."""
     ON_LINE = 0
@@ -230,7 +210,6 @@ class LockBuddy:
         self.recent_signal = np.empty(0)  # The most recent signal acquired.
         self.range = 1.  # The range that was used for acquiring .recent_signal.
 
-        self._locator = feature_locator.FeatureLocator()
         self._lock = lock
         self._lockbox = lockbox  # type: Tuner
         self._locked = locked
