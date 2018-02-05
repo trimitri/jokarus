@@ -85,8 +85,9 @@ def trim_daq_scan(data: np.ndarray) -> np.ndarray:
     useless data at the beginning and end of the scan.  This data is trimmed
     off.
 
-    __Caution__: As opposed to common trimming, this procedure is not
-                idempotent!  Only call this once for a given data set.
+    .. CAUTION::
+        As opposed to common trimming, this procedure is not idempotent!  Only
+        call this once for a given data set.
 
     :raises ValueError: Data has an unexpected number of columns.  We expect
                 three or two columns (ramp amplitude, error signal, <log
@@ -122,13 +123,13 @@ def trim_daq_scan(data: np.ndarray) -> np.ndarray:
 def find_flank(series: np.ndarray, min_height: float, start: int = 0,
                reverse: bool = False, plunge_depth: float = 0.9,
                trigger_level: float = 0.9) -> int:
-    """Find the first flank that occurs after `start` and return its index.
+    """Find the first flank that occurs after ``start`` and return its index.
 
     :param series: The one-dimensional numpy array to search in.
     :param min_height: Don't consider anything less tall than this a flank.
     :param start: Start searching at this index.  Defaults to 0, thus it must
-                be specified when `reverse`ing.
-    :param reverse: Walk backwards from `start` in searching a flank.
+                be specified when ``reverse`` ing.
+    :param reverse: Walk backwards from ``start`` in searching a flank.
     :param plunge_depth: Only consider a maximum a maximum wenn we dropped at
                 least this much of the (local_max - local_min) distance
                 afterwards. This avoids finding spurious "maxima" in noise.

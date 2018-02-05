@@ -72,6 +72,7 @@ class TemperatureRamp:
 
     @property
     def temperature(self) -> float:
+        """Current actual object temperature."""
         return tools.safe_call(self._get_temp)
 
     def start_ramp(self) -> None:

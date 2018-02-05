@@ -1,4 +1,4 @@
-"""This module provides predefined sequences. Methods never throw exceptions.
+"""This module provides predefined sequences and actions.
 
 It includes power-on, reset and teardown procedures as well as running actual
 experiments, such as establishing and monitoring locks.

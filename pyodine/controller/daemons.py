@@ -1,4 +1,9 @@
-"""A registry of notable asyncio tasks."""
+"""A registry of notable asyncio tasks.
+
+When running a large program that spawns ``asyncio`` tasks here and there, it
+can come in handy to have a central location from where to manage and monitor
+them all.  This is an attempt at that central interface.
+"""
 
 import asyncio
 import enum

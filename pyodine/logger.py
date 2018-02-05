@@ -1,9 +1,10 @@
 """The pyodine logging system.
 
 Mainly consisting of
-- stderr (usually passed to systemd logging)
-- application debug log
-- logging of measurements
+
+  - stderr (usually passed to systemd logging)
+  - application debug log
+  - logging of measurements
 
 This acts like a singleton class. It does all the initialization on import and
 the module's methods will act on module-level ("static") variables.

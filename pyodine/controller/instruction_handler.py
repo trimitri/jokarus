@@ -2,7 +2,7 @@
 
 Security Policy
 ---------------
-As this class's `handle_instruction()` deals with externally fed commands, it
+As this class's ``handle_instruction()`` deals with externally fed commands, it
 must catch all possible errors itself and log and ignore the invalid
 instruction.
 """
@@ -28,7 +28,7 @@ LOGGER = logging.getLogger("pyodine.controller.instruction_handler")
 LOGGER.setLevel(logging.DEBUG)
 
 class TimerEffect(enum.IntEnum):
-    """Possible functions any given wire might be assigned to. """
+    """The internal meanings of the TEXUS timer wires."""
     BIT_O = texus_relay.TimerWire.TEX_1
     """The 2^0 digit of the 3-bit runlevel request mechanism."""
     BIT_1 = texus_relay.TimerWire.TEX_3
@@ -57,7 +57,7 @@ class InstructionHandler:
         _init_methods()
 
     async def handle_instruction(self, message: str) -> None:
-        """Extract an instruction from `message` and execute it."""
+        """Extract an instruction from ``message`` and execute it."""
         # Use a "meta" try to comply with class security policy. However, due
         # to the command whitelisting, we should not actually have to catch
         # anything out here.

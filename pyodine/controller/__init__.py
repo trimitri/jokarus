@@ -1,6 +1,5 @@
-"""This package contains the scripts that are actually executable.
+"""This module houses the main logic of the *pyodine* software.
 
-Controllers are the "C" part of the MVC paradigm.
+It contains central classes pulling the strings for all the other modules.
 """
-
 pass

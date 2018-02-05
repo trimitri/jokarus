@@ -6,4 +6,5 @@ The projects major part is written in Python and resides in its subfolder a.k.a.
 python package "pyodine".
 
 ## License ##
-This work was created at the Humboldt-Universität zu Berlin and is subject to the [Apache License 2.0](LICENSE)
+This work was created by Franz Gutsch at the Humboldt-Universität zu Berlin and
+is subject to the [Apache License 2.0](LICENSE)
