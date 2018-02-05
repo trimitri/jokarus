@@ -22,12 +22,6 @@ match valid?
 CONFIDENCE_THRESH = 0.6
 """How confident do we have to be to use and trust a match candidate? """
 
-BALANCE_AT = [.2, .8]
-"""To maintain a high tuning precision, the tuners are balanced from time to
-time. Those are the thresholds beyond which a tuner is regarded as imbalanced.
-It's an array [low, high] with 0 < low < high < 1.
-"""
-
 class LockError(RuntimeError):
     """Something went wrong in trying to achieve a lock."""
     pass
@@ -215,14 +209,9 @@ class LockBuddy:
         self._locked = locked
         self._loop = asyncio.get_event_loop()  # type: asyncio.AbstractEventLoop
         self._on_new_signal = on_new_signal
-        self._prelock_running = False  # The prelock algorithm is running.
         self._scanner = scanner  # type: Callable[[float], Awaitable[cs.SpecScan]]
         self._scanner_range = scanner_range
         self._unlock = unlock
-
-    @property
-    def prelock_running(self) -> bool:
-        return self._prelock_running
 
     async def acquire_signal(self, rel_range: float = None) -> cs.SpecScan:
         """Run one scan and store the result. Lock must be disengaged.
