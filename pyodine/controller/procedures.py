@@ -2,8 +2,6 @@
 
 It includes power-on, reset and teardown procedures as well as running actual
 experiments, such as establishing and monitoring locks.
-It is assured and imperative that no methods of this class do ever throw
-exceptions. A return status of type .ReturnState is provided to detect errors.
 """
 import asyncio
 import base64
@@ -54,10 +52,6 @@ class TecStatus(enum.IntEnum):
     OFF = 50
     """All TECs are off.  Object temps are unknown due to inferior hardware."""
 
-class ReturnState(enum.IntEnum):
-    SUCCESS = 0
-    FAIL = 1
-
 PrelockResult = NamedTuple('PrelockResult', [('time', float),
                                              ('signal', cs.DopplerLine)])
 """Information about a completed prelock run."""
@@ -76,8 +70,9 @@ class TecStatusError(RuntimeError):
 async def compensate_temp_drifts() -> None:
     """Keep the MO current in the center of its range of motion.
 
-    NOTE: This will only work on an engaged lock.  It may thus fail if the lock
-    is relocking *just now*.
+    .. NOTE::
+        This will only work on an engaged lock.  It may thus fail if the lock
+        is relocking *just now*.
 
     :param loop: Event loop to use for scheduling.
     :raises LockError: Lock wasn't engaged initially.
@@ -330,36 +325,6 @@ def init_locker() -> lock_buddy.LockBuddy:
         scanner_range=cs.LaserMhz(700),  # FIXME measure correct scaling coefficient.
         on_new_signal=on_new_signal)
     return GL.locker
-
-
-def initialize_rf_chain() -> ReturnState:
-    """Setup the RF sources for heterodyne detection.
-
-    This provides EOM, AOM and mixer with the correct driving signals.
-    """
-    try:
-        GL.subs.switch_rf_clock_source('external')
-        GL.subs.set_aom_amplitude(0.32)  # Don't produce high harmonics in amp.
-        GL.subs.set_aom_frequency(150)  # 150 MHz offset
-
-        # Choose the lowest possible RF amplifiert input amplitude that still
-        # leads to maximum RF power at output. If the input amplitude is set
-        # too high, there will be strong sidebands in output.
-        GL.subs.set_eom_amplitude(.4)
-
-        # This also sets the mixer frequency accordingly.
-        GL.subs.set_eom_frequency(0.300)
-
-        GL.subs.set_mixer_amplitude(1)
-        GL.subs.set_mixer_phase(0)
-
-    # By design of this class, no method may ever throw anything.
-    except Exception:  # pylint: disable=broad-except
-        LOGGER.exception("Initializing RF chain failed.")
-        return ReturnState.FAIL
-
-    LOGGER.info("Successfully initialized RF chain.")
-    return ReturnState.SUCCESS
 
 
 async def laser_power_up() -> None:
