@@ -1,4 +1,4 @@
-"""QueueingSerialServer is a subclass of serial_server.SerialServer."""
+"""``QueueingSerialServer`` is a subclass of ``serial_server.SerialServer``."""
 import asyncio
 import functools
 from typing import Any, Callable

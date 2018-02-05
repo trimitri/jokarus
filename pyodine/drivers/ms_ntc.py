@@ -13,7 +13,8 @@ def to_resistances(adc_readings: List[int]) -> List[float]:
     """
     Convert given ADC readings to resistance values.
 
-    Gives wrong results outside of [2kΩ, 30kΩ].
+    .. WARNING::
+        Gives wrong results outside of [2kΩ, 30kΩ].
 
     :param adc_readings: The readings as received from MCC DAQ device at 5V
                 gain setting.
@@ -30,7 +31,8 @@ def to_temperatures(adc_readings: List[int]) -> List[float]:
     """
     Convert given ADC readings to temperatures.
 
-    Gives wrong results outside of [2kΩ, 30kΩ].
+    .. WARNING::
+        Gives wrong results outside of [2kΩ, 30kΩ].
 
     :param adc_readings: The readings as received from MCC DAQ device at 5V
                 gain setting.

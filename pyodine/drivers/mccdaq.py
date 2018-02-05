@@ -14,7 +14,7 @@ MAX_AOUT_SAMPLES = 2560
 LOGGER = logging.getLogger('pyodine.drivers.mccdaq')
 
 class DaqChannel(IntEnum):
-    """The DAQ features 16 analog input in single-ended mode."""
+    """The DAQ features 16 analog input channels in single-ended mode."""
     C_0 = 0
     C_1 = 1
     C_2 = 2

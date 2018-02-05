@@ -18,16 +18,20 @@ MopaSpec = collections.namedtuple(
 The members obviously can't be set arbitrarily.  Choosing sensible settings is
 left to the informed user. All settings are in milliamps:
 
-`mo_max`: The MO current must never exceed this many mA.
-`mo_seed`: At this current, the MO lases enough to safely seed the PA.  The PA
-            may thus be used in its full range only as long as the MO runs
-            above this threshold.
-`pa_max`: The PA current must never exceed this many mA.
-`pa_transparency`: At this current, the PA is "transparent enough" (i.e. it
-            actually amplifies instead of absorbing) to receive the full MO
-            power.
-`pa_backfire`:  Below this current, ASE from the _unseeded_ PA is weak enough
-            to not damage any internal laser component whatsoever.
+`mo_max`
+    The MO current must never exceed this many mA.
+`mo_seed`
+    At this current, the MO lases enough to safely seed the PA.  The PA may
+    thus be used in its full range only as long as the MO runs above this
+    threshold.
+`pa_max`
+    The PA current must never exceed this many mA.
+`pa_transparency`
+    At this current, the PA is "transparent enough" (i.e. it actually amplifies
+    instead of absorbing) to receive the full MO power.
+`pa_backfire`
+    Below this current, ASE from the _unseeded_ PA is weak enough to not damage
+    any internal laser component whatsoever.
 """
 
 class LaserState(enum.IntEnum):

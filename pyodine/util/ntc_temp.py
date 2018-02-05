@@ -1,8 +1,7 @@
-"""ntc_temp.py provides a class NtcTemp that does NTC Ω to °C conversion.
+"""Provides a class NtcTemp that does NTC Ohms to °C conversion.
 
 This is a class as the conversion is somewhat stateful, depending on the a, b
 and c parameters of the Steinhart-Hart equation.
-
 """
 from math import log, sqrt, exp
 
@@ -12,12 +11,14 @@ class NtcTemp:
     Implements the Steinhart-Hart equation for NTC thermistors.
 
     Converts resistance to temperature (Kelvin) like:
-        1/T = a + b * ln(R) + c * (ln(R))^3
+
+    1/T = a + b * ln(R) + c * (ln(R))^3
 
     Converts temperature to resistance like:
-        R = exp( (y - x/2)^(1/3) - (y + x/2)^(1/3) )
-        x = 1/C * (a - 1/T)
-        y = sqrt( (b/(3*c))^3 + (x/2)^2)
+
+        * R = exp( (y - x/2)^(1/3) - (y + x/2)^(1/3) )
+        * x = 1/C * (a - 1/T)
+        * y = sqrt( (b/(3*c))^3 + (x/2)^2)
     """
 
     def __init__(self,

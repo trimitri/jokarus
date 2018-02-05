@@ -4,7 +4,7 @@ It is not to be run manually but will instead be found and invoked
 automatically by the Pytest test suite.
 Obviously, mosts tests require a working DDS9 device connected to a accessible
 serial port. However, some basic tests can also be run in "offline" mode, which
-can be enabled below ("is_dds9_connected").
+can be enabled below (``is_dds9_connected``).
 """
 import os
 import pytest

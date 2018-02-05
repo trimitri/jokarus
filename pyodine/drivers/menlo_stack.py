@@ -3,9 +3,10 @@
 This module provides an interface wrapper class for the websockets interface
 exposed by the Menlo Electronics control computer.
 
-SAFETY POLICY: This class silently assumes all passed arguments to be of
-correct type. The values are allowed to be wrong, but may lead to silent
-errors/ignores.
+Safety Policy
+-------------
+This class silently assumes all passed arguments to be of correct type. The
+values are allowed to be wrong, but may lead to silent errors/ignores.
 """
 import asyncio
 import enum

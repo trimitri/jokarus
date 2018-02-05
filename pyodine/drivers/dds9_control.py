@@ -3,15 +3,15 @@
 It contains two classes of which Dds9Control is the main class, providing a
 stateful controller for all basic capabilities of the DDS9m circuit board.
 To set up a connection to a DDS9 locally connected via serial connection
-"/dev/ttyFooBar" one could do as follows:
+"/dev/ttyFooBar" one could do as follows::
 
-import drivers.dds9_control
-dds = drivers.dds9_control.Dds9Control("/dev/ttyFooBar")
+    import drivers.dds9_control
+    dds = drivers.dds9_control.Dds9Control("/dev/ttyFooBar")
 
-<do stuff with dds, e.g.:>
-dds.set_frequency(150)  # sets freq. of all channels to 150MHz
+    # do stuff with dds, e.g.:
+    dds.set_frequency(150)  # sets freq. of all channels to 150MHz
 
-del(dds)  # close connection, device keeps running
+    del(dds)  # close connection, device keeps running
 """
 import copy
 import logging
@@ -101,8 +101,9 @@ class SetupParameters:
 class Dds9Control:
     """A stateful controller for the DDS9m frequency generator.
 
-    Caution: Setting this controller up on a running device may change some of
-    its parameters. See __init__ constructor below for details.
+    .. CAUTION::
+        Setting this controller up on a running device may change some of
+        its parameters. See ``__init__`` constructor below for details.
 
     Raises a ConnectionError when no working connection to the device could be
     set up. In this case it would be advisable to del() the instance (in order
