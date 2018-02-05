@@ -7,7 +7,6 @@ Submodules
 .. toctree::
 
    pyodine.controller.daemons
-   pyodine.controller.feature_locator
    pyodine.controller.instruction_handler
    pyodine.controller.interfaces
    pyodine.controller.lock_buddy

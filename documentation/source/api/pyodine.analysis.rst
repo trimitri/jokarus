@@ -6,6 +6,7 @@ Submodules
 
 .. toctree::
 
+   pyodine.analysis.feature_locator
    pyodine.analysis.measurement
    pyodine.analysis.signals
 
