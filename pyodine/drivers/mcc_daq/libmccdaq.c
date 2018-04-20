@@ -129,11 +129,18 @@ Error OpenConnection(void) {
     return kOSError;
   }
 
-  // Initialize USB connection.
-  if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
+  // Initialize USB connection.  There are 2 firmware versions of the board.
+  // See MCC for details.
+  if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_V2_PID, NULL))) {
+    printf("Success, found a USB 1608GX_2AO v2!\n");
+    usbInit_1608G(dev, 2);
+    return kSuccess;
+  } else if ((dev = usb_device_find_USB_MCC(USB1608GX_2AO_PID, NULL))) {
+    printf("Success, found a USB 1608GX_2AO v1!\n");
     usbInit_1608G(dev, 1);
     return kSuccess;
   } else {
+    printf("Failure, did not find a USB 1608G series device!\n");
     puts("Failure, did not find a USB 1608G series device!");
     return kConnectionError;
   }
