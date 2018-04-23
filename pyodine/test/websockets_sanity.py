@@ -4,7 +4,7 @@ import asyncio
 
 import websockets
 
-URL = 'ws://menlostack:8000'
+URL = 'ws://menlo_b:8000'
 SILENT_URL = 'ws://echo.websocket.org'
 
 

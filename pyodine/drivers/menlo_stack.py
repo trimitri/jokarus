@@ -22,7 +22,7 @@ from ..util import ntc_temp
 
 # Adjust as needed
 ROTATE_N = 128  # Keep log of received values smaller than this.
-DEFAULT_URL = 'ws://menlostack:8000'
+DEFAULT_URL = 'ws://menlo_b:8000'
 LOG_QUANTITIES = True  # Log quantities on disk as they are received.
 
 # Zero the average Peltier current measured over this time span.
