@@ -70,8 +70,17 @@ class MccDaq:
 
         -1 means wait forever.
         """
+        # As main methods of this class are blocking, they are likely to be
+        # executed in a threaded environment.  We thus need to provide a mutex
+        # lock for the device.
+        self._lock = threading.Lock()
+
         self._daq = ct.CDLL('pyodine/drivers/mcc_daq/libmccdaq.so')
-        state = self._daq.OpenConnection()
+        LOGGER.debug("Acquiring Lock for opening connection.")
+        with self._lock:
+            LOGGER.debug("Lock acquired.")
+            state = self._daq.OpenConnection()
+
         if state == 1:  # 'kConnectionError in error types enum in C'
             raise ConnectionError("Couldn't connect to DAQ.")
         if not state == 0:
@@ -79,10 +88,9 @@ class MccDaq:
                                   "to DAQ.")
         self._offset = 0.0  # Offset voltage the ramp centers around.
 
-        # As main methods of this class are blocking, they are likely to be
-        # executed in a threaded environment.  We thus need to provide a mutex
-        # lock for the device.
-        self._lock = threading.Lock()
+        LOGGER.debug("DAQ initialized.")
+        if not self.ping():
+            raise ConnectionError("Fresh DAQ reacts in an unexpected way.")
 
     @property
     def ramp_offset(self) -> float:
@@ -106,9 +114,12 @@ class MccDaq:
         :returns bool: Did we have to wait for the device longer than
                     `self.lock_timeout`?
         """
+        LOGGER.debug("Checking for busy-ness.")
         if self._lock.acquire(timeout=self.lock_timeout):
             self._lock.release()
+            LOGGER.debug("DAQ is free.")
             return False
+        LOGGER.debug("DAQ is occupied.")
         return True
 
     def fetch_scan(self, amplitude: float, time: float,
@@ -136,8 +147,6 @@ class MccDaq:
             raise ValueError("Passed time {} not in ]0, inf[.".format(time))
         if not isinstance(shape, RampShape):
             raise TypeError("Invalid ramp shape passed. Use provided enum.")
-        if self.is_too_busy:
-            raise BlockingIOError("DAQ is too busy to fetch a scan.")
         n_samples = MAX_AOUT_SAMPLES
 
         # Allocate some memory for the C library to save it's result in.
@@ -149,7 +158,11 @@ class MccDaq:
         # behaviour of the C code.
         chan = np.array([c[0] for c in channels], dtype='uint8')
         gain = np.array([c[1] for c in channels], dtype='uint8')
+        if self.is_too_busy:
+            raise BlockingIOError("DAQ is too busy to fetch a scan.")
+        LOGGER.debug("Acuiring lock for fetch_scan()...")
         with self._lock:
+            LOGGER.debug("Lock acquired.")
             ret = self._daq.FetchScan(
                 ct.c_double(float(self._offset)),
                 ct.c_double(amplitude),
@@ -175,9 +188,6 @@ class MccDaq:
         :raises BlockingIOError: The device is currently blocked.
         :raises ConnectionError: DAQ's playing tricks...
         """
-        if self.is_too_busy:
-            raise BlockingIOError("DAQ is too busy to sample channels.")
-
         # Allocate some memory for the C library to save it's result in.
         response = np.empty([n_samples, len(channels)], dtype=np.uint16)
 
@@ -187,7 +197,11 @@ class MccDaq:
         # C code.
         chan = np.array([c[0] for c in channels], dtype='uint8')
         gain = np.array([c[1] for c in channels], dtype='uint8')
+        if self.is_too_busy:
+            raise BlockingIOError("DAQ is too busy to sample channels.")
+        LOGGER.debug("Acuiring lock for sample_channels()...")
         with self._lock:
+            LOGGER.debug("Lock acquired.")
             ret = self._daq.SampleChannels(
                 ct.c_uint(n_samples),
                 ct.c_double(frequency),
@@ -202,9 +216,16 @@ class MccDaq:
 
     def ping(self) -> bool:
         """The DAQ talks to us and seems healthy."""
+        ping_result = None
         try:
+            LOGGER.debug("Acquiring lock for pinging...")
             with self._lock:
-                return self._daq.Ping() == 0
+                LOGGER.debug("Lock acquired.")
+                ping_result = self._daq.Ping()
         except:  # Who knows what it might raise... # pylint: disable=bare-except
-            LOGGER.exception("DAQ got sick.")
+            LOGGER.exception("Pinging the DAQ failed.")
+        if ping_result == 0:
+            LOGGER.debug("DAQ ping succeeded, DAQ healthy.")
+            return True
+        LOGGER.debug("DAQ is reported to be unhealthy. Ping() returned %s.", ping_result)
         return False
