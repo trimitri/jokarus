@@ -207,7 +207,10 @@ class Interfaces:
             data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
             data['off'] = runlevels.REQUEST.off
             data['override'] = runlevels.REQUEST.is_override
-            data['requested_level'] = int(runlevels.REQUEST.level)
+            if runlevels.REQUEST.level:
+                data['requested_level'] = int(runlevels.REQUEST.level)
+            else:
+                data['requested_level'] = None
             await self._publish_message(packer.create_message(data, 'texus'),
                                         'texus')
         except Exception:
