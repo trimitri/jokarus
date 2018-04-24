@@ -167,6 +167,7 @@ class Subsystems:
 
     def daq_alive(self) -> bool:
         """The DAQ is connected and healthy."""
+        LOGGER.debug("Checking DAQ health.")
         if self._daq and self._daq.ping():
             return True
         return False
@@ -475,7 +476,8 @@ class Subsystems:
         try:
             attempt = mccdaq.MccDaq(lock_timeout=cs.DAQ_ALLOWABLE_BLOCKING_TIME)
         except ConnectionError:
-            LOGGER.exception("Couldn't connect to DAQ.")
+            LOGGER.error("Couldn't reset DAQ, as the connection failed.")
+            LOGGER.debug("Reason:", exc_info=True)
         else:
             LOGGER.info("Successfully (re-)set DAQ.")
             self._daq = attempt
