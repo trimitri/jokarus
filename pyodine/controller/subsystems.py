@@ -340,7 +340,8 @@ class Subsystems:
         try:
             self._daq.ramp_offset = volts
         except ValueError:
-            LOGGER.exception("Couldn't set ramp offset.")
+            LOGGER.error("Couldn't set ramp offset.")
+            LOGGER.debug("Reason:", exc_info=True)
 
     def get_setup_parameters(self) -> Dict[str, Buffer]:
         """Return a dict of all setup parameters.
@@ -515,7 +516,8 @@ class Subsystems:
         try:
             await attempt.init_async()
         except ConnectionError:
-            LOGGER.exception("Couldn't connect to menlo stack.")
+            LOGGER.error("Couldn't connect to menlo stack.")
+            LOGGER.debug("Reason:", exc_info=True)
         else:
             LOGGER.info("Successfully reset Menlo stack.")
             self._menlo = attempt
@@ -557,7 +559,8 @@ class Subsystems:
             else:
                 LOGGER.error("No such laser diode.")
         except ValueError:
-            LOGGER.exception("Failed to set laser current.")
+            LOGGER.error("Failed to set laser current.")
+            LOGGER.debug("Reason:", exc_info=True)
         except ecdl_mopa.CallbackError as err:
             raise SubsystemError("Critical error in osc. sup. unit!") from err
         LOGGER.info("Set diode current of unit %s to %s mA", unit, milliamps)
@@ -591,7 +594,8 @@ class Subsystems:
         try:
             millivolts = float(millivolts)
         except (TypeError, ValueError):
-            LOGGER.exception("Please give a number for error signal offset.")
+            LOGGER.error("Please give a number for error signal offset.")
+            LOGGER.debug("Reason:", exc_info=True)
             return
         self._menlo.set_error_offset(LOCKBOX_ID, millivolts)
 
@@ -600,7 +604,8 @@ class Subsystems:
         try:
             factor = float(factor)
         except (TypeError, ValueError):
-            LOGGER.exception("Please give a number for scaling factor.")
+            LOGGER.error("Please give a number for scaling factor.")
+            LOGGER.debug("Reason:", exc_info=True)
             return
         self._menlo.set_error_scale(LOCKBOX_ID, factor)
 
@@ -654,7 +659,8 @@ class Subsystems:
         try:
             unit = TecUnit(unit)
         except (ValueError, TypeError):
-            LOGGER.exception("Invalid unit: %s.", unit)
+            LOGGER.error("Invalid unit: %s.", unit)
+            LOGGER.debug("Reason:", exc_info=True)
         else:
             if bypass_ramp:
                 LOGGER.debug("Setting TEC temp. of unit %s to %s°C directly.",
@@ -718,9 +724,11 @@ class Subsystems:
             else:
                 LOGGER.error('Can only set current for either "mo" or "pa".')
         except ValueError:
-            LOGGER.exception("Couldn't switch LD")
+            LOGGER.error("Couldn't switch LD")
+            LOGGER.debug("Reason:", exc_info=True)
         except ecdl_mopa.CallbackError:
-            LOGGER.exception("Critical error in osc. sup. unit!")
+            LOGGER.error("Critical error in osc. sup. unit!")
+            LOGGER.debug("Reason:", exc_info=True)
             raise SubsystemError("Critical error in osc. sup. unit!")
 
     def switch_lock(self, switch_on: bool) -> None:
@@ -747,7 +755,8 @@ class Subsystems:
         try:
             unit = TecUnit(unit)
         except (ValueError, TypeError):
-            LOGGER.exception("Invalid unit: %s.", unit)
+            LOGGER.error("Invalid unit: %s.", unit)
+            LOGGER.debug("Reason:", exc_info=True)
         if isinstance(switch_on, bool):
             self._menlo.switch_tec(unit, switch_on)
 
@@ -756,7 +765,8 @@ class Subsystems:
         try:
             unit = TecUnit(unit)
         except (ValueError, TypeError):
-            LOGGER.exception("TEC unit %s doesn't exist.", unit)
+            LOGGER.error("TEC unit %s doesn't exist.", unit)
+            LOGGER.debug("Reason:", exc_info=True)
         else:
             if enable:
                 self._temp_ramps[unit].start_ramp()
