@@ -14,13 +14,24 @@ import io
 import logging
 from logging.handlers import (BufferingHandler, MemoryHandler,
                               TimedRotatingFileHandler)
+import os
 import re
-from typing import Dict, Union  # pylint: disable=unused-import
+from typing import Dict, List, Union  # pylint: disable=unused-import
 
 from .util import asyncio_tools as tools
 
-PROGRAM_LOG_FNAME = 'log/messages/pyodine.log'  # Log program/debug messages here.
-QTY_LOG_FNAME = 'log/quantities/'  # Log readings ("quantities") here.
+PRIMARY_LOG_LOCATION = 'log/'
+"""The main log location. Must be writable or creatable.
+
+OSError will be raised if this isn't writeable or createable.
+"""
+SECONDARY_LOG_LOCATION = '/media/sdcard/pyodine_log/'
+"""The location of the redundant logs.
+
+If this isn't writeable or createable, a non-fatal Error will be displayed.
+"""
+PROGRAM_LOG_FNAME = 'messages/pyodine.log'  # Log program/debug messages here.
+QTY_LOG_DNAME = 'quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
@@ -35,6 +46,8 @@ _LOGGERS = {}  # type: Dict[str, logging.Logger]
 # pylint: disable=invalid-name
 _is_inited = False
 _is_flushing = False  # A task for flushing buffers to disk is running.
+_VALID_LOG_LOCATIONS = []  # type: List[str]
+"""List of writeable logging directories to use."""
 
 def get_last_line(file_name: str, max_line_length: int) -> bytes:
     """Return the last line of given newline-terminated file.
@@ -59,7 +72,10 @@ def get_last_line(file_name: str, max_line_length: int) -> bytes:
 
 
 def init() -> None:
-    """Call this on first import. Don't call it again later."""
+    """Call this on first import. Don't call it again later.
+
+    This sets up the default loggers and logging locations.
+    """
     global _is_inited
     if _is_inited:
         raise RuntimeError('This is a "singleton module". Only init() once.')
@@ -70,22 +86,31 @@ def init() -> None:
     root_logger.level = logging.DEBUG
     root_logger.name = 'pyodine'
 
-    # Log to file.
+    # Log to files in two separate locations.
 
+    _setup_log_dir(PRIMARY_LOG_LOCATION)  # Will raise if primary logging can't work.
+    _VALID_LOG_LOCATIONS.append(PRIMARY_LOG_LOCATION)
+    try:
+        _setup_log_dir(SECONDARY_LOG_LOCATION)
+    except OSError:
+        logging.error("Can't set up secondary log location!")
+    else:
+        _VALID_LOG_LOCATIONS.append(SECONDARY_LOG_LOCATION)
     # We need to specify 3600 seconds here instead of one hour, to force
     # detailed file name suffixes for manual log rotation.  This may lead to
     # problems if the program is started/stopped multiple times per second.
-    write_to_disk = TimedRotatingFileHandler(PROGRAM_LOG_FNAME, when='s',
-                                             interval=3600)
-    # Start a new file every time pyodine is run.
-    write_to_disk.doRollover()
-    write_to_disk.formatter = logging.Formatter(
-        "{asctime} {name} {levelname} - {message} [{module}.{funcName}]",
-        style='{')
+    writers = [TimedRotatingFileHandler(directory + PROGRAM_LOG_FNAME, when='s', interval=3600)
+               for directory in _VALID_LOG_LOCATIONS]
+    for writer in writers:
+        writer.doRollover()  # Start a new file every time pyodine is run.
+        writer.formatter = logging.Formatter(
+            "{asctime} {name} {levelname} - {message} [{module}.{funcName}]",
+            style='{')
 
-    buffer = MemoryHandler(200, target=write_to_disk)
+    buffers = [MemoryHandler(200, target=writer) for writer in writers]
 
-    root_logger.addHandler(buffer)
+    for log_buffer in buffers:
+        root_logger.addHandler(log_buffer)
 
     # Log to stderr.
 
@@ -172,8 +197,8 @@ def ellipsicate(message: str, max_length: int = 40, strip: bool = True) -> str:
 def _get_qty_logger(name: str) -> logging.Logger:
     name = str(name)
     if not name.isidentifier():
-        raise ValueError("Invalid log ID \"%s\". Only valid python "
-                         "identifiers are allowed for log IDs.", name)
+        raise ValueError("Invalid log ID \"{}\". Only valid python "
+                         "identifiers are allowed for log IDs.".format(name))
 
     logger_name = QTY_LOGGER_PREFIX + name
 
@@ -188,21 +213,38 @@ def _get_qty_logger(name: str) -> logging.Logger:
 
         # We need to specify 3600 seconds here instead of one hour, to force
         # detailed file name suffixes for manual log rotation.
-        file_handler = TimedRotatingFileHandler(
-            QTY_LOG_FNAME + str(name) + '.log', when='s', interval=3600)
-        file_handler.formatter = logging.Formatter("{asctime}\t{message}",
-                                                   style='{')
-        # Start a new file for each pyodine run.
-        file_handler.doRollover()
+        writers = [TimedRotatingFileHandler(directory + QTY_LOG_DNAME + str(name) + '.log',
+                                            when='s', interval=3600)
+                   for directory in _VALID_LOG_LOCATIONS]
+        for writer in writers:
+            writer.formatter = logging.Formatter("{asctime}\t{message}", style='{')
+            # Start a new file for each pyodine run.
+            writer.doRollover()
 
         # Buffer file writes to keep I/O down. We will flush the buffer at
         # given time intervals. If that flushing should fail, however, we'll
         # flush at 100 entries (which is about 4kB of data).
-        buffer = MemoryHandler(100, target=file_handler)
+        buffers = [MemoryHandler(100, target=writer) for writer in writers]
 
         logger = logging.getLogger(logger_name)
-        logger.addHandler(buffer)
+        for log_buffer in buffers:
+            logger.addHandler(log_buffer)
         logger.propagate = False  # Don't pass messages to root logger.
         _LOGGERS[logger_name] = logger
 
         return logger
+
+
+def _setup_log_dir(path: str) -> None:
+    """Check / prepare the passed folder to accept log files.
+
+    Needs to exist and be writable, basically.
+
+    :raises OSError: Didn't succeed.
+    """
+    try:
+        os.makedirs(path, exist_ok=True)
+    except PermissionError as err:
+        raise OSError("Couldn't create log location.") from err
+    if not os.access(path, os.W_OK):
+        raise OSError("Couldn't write log location.")
