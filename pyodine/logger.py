@@ -30,8 +30,9 @@ SECONDARY_LOG_LOCATION = '/media/sdcard/pyodine_log/'
 
 If this isn't writeable or createable, a non-fatal Error will be displayed.
 """
-PROGRAM_LOG_FNAME = 'messages/pyodine.log'  # Log program/debug messages here.
-QTY_LOG_DNAME = 'quantities/'  # Log readings ("quantities") here.
+PROGRAM_LOG_DIR = 'messages/'  # Log program/debug messages here.
+PROGRAM_LOG_FILE = 'pyodine.log'  # Log program/debug messages here.
+QTY_LOG_DIR = 'quantities/'  # Log readings ("quantities") here.
 # We need to avoid name clashes with existing loggers.
 QTY_LOGGER_PREFIX = 'qty_logger.'
 
@@ -99,7 +100,8 @@ def init() -> None:
     # We need to specify 3600 seconds here instead of one hour, to force
     # detailed file name suffixes for manual log rotation.  This may lead to
     # problems if the program is started/stopped multiple times per second.
-    writers = [TimedRotatingFileHandler(directory + PROGRAM_LOG_FNAME, when='s', interval=3600)
+    writers = [TimedRotatingFileHandler(directory + PROGRAM_LOG_DIR + PROGRAM_LOG_FILE,
+                                        when='s', interval=3600)
                for directory in _VALID_LOG_LOCATIONS]
     for writer in writers:
         writer.doRollover()  # Start a new file every time pyodine is run.
@@ -213,7 +215,7 @@ def _get_qty_logger(name: str) -> logging.Logger:
 
         # We need to specify 3600 seconds here instead of one hour, to force
         # detailed file name suffixes for manual log rotation.
-        writers = [TimedRotatingFileHandler(directory + QTY_LOG_DNAME + str(name) + '.log',
+        writers = [TimedRotatingFileHandler(directory + QTY_LOG_DIR + str(name) + '.log',
                                             when='s', interval=3600)
                    for directory in _VALID_LOG_LOCATIONS]
         for writer in writers:
@@ -242,9 +244,8 @@ def _setup_log_dir(path: str) -> None:
 
     :raises OSError: Didn't succeed.
     """
-    try:
-        os.makedirs(path, exist_ok=True)
-    except PermissionError as err:
-        raise OSError("Couldn't create log location.") from err
-    if not os.access(path, os.W_OK):
-        raise OSError("Couldn't write log location.")
+    log_dirs = [path + sub for sub in [PROGRAM_LOG_DIR, QTY_LOG_DIR]]
+    for directory in log_dirs:
+        os.makedirs(directory, exist_ok=True)  # Raises OSError
+        if not os.access(directory, os.W_OK):
+            raise OSError("Couldn't write log location {}.".format(directory))
