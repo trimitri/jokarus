@@ -120,6 +120,7 @@ def _init_methods() -> None:
     """We need to wait before all the globals have been initialized."""
     assert GL.subs
     _METHODS['engage_lock'] = partial(procedures.engage_lock, GL.subs)
+    _METHODS['reboot'] = procedures.reboot
     _METHODS['release_lock'] = partial(procedures.release_lock, GL.subs)
     _METHODS['set_aom_freq'] = lambda f: GL.subs.set_aom_frequency(float(f))
     _METHODS['set_eom_freq'] = lambda f: GL.subs.set_eom_frequency(float(f))
