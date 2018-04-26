@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Union  # pyli
 import numpy as np
 
 from .. import constants as cs
-from ..pyodine_globals import GLOBALS as GL
+from ..pyodine_globals import (GLOBALS as GL, REQUEST)
 from . import daemons, lock_buddy, runlevels, subsystems
 from ..transport.websocket_server import WebsocketServer
 from ..transport.queueing_serial_server import QueueingSerialServer
@@ -202,14 +202,14 @@ class Interfaces:
             data['is_undefined'] = is_undefined
             data['reported_level'] = last_good
 
-            data['anyliftoff'] = runlevels.REQUEST.liftoff
-            data['anymicrog'] = runlevels.REQUEST.microg
+            data['anyliftoff'] = REQUEST.liftoff
+            data['anymicrog'] = REQUEST.microg
             data['is_task_runlevel'] = daemons.is_running(daemons.Service.RUNLEVEL)
             data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
-            data['off'] = runlevels.REQUEST.off
-            data['override'] = runlevels.REQUEST.is_override
-            if runlevels.REQUEST.level:
-                data['requested_level'] = int(runlevels.REQUEST.level)
+            data['off'] = REQUEST.off
+            data['override'] = REQUEST.is_override
+            if REQUEST.level:
+                data['requested_level'] = int(REQUEST.level)
             else:
                 data['requested_level'] = None
             await self._publish_message(packer.create_message(data, 'texus'),

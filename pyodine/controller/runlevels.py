@@ -1,4 +1,8 @@
-"""This module encapsulates the pyodine system state into a runlevel scheme."""
+"""This module encapsulates the pyodine system state into a runlevel scheme.
+
+This somewhat mixes the model and controller into one module, what leads to
+some gnarly problems with circular imports...
+"""
 
 import asyncio
 import enum
@@ -9,29 +13,11 @@ from . import procedures as proc
 from . import daemons, subsystems
 from .lock_buddy import LockStatus
 from .. import constants as cs
-from ..pyodine_globals import GLOBALS as GL
+from ..pyodine_globals import (GLOBALS as GL, REQUEST, validate_request, is_shaky)
 from ..drivers.ecdl_mopa import LaserState
 from ..util import asyncio_tools as tools
 
 LOGGER = logging.getLogger('runlevels')  # type: logging.Logger
-
-
-class REQUEST:  # pylint: disable=too-few-public-methods
-    """Those control variables are set directly from other modules.
-
-    They even __need__ to be defined from other modules, as they're invalid on
-    import.
-    """
-    is_override = False
-    """Are the TEXUS timer commands overriden by manual control? """
-    level = None  # type: Runlevel
-    """Which runlevel should the system pursue?"""
-    liftoff = None  # type: bool
-    """Did the rocket lift off yet?"""
-    microg = None  # type: bool
-    """Did the lift off phase complete yet?"""
-    off = None  # type: bool
-    """Is an (emergency?) shutdown requested?"""
 
 
 class Runlevel(enum.IntEnum):
@@ -133,6 +119,7 @@ async def get_reported_level() -> Tuple[Runlevel, bool]:
     get_reported_level.last_level = current_level  # type: ignore
     return (current_level, False)
 
+
 async def pursue_ambient() -> None:
     """Kick-off changes that get the system closer to Runlevel.AMBIENT."""
     LOGGER.debug('Pursuing "AMBIENT" runlevel.')
@@ -214,8 +201,6 @@ async def pursue_runlevel() -> None:
     fails, the system will be unresponsive to TEXUS runlevel requests.
 
     :param level: The level to aspire to.
-    :returns: Is the system in the requested level right now?
-    :raises ValueError: Unknown runlevel.
     :raises Exception: This might raise close to anything.  Be sure to catch
                 it.  This would not usually be a good practice, but in this
                 case, a stable program is preferrable to a debuggable one.
@@ -243,6 +228,9 @@ async def pursue_runlevel() -> None:
         await pursue_ambient()
     elif level == Runlevel.HOT:
         await pursue_hot()
+    elif is_shaky():
+        LOGGER.debug("Won't pursue any runlevel higher than HOT in a shaky system.")
+        return
     elif level == Runlevel.PRELOCK:
         await pursue_prelock()
     elif level == Runlevel.LOCK:
@@ -278,7 +266,7 @@ async def start_runner() -> None:
 
     :raises RuntimerError: Globals weren't fully set.
     """
-    _validate_request()  # raises
+    validate_request()  # raises
     if daemons.is_running(daemons.Service.RUNLEVEL):
         LOGGER.info("Runlevel runner is already running. -.- ")
         return
@@ -312,10 +300,3 @@ async def _prelock_runner() -> None:
     # Repeat prelock process some seconds after it has completed.
     await tools.repeat_task(partial(proc.prelock, subsystems.Tuners.MO),
                             min_wait_time=cs.PRELOCK_REST_PERIOD)
-
-
-def _validate_request() -> None:
-    """Make sure all the globals are set.  They are not set on import."""
-    for setting in [REQUEST.liftoff, REQUEST.microg, REQUEST.off, REQUEST.level]:
-        if setting is None:
-            raise RuntimeError("`runlevels.py` doesn't know the system state.")
