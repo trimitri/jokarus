@@ -10,6 +10,7 @@ import numpy as np
 from .subsystems import Tuners as Ts
 from .. import constants as cs
 from ..constants import DopplerLine, LaserMhz, SpecMhz
+from ..pyodine_globals import is_shaky
 from ..util import asyncio_tools as tools
 from ..analysis import signals
 
@@ -450,11 +451,14 @@ class LockBuddy:
         if status != LockStatus.ON_LINE:
             raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
         while True:
-            status = await self.get_lock_status()
-            if status == LockStatus.ON_LINE:
-                await self.balance(Ts.MO, equilibrium=cs.LOCKBOX_BALANCE_POINT)
+            if is_shaky():
+                LOGGER.debug("Suppressing primary balancer, as system is shaky.")
             else:
-                break
+                status = await self.get_lock_status()
+                if status == LockStatus.ON_LINE:
+                    await self.balance(Ts.MO, equilibrium=cs.LOCKBOX_BALANCE_POINT)
+                else:
+                    break
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
         LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
 
