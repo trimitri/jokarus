@@ -13,7 +13,7 @@ from . import procedures as proc
 from . import daemons, subsystems
 from .lock_buddy import LockStatus
 from .. import constants as cs
-from ..pyodine_globals import (GLOBALS as GL, REQUEST, validate_request)
+from ..pyodine_globals import (GLOBALS as GL, REQUEST, validate_request, is_shaky)
 from ..drivers.ecdl_mopa import LaserState
 from ..util import asyncio_tools as tools
 
@@ -201,8 +201,6 @@ async def pursue_runlevel() -> None:
     fails, the system will be unresponsive to TEXUS runlevel requests.
 
     :param level: The level to aspire to.
-    :returns: Is the system in the requested level right now?
-    :raises ValueError: Unknown runlevel.
     :raises Exception: This might raise close to anything.  Be sure to catch
                 it.  This would not usually be a good practice, but in this
                 case, a stable program is preferrable to a debuggable one.
@@ -230,6 +228,9 @@ async def pursue_runlevel() -> None:
         await pursue_ambient()
     elif level == Runlevel.HOT:
         await pursue_hot()
+    elif is_shaky():
+        LOGGER.debug("Won't pursue any runlevel higher than HOT in a shaky system.")
+        return
     elif level == Runlevel.PRELOCK:
         await pursue_prelock()
     elif level == Runlevel.LOCK:
