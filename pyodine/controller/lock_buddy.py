@@ -333,6 +333,9 @@ class LockBuddy:
         step = step_size
         old_tuner_state = await tuner.get()
         while True:
+            if is_shaky():
+                LOGGER.warning("Aborting doppler search, as system is shaky.")
+                break
             try:
                 LOGGER.debug("Target is %s + %s = %s",
                              relative_position, step, relative_position + step)
