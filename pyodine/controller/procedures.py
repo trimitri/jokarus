@@ -410,6 +410,8 @@ async def prelock(prelock_tuner: lock_buddy.Tuner) -> PrelockResult:
         if abs(error) < cs.PRELOCK_TUNING_PRECISION:
             LOGGER.info("Took %s jumps to align dip.", attempt)
             break
+        if is_shaky():
+            raise lock_buddy.DriftError("Aborting prelock, as system is shaky.")
         await GL.locker.tune(error, prelock_tuner)
         dip = await GL.locker.doppler_sweep()
     else:
