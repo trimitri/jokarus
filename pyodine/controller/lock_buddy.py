@@ -483,9 +483,16 @@ class LockBuddy:
 
         while True:
             problem = await self.watchdog()
-            # This is where the loop can fail. As watchdog() will refuse to
-            # engage on a railed lock, this is how we get out if the lock is
-            # lost really bad (e.g. light is off).
+            # This is where the loop can fail. At this point, we assume the
+            # lock to be on line. As watchdog() will refuse to engage on a
+            # railed lock (raises), this is how we get out if the lock couldn't
+            # be recovered through re-locking.
+
+            if is_shaky():
+                # The lock was lost in a shaky system.  Kill the relocker now
+                # to avoid skidding onto a wrong HFS line.
+                LOGGER.debug("Killing relocker, as the system is shaky.")
+                return
 
             if problem == LockStatus.RAIL:
                 LOGGER.info("Lock was lost.  Relocking.")
