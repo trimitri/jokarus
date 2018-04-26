@@ -140,7 +140,6 @@ Error OpenConnection(void) {
     usbInit_1608G(dev, 1);
     return kSuccess;
   } else {
-    printf("Failure, did not find a USB 1608G series device!\n");
     puts("Failure, did not find a USB 1608G series device!");
     return kConnectionError;
   }
@@ -195,7 +194,7 @@ Error OutputSignal(uint16_t *samples, uint n_samples, double sample_rate) {
 int Ping() {
   char serial_number[9];
   usbGetSerialNumber_USB1608G(dev, serial_number);
-  if (strcmp(serial_number, "018D1960") == 0) {
+  if (strcmp(serial_number, "018D1960") == 0 || strcmp(serial_number, "01CDD083") == 0) {
     return 0;
   }
   return 1;
