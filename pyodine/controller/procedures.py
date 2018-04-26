@@ -18,6 +18,7 @@ from ..pyodine_globals import GLOBALS as GL
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools
+from ..drivers import host
 from ..drivers.ecdl_mopa import LaserState
 
 LOGGER = logging.getLogger('procedures')
@@ -440,6 +441,11 @@ async def pursue_tec_ambient() -> None:
         await _land_vhbg()
     else:
         await _set_to_ambient(subsystems.TecUnit.MIOB, ambient)
+
+
+def reboot() -> None:
+    """Reboot the host computer."""
+    host.reboot()
 
 
 async def release_lock() -> None:
