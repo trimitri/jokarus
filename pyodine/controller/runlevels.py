@@ -79,9 +79,14 @@ class Runlevel(enum.IntEnum):
     PRELOCK = 5  # 1 0 1
     """The correct spectral line was found; system is ready to lock."""
     LOCK = 6  # 0 1 1
-    """The system is locked on (the correct) HFS line."""
+    """The system is locked on (the correct) HFS line.
+
+    Relocker and first-order balancer are active."""
     BALANCED = 7  # 1 1 1
-    """The working point is aligned, tuners have maximum range of motion. """
+    """The working point is aligned, tuners have maximum range of motion.
+
+    In addition to level 6, the second-order balancer is active.
+    """
 
 
 async def get_level() -> Runlevel:

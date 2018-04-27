@@ -195,7 +195,8 @@ class Interfaces:
             try:
                 data = await self._texus.get_full_set()  # type: ignore
             except ConnectionError:
-                LOGGER.exception("Couldn't get raw flags. Just sending processed state.")
+                LOGGER.error("Couldn't get raw flags. Just sending processed state.")
+                LOGGER.debug("Reason:", exc_info=True)
 
             last_good, is_undefined = await runlevels.get_reported_level()
             data['is_undefined'] = is_undefined
@@ -207,11 +208,15 @@ class Interfaces:
             data['is_task_timer'] = daemons.is_running(daemons.Service.TEXUS_TIMER)
             data['off'] = runlevels.REQUEST.off
             data['override'] = runlevels.REQUEST.is_override
-            data['requested_level'] = int(runlevels.REQUEST.level)
+            if runlevels.REQUEST.level:
+                data['requested_level'] = int(runlevels.REQUEST.level)
+            else:
+                data['requested_level'] = None
             await self._publish_message(packer.create_message(data, 'texus'),
                                         'texus')
         except Exception:
-            LOGGER.exception("Failed to publish flags.")
+            LOGGER.error("Failed to publish flags.")
+            LOGGER.debug("Reason:", exc_info=True)
 
     async def publish_readings(self) -> None:
         """Publish recent readings as received from subsystem controller."""
