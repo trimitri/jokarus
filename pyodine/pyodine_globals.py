@@ -49,5 +49,5 @@ async def systems_online(timeout: float = cs.SYSTEMS_INIT_TIMOUT) -> None:
     if check():
         return
     await asyncio.wait_for(  # raises TimeoutError
-        tools.poll_resource(check, .5), timeout, loop=GLOBALS.loop)
+        tools.poll_resource(check, .5, name="all subsystems"), timeout, loop=GLOBALS.loop)
     LOGGER.info("Subsystems are now online.")
