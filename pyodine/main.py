@@ -25,10 +25,15 @@ async def main() -> None:
     LOGGER.info("Running Pyodine...")
 
     GL.subs = subsystems.Subsystems()
+    LOGGER.debug("Subsystems instantiated.")
     GL.locker = procedures.init_locker()
+    LOGGER.debug("Locker initialized.")
     GL.face = interfaces.Interfaces(start_ws_server=True, start_serial_server=True)
+    LOGGER.debug("Interfaces instantiated.")
     await GL.face.init_async()
+    LOGGER.debug("Interfaces initialized.")
     handler = instruction_handler.InstructionHandler()
+    LOGGER.debug("Instruction handler instantiated.")
     GL.face.register_on_receive_callback(handler.handle_instruction)
     GL.face.register_timer_handler(handler.handle_timer_command)
     await GL.face.start_publishing_regularly(
@@ -61,7 +66,7 @@ async def main() -> None:
 # recommended way of running this program (see above) is used.
 if __name__ == '__main__':
     logger.init()
-    LOGGER = logging.getLogger('pyodine.main')
+    LOGGER = logging.getLogger('main')
 
     LOOP = asyncio.get_event_loop()
     # event_loop.set_debug(True)
