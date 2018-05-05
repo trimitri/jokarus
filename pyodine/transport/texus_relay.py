@@ -143,7 +143,8 @@ class TexusRelay:
                                       self.tex3, self.tex4, self.tex5,
                                       self.tex6, self.microg]
             except Exception:  # likes to throw OSErrors...
-                LOGGER.exception("Couldn't get timer state. Returning old one.")
+                LOGGER.error("Couldn't get timer state. Returning old one.")
+                LOGGER.debug("Reason:", exc_info=True)
             return self._recent_state
 
         return await GL.loop.run_in_executor(None, get_state)
