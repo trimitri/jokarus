@@ -6,10 +6,12 @@
 #
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
 # / was on /dev/sda1 during installation
-UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /               btrfs   defaults,subvol=@      0       1
+UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /              btrfs   defaults,subvol=@              0       1
 # Alternate access point for backup, snapshots etc.
-UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /media/bsint    btrfs   defaults,subvolid=0    0       0
+UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /media/bsint   btrfs   defaults,subvolid=0            0       0
 # /home was on /dev/sda1 during installation
-UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /home           btrfs   defaults,subvol=@home  0       2
+UUID=68ca1546-abdc-496f-ae60-256d60a8b4c1 /home          btrfs   defaults,subvol=@home          0       2
 # swap was on /dev/sda2 during installation
-UUID=78f2e1a0-adae-4ccc-8454-0024bab20d73 none            swap    sw                     0       0
+UUID=78f2e1a0-adae-4ccc-8454-0024bab20d73 none           swap    sw                             0       0
+# The microSD card for redundant logging.
+/dev/mmcblk0p1                            /media/sdcard  vfat    rw,fmask=0000,dmask=0000,nofail 0       0
