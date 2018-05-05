@@ -207,7 +207,7 @@ PD_DO_PUBLISH = False
 PD_LOG_INTERVAL = 2.7
 """Interval [s] at which the auxiliary photodiode readings are acquired."""
 
-PRELOCK_DIP_DECIDING_DEPTH = (.397 + .231) / 2  # Measured in rev. 5c0ea6
+PRELOCK_DIP_DECIDING_DEPTH = (.3822 + .2351) / 2  # Measured at Esrange
 """A dip smaller than this is boldly taken for an indicator that we're on the
 R(56)32-0 transition.
 """
