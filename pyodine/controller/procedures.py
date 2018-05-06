@@ -14,7 +14,7 @@ from typing import Any, Dict, List, NamedTuple
 import aioconsole
 
 from . import lock_buddy, subsystems
-from ..pyodine_globals import GLOBALS as GL
+from ..pyodine_globals import (GLOBALS as GL, is_shaky)
 from .. import constants as cs
 from .. import logger
 from ..util import asyncio_tools as tools
@@ -79,6 +79,9 @@ async def compensate_temp_drifts() -> None:
     """
     async def balancer() -> None:
         """Balance now once, if necessary."""
+        if is_shaky():
+            LOGGER.debug("Suppressing second-order balancer, as system is shaky.")
+            return  # Don't balance when system is shaking.
         current = subsystems.Tuners.MO
         mo_imbalance = cs.SpecMhz(
             cs.LOCK_SFG_FACTOR * (await current.get() - 0.5) * current.scale)
@@ -406,6 +409,8 @@ async def prelock(prelock_tuner: lock_buddy.Tuner) -> PrelockResult:
         if abs(error) < cs.PRELOCK_TUNING_PRECISION:
             LOGGER.info("Took %s jumps to align dip.", attempt)
             break
+        if is_shaky():
+            raise lock_buddy.DriftError("Aborting prelock, as system is shaky.")
         await GL.locker.tune(error, prelock_tuner)
         dip = await GL.locker.doppler_sweep()
     else:

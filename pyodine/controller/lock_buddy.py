@@ -10,6 +10,7 @@ import numpy as np
 from .subsystems import Tuners as Ts
 from .. import constants as cs
 from ..constants import DopplerLine, LaserMhz, SpecMhz
+from ..pyodine_globals import is_shaky
 from ..util import asyncio_tools as tools
 from ..analysis import signals
 
@@ -332,6 +333,9 @@ class LockBuddy:
         step = step_size
         old_tuner_state = await tuner.get()
         while True:
+            if is_shaky():
+                LOGGER.warning("Aborting doppler search, as system is shaky.")
+                break
             try:
                 LOGGER.debug("Target is %s + %s = %s",
                              relative_position, step, relative_position + step)
@@ -450,11 +454,14 @@ class LockBuddy:
         if status != LockStatus.ON_LINE:
             raise RuntimeError("Lock is {}. Won't invoke balancer.".format(status))
         while True:
-            status = await self.get_lock_status()
-            if status == LockStatus.ON_LINE:
-                await self.balance(Ts.MO, equilibrium=cs.LOCKBOX_BALANCE_POINT)
+            if is_shaky():
+                LOGGER.debug("Suppressing primary balancer, as system is shaky.")
             else:
-                break
+                status = await self.get_lock_status()
+                if status == LockStatus.ON_LINE:
+                    await self.balance(Ts.MO, equilibrium=cs.LOCKBOX_BALANCE_POINT)
+                else:
+                    break
             await asyncio.sleep(cs.LOCKBOX_BALANCE_INTERVAL)
         LOGGER.warning("Lock balancer cancelled itself, as lock is %s.", status)
 
@@ -479,9 +486,16 @@ class LockBuddy:
 
         while True:
             problem = await self.watchdog()
-            # This is where the loop can fail. As watchdog() will refuse to
-            # engage on a railed lock, this is how we get out if the lock is
-            # lost really bad (e.g. light is off).
+            # This is where the loop can fail. At this point, we assume the
+            # lock to be on line. As watchdog() will refuse to engage on a
+            # railed lock (raises), this is how we get out if the lock couldn't
+            # be recovered through re-locking.
+
+            if is_shaky():
+                # The lock was lost in a shaky system.  Kill the relocker now
+                # to avoid skidding onto a wrong HFS line.
+                LOGGER.debug("Killing relocker, as the system is shaky.")
+                return
 
             if problem == LockStatus.RAIL:
                 LOGGER.info("Lock was lost.  Relocking.")
