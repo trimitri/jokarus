@@ -299,7 +299,6 @@ def init_locker() -> lock_buddy.LockBuddy:
         logger.log_quantity(
             'spectroscopy_signal', data_type + '\t' + shape + '\t' + values)
 
-
     def nu_locked() -> lock_buddy.LockboxState:
         """What state is the lockbox in?
 
@@ -453,6 +452,16 @@ async def release_lock() -> None:
     GL.subs.switch_integrator(1, False)
     GL.subs.switch_integrator(2, False)
     await asyncio.sleep(cs.MENLO_MINIMUM_WAIT)
+
+
+def set_defaults() -> None:
+    """Set some calibrated default values (e.g. Lockbox gain and offset).
+
+    This is not reliable prior to all subsytems being online.
+    """
+    # Set the default Lockbox gain and offset parameters.
+    GL.subs.set_error_scale(cs.LOCKBOX_DEFAULT_P_GAIN)
+    GL.subs.set_error_offset(cs.LOCKBOX_DEFAULT_OFFSET)
 
 
 async def tec_off() -> None:

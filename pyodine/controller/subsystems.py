@@ -590,7 +590,7 @@ class Subsystems:
             LOGGER.info("Set EOM frequency to %s MHz.", freq)
 
     def set_error_offset(self, millivolts: float) -> None:
-        """Set the scaling factor for error signal input to lockbox."""
+        """Offset to be added to error signal before feeding into lockbox."""
         try:
             millivolts = float(millivolts)
         except (TypeError, ValueError):

@@ -53,6 +53,8 @@ async def main() -> None:
                               'subsystems': subsystems,
                               'Tuners': subsystems.Tuners})
 
+    procedures.set_defaults()
+
     await tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
         lambda: LOGGER.debug("Event loop is healthy."))
