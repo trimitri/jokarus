@@ -94,10 +94,8 @@ class InstructionHandler:
             LOGGER.debug("Manual override active: ignoring TEXUS timer command.")
             return
 
-        REQUEST.liftoff = (timer_state[TimerEffect.LIFTOFF]
-                           or timer_state[TimerEffect.LO_TIMER])
-        REQUEST.microg = (timer_state[TimerEffect.THREEXS]
-                          or timer_state[TimerEffect.UG_TIMER])
+        REQUEST.liftoff = timer_state[TimerEffect.LIFTOFF]
+        REQUEST.microg = timer_state[TimerEffect.UG_TIMER]
         REQUEST.off = timer_state[TimerEffect.OFF]
         REQUEST.level = parse_runlevel(timer_state)
 
