@@ -19,17 +19,19 @@
 	</head>
 	<body>
 		<section class="header">
-			<h1>Pyodine Client</h1>
+			<h1>
+				<img class="logo" src="pyodine_logo_web.svg" />
+				&ensp;
+				Pyodine Client
+			</h1>
 			<div class="connection">
 				<p>
 					Pyodine server at
 					<span class="host">
 						<select name="host">
-							<option value="icarus.physik.hu-berlin.de" selected="selected">
-								icarus.physik.hu-berlin.de
-							</option>
+							<option value="icarus.physik.hu-berlin.de">icarus.physik.hu-berlin.de</option>
 							<option value="locarus">locarus</option>
-							<option value="localhost">localhost (for local relay)</option>
+							<option value="localhost" selected >localhost (for local relay)</option>
 							<option value="">custom IP ...</option>
 						</select><br/>
 						<input type="text" name="ip" placeholder="enter custom IP" style="display: none;" />
@@ -45,7 +47,7 @@
 			<div class="settings">
 				<p>
 				<label title="Try this if empty plots are shown.">
-					Ignore local clock <input id="use_server_clock" type="checkbox" />
+					Ignore local clock <input id="use_server_clock" type="checkbox" checked />
 				</label>
 				</p>
 				<p>
@@ -56,7 +58,7 @@
 				</p>
 				<p>
 				Plots show
-				<input id="display_time" type="number" value="120" min="20" max="1000" step="20"/>
+				<input id="display_time" type="number" value="180" min="20" max="1000" step="20"/>
 				seconds of data.
 				</p>
 			</div>

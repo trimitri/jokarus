@@ -11,6 +11,14 @@ section.header > div {
 	margin: 5px;
 	padding: 0 1em;
 }
+section.header > h1 {
+	font-family: "Noto Sans", sans-serif;
+	font-size: 35px;
+}
+section.header > h1 > img.logo {
+	vertical-align: middle;
+	height: 90px;
+}
 .flex_container {
 	display: flex;
 	flex-flow: row wrap;
