@@ -624,6 +624,7 @@ class MenloStack:
     def _send_command(self, node: int, service: int,
                       value: Union[MenloUnit, str]) -> None:
         message = str(node) + ':0:' + str(service) + ':' + str(value)
+        logger.log_quantity('menlo_request', message)
         asyncio.ensure_future(self._connection.send(message))
 
     def _store_reply(self, node: int, service: int, value: str) -> None:
