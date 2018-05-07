@@ -154,7 +154,17 @@
   //                       string)
   // @returns null
   function messageHandler(event) {
-    const message = JSON.parse(event.data);
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch (exception) {
+      if (exception instanceof SyntaxError) {
+        console.error("Invalid JSON received.");
+        console.log(exception);
+        return;
+      }
+      throw exception;
+    }
     switch (message.type) {
       case 'readings':
         parseReadings(message.data);
