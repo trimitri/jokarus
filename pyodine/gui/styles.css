@@ -41,6 +41,9 @@ div.layout_block {
 	padding: 0 1rem;
 	width: 70rem;
 }
+#tab_texus div.layout_block {
+	width: auto;
+}
 div.osc div.osc_plot,
 div.pii div.plot.pii,
 div.temps div.plot {
