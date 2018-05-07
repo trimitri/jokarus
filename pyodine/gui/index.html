@@ -18,43 +18,48 @@
 		<script src="fbg_util.js"></script>
 	</head>
 	<body>
-		<h1>Pyodine Client</h1>
 		<section class="header">
-			<p>
-				<input id="connect_btn" type="button" value="Connect" />
-				to Pyodine server from
-				<span class="host">
-					<select name="host">
-						<option value="icarus.physik.hu-berlin.de" selected="selected">
-							icarus.physik.hu-berlin.de
-						</option>
-						<option value="locarus">locarus</option>
-						<option value="localhost">localhost (for local relay)</option>
-						<option value="">custom IP ...</option>
-					</select><br/>
-					<input type="text" name="ip" placeholder="enter custom IP" style="display: none;" />
-				</span>
-				port <input id="ws_port" type="number" value="56320" />
-			</p>
-			<p class="connection_state">
-				<input id="disconnect_btn" type="button" value="Disconnect" />
-			</p>
-			<p>
+			<h1>Pyodine Client</h1>
+			<div class="connection">
+				<p>
+					Pyodine server at
+					<span class="host">
+						<select name="host">
+							<option value="icarus.physik.hu-berlin.de" selected="selected">
+								icarus.physik.hu-berlin.de
+							</option>
+							<option value="locarus">locarus</option>
+							<option value="localhost">localhost (for local relay)</option>
+							<option value="">custom IP ...</option>
+						</select><br/>
+						<input type="text" name="ip" placeholder="enter custom IP" style="display: none;" />
+					</span>
+				</p>
+				<p>Port <input id="ws_port" type="number" value="56320" /></p>
+				<p>
+					<input id="connect_btn" type="button" value="Connect" />
+					&emsp;
+					<input id="disconnect_btn" type="button" value="Disconnect" />
+				</p>
+			</div>
+			<div class="settings">
+				<p>
 				<label title="Try this if empty plots are shown.">
-					Use server clock instead of local clock <input id="use_server_clock" type="checkbox" />
+					Ignore local clock <input id="use_server_clock" type="checkbox" />
 				</label>
-			</p>
-			<p>
+				</p>
+				<p>
 				<label title="Use with caution, as a single click or keystroke may damage a component!">
 					Allow keeping controls unlocked
 					&ensp; <input id="allow_permanent_unlock" type="checkbox" />
 				</label>
-			</p>
-			<p>
+				</p>
+				<p>
 				Plots show
 				<input id="display_time" type="number" value="120" min="20" max="1000" step="20"/>
 				seconds of data.
-			</p>
+				</p>
+			</div>
 		</section>
 		<div class="tabs">
 			<ul>
