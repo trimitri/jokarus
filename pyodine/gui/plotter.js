@@ -27,7 +27,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
   static updatePlot(plotDiv, points) {
     const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
 
     if (!points.length) return;
 
@@ -45,10 +44,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
       Plotter.truncatePlotDataToSaveMemory(chart);
 
-      // if (age > displayTime) {
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      // }
-      chart.options.axisX.maximum = now;
+      Plotter._updatePlotLimits(now, chart);
       chart.render();
     } else {  // Create new plot.
       const chart = new CanvasJS.Chart(plotDiv, {
@@ -86,7 +82,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
       return;
     }
     const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
     const prefix = plotDiv.dataset.unitName;
     if (!prefix) return;
     const monitorVals = readingsObj[`${prefix}_monitor`].map(Plotter.convertToPlotPoint);
@@ -132,9 +127,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
       Plotter.truncatePlotDataToSaveMemory(chart);
 
-      // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      chart.options.axisX.maximum = now;
+      Plotter._updatePlotLimits(now, chart);
       chart.render();
     }
   }
@@ -156,7 +149,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
   static updateOscPlot(plotDiv, readingsObj) {
     const div = $(plotDiv);
-    const displayTime = document.getElementById('display_time').value;
     const fields = plotDiv.dataset;
     const hasCurrentDriver = 'current1' in fields && 'current1Set' in fields;
 
@@ -200,8 +192,7 @@ class Plotter {  // eslint-disable-line no-unused-vars
       Plotter.truncatePlotDataToSaveMemory(chart);
 
       // Render (visually update) plot.
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      chart.options.axisX.maximum = now;
+      this._updatePlotLimits(now, chart);
       chart.render();
     } else {  // Plot doesn't exist yet. Create it.
       const data = [];
@@ -426,13 +417,20 @@ class Plotter {  // eslint-disable-line no-unused-vars
       Array.prototype.push.apply(chart.options.data[6].dataPoints, newPoints.SHG);
 
       Plotter.truncatePlotDataToSaveMemory(chart);
-
-      // Render (visually update) plot.
-      const displayTime = document.getElementById('display_time').value;
-      chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-      chart.options.axisX.maximum = now;
+      Plotter._updatePlotLimits(now, chart);
       chart.render();
     }
+  }
+
+  static _updatePlotLimits(now, chart) {
+    if (!this._latestNow) {
+      this._latestNow = now;
+    } else if (now < this._latestNow) {
+      return;
+    }
+    const displayTime = document.getElementById('display_time').value;
+    chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
+    chart.options.axisX.maximum = now;
   }
 }
 
