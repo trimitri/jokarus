@@ -54,6 +54,7 @@ async def main() -> None:
                               'Tuners': subsystems.Tuners})
 
     procedures.set_defaults()
+    await runlevels.start_runner()
 
     await tools.watch_loop(
         lambda: LOGGER.warning("Event loop overload!"),
