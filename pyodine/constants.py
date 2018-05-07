@@ -97,7 +97,7 @@ MESSAGE_TYPES = ['readings', 'texus', 'setup', 'signal', 'aux_temps']
 are not in this list will be dropped and not published.
 """
 
-MIOB_TEMP_TUNING_RANGE = [24, 26]
+MIOB_TEMP_TUNING_RANGE = [24, 27]
 """Lowest and highest MiOB temperature available to the tuner.
 
 Based on arbitrary guesswork.  Due to the tight current limit on the VHBG TEC,
