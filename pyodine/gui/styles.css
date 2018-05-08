@@ -19,6 +19,9 @@ section.header > h1 > img.logo {
 	vertical-align: middle;
 	height: 90px;
 }
+section.header > img.hu_logo {
+	height: 140px;
+}
 .flex_container {
 	display: flex;
 	flex-flow: row wrap;
