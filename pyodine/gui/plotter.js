@@ -123,7 +123,8 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
       Plotter.truncatePlotDataToSaveMemory(chart);
 
-      Plotter._updatePlotLimits(monitorVals[0].x, chart);
+      const anyReading = monitorVals[0] || pMonitorVals[0] || null;
+      Plotter._updatePlotLimits(anyReading ? anyReading.x : null, chart);
       chart.render();
     }
   }
