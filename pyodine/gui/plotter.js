@@ -38,13 +38,12 @@ class Plotter {  // eslint-disable-line no-unused-vars
     };
 
     if (typeof div.data('chart') !== 'undefined') {  // Plot exists, update it.
-      const now = $('#use_server_clock:checked').length ? newPoint.x : new Date();
       const chart = div.data('chart');
       chart.options.data[0].dataPoints.push(newPoint);
 
       Plotter.truncatePlotDataToSaveMemory(chart);
 
-      Plotter._updatePlotLimits(now, chart);
+      Plotter._updatePlotLimits(newPoint.x, chart);
       chart.render();
     } else {  // Create new plot.
       const chart = new CanvasJS.Chart(plotDiv, {
@@ -118,16 +117,13 @@ class Plotter {  // eslint-disable-line no-unused-vars
       chart.render();
       $(plotDiv).data('chart', chart);
     } else {  // Update the existing plot.
-      const useRemoteTime =
-        $('#use_server_clock:checked').length && monitorVals.length;
-      const now = useRemoteTime ? monitorVals[0].x : new Date();
       const chart = div.data('chart');
       Array.prototype.push.apply(chart.options.data[0].dataPoints, monitorVals);
       Array.prototype.push.apply(chart.options.data[1].dataPoints, pMonitorVals);
 
       Plotter.truncatePlotDataToSaveMemory(chart);
 
-      Plotter._updatePlotLimits(now, chart);
+      Plotter._updatePlotLimits(monitorVals[0].x, chart);
       chart.render();
     }
   }
@@ -167,12 +163,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
 
     // Plot exists, update it.
     if (typeof (div.data('chart')) !== 'undefined') {
-      let now;
-      if ($('#use_server_clock:checked').length && temps.length) {
-        now = temps[0].x;
-      } else {
-        now = new Date();
-      }
       const chart = div.data('chart');
       Array.prototype.push.apply(chart.options.data[0].dataPoints, temps);
       Array.prototype.push.apply(chart.options.data[1].dataPoints, tempRawSetpoints);
@@ -192,7 +182,8 @@ class Plotter {  // eslint-disable-line no-unused-vars
       Plotter.truncatePlotDataToSaveMemory(chart);
 
       // Render (visually update) plot.
-      this._updatePlotLimits(now, chart);
+      const lastPoint = temps[0] || tempRawSetpoints[0] || tecCurrents[0];
+      this._updatePlotLimits(lastPoint ? lastPoint.x : null, chart);
       chart.render();
     } else {  // Plot doesn't exist yet. Create it.
       const data = [];
@@ -405,8 +396,6 @@ class Plotter {  // eslint-disable-line no-unused-vars
       chart.render();
       $(plotDiv).data('chart', chart);
     } else {  // Update the existing plot.
-      const useRemoteTime = $('#use_server_clock:checked').length;
-      const now = useRemoteTime ? dataTakenAt : new Date();
       const chart = div.data('chart');
       Array.prototype.push.apply(chart.options.data[0].dataPoints, newPoints.AOM_AMP);
       Array.prototype.push.apply(chart.options.data[1].dataPoints, newPoints.CELL);
@@ -417,20 +406,25 @@ class Plotter {  // eslint-disable-line no-unused-vars
       Array.prototype.push.apply(chart.options.data[6].dataPoints, newPoints.SHG);
 
       Plotter.truncatePlotDataToSaveMemory(chart);
-      Plotter._updatePlotLimits(now, chart);
+      Plotter._updatePlotLimits(dataTakenAt, chart);
       chart.render();
     }
   }
 
-  static _updatePlotLimits(now, chart) {
-    if (!this._latestNow) {
-      this._latestNow = now;
-    } else if (now < this._latestNow) {
-      return;
-    }
+  /* Update the plot x-axis limits given on data or system time.
+   *
+   * @param{Date object} timestamp: The time the latest data point was recorded
+   *                                at.
+   */
+  static _updatePlotLimits(timestamp, chart) {
+    const clockSyncError = parseFloat(document.getElementById('clock_sync_error').value);
+    const now = new Date((new Date()).getTime() + (clockSyncError * 1000));
+
+    const useServerClock = $('#use_server_clock:checked').length > 0;
+
+    const upperLimit = (useServerClock && timestamp) ? timestamp : now;
     const displayTime = document.getElementById('display_time').value;
-    chart.options.axisX.minimum = new Date(now - (displayTime * 1000));
-    chart.options.axisX.maximum = now;
+    chart.options.axisX.minimum = new Date(upperLimit - (displayTime * 1000));
+    chart.options.axisX.maximum = upperLimit;
   }
 }
-

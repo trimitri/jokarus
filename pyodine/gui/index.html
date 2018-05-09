@@ -51,6 +51,11 @@
 				</label>
 				</p>
 				<p>
+					<label title="Offset between server and client clock">
+						Clock offset <input type="number" id="clock_sync_error" value="0" step="1" />
+					</label>
+				</p>
+				<p>
 				<label title="Use with caution, as a single click or keystroke may damage a component!">
 					Allow keeping controls unlocked
 					&ensp; <input id="allow_permanent_unlock" type="checkbox" />
@@ -548,7 +553,7 @@
 				<div class="layout_block signal">
 					<p>
 						<label>
-							<input type="checkbox" id="plotVsRamp" />
+							<input type="checkbox" id="plotVsRamp" checked />
 							&ensp;Use ramp value as x axis.</label>
 					</p>
 					<div id="signalPlot" class="signal plot"></div>
