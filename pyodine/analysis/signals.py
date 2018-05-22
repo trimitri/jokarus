@@ -3,6 +3,7 @@
 import ast
 import base64
 import logging
+from typing import NamedTuple
 import numpy as np
 from scipy import signal
 
@@ -12,11 +13,15 @@ from .. import logger
 LOGGER = logging.getLogger('signals')
 
 
-def decode_daq_scan(log_file: str) -> np.ndarray:
+SpecScan = NamedTuple('SpecScan', [
+    ('ramp', np.ndarray), ('error', np.ndarray), ('trans', np.ndarray)])
+
+
+def decode_daq_scan(log_file: str) -> SpecScan:
     """Read the latest archived DAQ scan from the log file.
 
     :param log_file: Path to log file.
-    :returns: The raw data as initially read.
+    :returns: A SpecScan tuple read from the original data.
     """
     last_line = logger.get_last_line(log_file, max_line_length=cs.DAQ_MAX_SPEC_SCAN_BYTES)
     _, dtype, shape, base64_data = last_line.decode().strip().split('\t')
@@ -24,25 +29,24 @@ def decode_daq_scan(log_file: str) -> np.ndarray:
     assert isinstance(shape, tuple) and len(shape) == 2
     data = base64.b64decode(base64_data, validate=True)
     values = np.frombuffer(data, dtype=dtype).reshape(shape).transpose()
-    return values
+    return SpecScan(values[0], values[1], values[2])
 
 
-def format_daq_scan(data: np.ndarray) -> np.ndarray:
+def format_daq_scan(data: SpecScan) -> SpecScan:
     """Scale ramp value to be in MHz and sort data by ramp value.
 
     This procedure is not idempotent!  Only call this once on a given data set.
     """
-    assert len(data.shape) == 2 and data.shape[0] == 3
-    ramp = data[0]  # Ramp values are in ADC counts.
-    ramp = ramp / 2**16 * 20 - 10  # ramp values in volts
+    ramp = data.ramp / 2**16 * 20 - 10  # ramp values in volts
     ramp *= cs.LOCKBOX_MHz_mV * cs.LOCK_SFG_FACTOR * 1000  # ramp values in MHz
 
-    error = data[1] / 2**16 * 2 - 1
-    log = data[2] / 2**16 * 10 - 5
+    error = data.error / 2**16 * 2 - 1
+    trans = data.trans / 2**16 * 10 - 5
 
     # We only touched the ramp values, the rest gets returned as-is. The whole
     # scan is sorted by ramp value, however.
-    return np.array([ramp, error, log])[:, ramp.argsort()]
+    sorted_idx = ramp.argsort()
+    return SpecScan(ramp[sorted_idx], error[sorted_idx], trans[sorted_idx])
 
 
 def locate_doppler_line(data: np.ndarray,
@@ -78,46 +82,45 @@ def locate_doppler_line(data: np.ndarray,
     raise ValueError("Didn't find a dip.")
 
 
-def trim_daq_scan(data: np.ndarray) -> np.ndarray:
+def trim_daq_scan(scan: SpecScan, ignore_trans: bool = False) -> SpecScan:
     """Extract and return the reliable part of a full DAQ scan.
 
     As the DAQ uses a Z-shaped signal for ramp scanning, there is mostly
     useless data at the beginning and end of the scan.  This data is trimmed
     off.
 
+    :param ignore_trans: Choose trim factors that leave more data, even if it
+                means that the total transmission data contains distorted
+                regions.  Set to True if you're only interested in the error
+                signal.
+
     .. CAUTION::
         As opposed to common trimming, this procedure is not idempotent!  Only
         call this once for a given data set.
 
-    :raises ValueError: Data has an unexpected number of columns.  We expect
-                three or two columns (ramp amplitude, error signal, <log
-                port>).
     :returns: Array in which all columns are equally stripped from the useless
                 values at the start and end.
     """
-    try:  # Extract columns.
-        ramp, _, log = data
-    except ValueError:
-        ramp, _ = data
-        log = None
 
     # Due to the nature of the hack around the DAQ asynchronicity, time (read:
     # sample index) is an unsafe base to rely calculations on.  We use the
     # amplitude of the loopback-ed ramp instead.
     # First, we extract the full ramp from the data.
-    start = find_flank(ramp, cs.DAQ_MIN_RAMP_AMPLITUDE)
-    stop = find_flank(-ramp, cs.DAQ_MIN_RAMP_AMPLITUDE,
-                      start=len(ramp) - 1, reverse=True)
+    start = find_flank(scan.ramp, cs.DAQ_MIN_RAMP_AMPLITUDE)
+    stop = find_flank(-scan.ramp, cs.DAQ_MIN_RAMP_AMPLITUDE,
+                      start=len(scan.ramp) - 1, reverse=True)
     span = stop - start
 
     # Then we further trim off values that _are_ actual readings but that we
-    # believe to be unreliable.
-    shave_marks = (cs.DAQ_ERR_RAMP_TRIM_FACTORS if log is None
+    # believe to be unreliable.  This is due to some apparent DAQ readout
+    # dynamics that we haven't analyzed any further.
+    shave_marks = (cs.DAQ_ERR_RAMP_TRIM_FACTORS if ignore_trans
                    else cs.DAQ_LOG_RAMP_TRIM_FACTORS)
     lower = int(start + (shave_marks[1] * span))
     upper = int(stop - (shave_marks[0] * span))
 
-    return data[:, lower:upper]
+    return SpecScan(scan.ramp[lower:upper], scan.error[lower:upper],
+                    scan.trans[lower:upper])
 
 
 def find_flank(series: np.ndarray, min_height: float, start: int = 0,
