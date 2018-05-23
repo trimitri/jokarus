@@ -331,11 +331,11 @@ class MenloStack:
 
     def get_temperature(self, unit: Union[int, OscCard], since: Time = None) -> Buffer:
         """Buffer of temp. readings in °C of given unit since `since`."""
-        return [(time, self.to_temperature(int(val)))
+        return [(time, self._to_temperature(int(val)))
                 for (time, val) in self._get_osc_prop(unit, 272, since)]
 
     def get_temp_setpoint(self, unit: Union[int, OscCard]) -> Buffer:
-        return [(time, self.to_temperature(int(val), is_setpoint=True))
+        return [(time, self._to_temperature(int(val), is_setpoint=True))
                 for (time, val) in self._get_osc_prop(unit, 256)]
 
     def get_temp_rth(self, unit_number: int, since: Time = None) -> Buffer:
@@ -568,11 +568,6 @@ class MenloStack:
         """The error signal input stage offset compensation in percent."""
         return self._get_pii_prop(unit, 256)
 
-    def to_temperature(self, counts: int, is_setpoint: bool = False) -> float:
-        """Take a menlo DAC reading and convert it to ° Celsius."""
-        ohms = self._to_ntc_resistance(counts, is_setpoint)
-        return self._standard_ntc.to_temp(ohms)
-
     ###################
     # Private Methods #
     ###################
@@ -797,6 +792,12 @@ class MenloStack:
         if counts < 0 or counts > 2**16 - 4:
             raise ValueError("NTC resistance out of DAC range.")
         return counts
+
+    def _to_temperature(self, counts: int, is_setpoint: bool = False) -> float:
+        """Take a menlo DAC reading and convert it to ° Celsius.
+        """
+        ohms = self._to_ntc_resistance(counts, is_setpoint)
+        return self._standard_ntc.to_temp(ohms)
 
     @staticmethod
     def _get_osc_node_id(unit: Union[int, OscCard]) -> int:
