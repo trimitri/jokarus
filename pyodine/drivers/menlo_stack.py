@@ -150,7 +150,7 @@ Time = float  # Unix timestamp, as returned by time.time()
 # pylint: enable=invalid-name,unsubscriptable-object
 
 
-class _Cal:  # This won't be instanciated. # pylint: disable=too-few-public-methods
+class Calibration:  # This won't be instanciated. # pylint: disable=too-few-public-methods
     """Static Menlo stack calibration data."""
     # Using linear fits on data acquired in a calibration run, we may improve the
     # current driver accuracy. Data is on JOKARUS share.
@@ -353,7 +353,7 @@ class MenloStack:
         """
         raw = self._get_osc_prop(unit, 275, since)
         try:  # Use calibration.
-            return [(time, _Cal.LD_CURRENT_GETTER[OscCard(unit)](val))
+            return [(time, Calibration.LD_CURRENT_GETTER[OscCard(unit)](val))
                     for (time, val) in raw]
         except (KeyError, ValueError):  # No calibration present.
             return raw
@@ -363,7 +363,7 @@ class MenloStack:
         """The currently set current setpoint of given card."""
         raw = self._get_osc_prop(unit, 257, since)
         try:  # Use calibration.
-            return [(time, _Cal.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
+            return [(time, Calibration.LD_CURRENT_SETPOINT_GETTER[OscCard(unit)](val / 8.))
                     for (time, val) in raw]
         except (KeyError, ValueError):  # No calibration present.
             return [(time, val / 8.) for (time, val) in raw]
@@ -401,8 +401,8 @@ class MenloStack:
         """Set the current driver setpoint to the given value in mA.
         """
         # Apply calibration data if present.
-        if unit in _Cal.LD_CURRENT_SETTER:
-            milliamps = _Cal.LD_CURRENT_SETTER[OscCard(unit)](milliamps)
+        if unit in Calibration.LD_CURRENT_SETTER:
+            milliamps = Calibration.LD_CURRENT_SETTER[OscCard(unit)](milliamps)
 
         # Enforce argument types.
         try:
