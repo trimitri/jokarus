@@ -7,8 +7,8 @@ from typing import NamedTuple
 import numpy as np
 from scipy import signal
 
+from . import logs
 from .. import constants as cs
-from .. import logger
 
 LOGGER = logging.getLogger('signals')
 
@@ -17,14 +17,17 @@ SpecScan = NamedTuple('SpecScan', [
     ('ramp', np.ndarray), ('error', np.ndarray), ('trans', np.ndarray)])
 
 
-def decode_daq_scan(log_file: str) -> SpecScan:
+def decode_daq_scan(log_file: str, row: int = None) -> SpecScan:
     """Read the latest archived DAQ scan from the log file.
 
     :param log_file: Path to log file.
+    :param row: Which line of the input file to use? Starts at 1!
     :returns: A SpecScan tuple read from the original data.
     """
-    last_line = logger.get_last_line(log_file, max_line_length=cs.DAQ_MAX_SPEC_SCAN_BYTES)
-    _, dtype, shape, base64_data = last_line.decode().strip().split('\t')
+    line = (logs.get_last_line(log_file) if row is None
+            else logs.get_nth_line(log_file, row))
+
+    _, dtype, shape, base64_data = line.strip().split('\t')
     shape = ast.literal_eval(shape)
     assert isinstance(shape, tuple) and len(shape) == 2
     data = base64.b64decode(base64_data, validate=True)

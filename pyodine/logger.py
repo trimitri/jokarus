@@ -10,7 +10,6 @@ This acts like a singleton class. It does all the initialization on import and
 the module's methods will act on module-level ("static") variables.
 """
 import asyncio
-import io
 import logging
 from logging.handlers import (BufferingHandler, MemoryHandler,
                               TimedRotatingFileHandler)
@@ -49,28 +48,6 @@ _is_inited = False
 _is_flushing = False  # A task for flushing buffers to disk is running.
 _VALID_LOG_LOCATIONS = []  # type: List[str]
 """List of writeable logging directories to use."""
-
-def get_last_line(file_name: str, max_line_length: int) -> bytes:
-    """Return the last line of given newline-terminated file.
-
-    Relies on readlines() to determine line boundaries.
-
-    :param file_name: Path to file for `open()`
-    :param max_line_length: The lines expected must not be longer than this
-                many bytes.
-    :raises IndexError: No lines could be read at all.
-    """
-    with open(file_name, mode='rb') as handle:
-        try:
-            handle.seek(-2 * int(max_line_length) - 1, io.SEEK_END)
-        except OSError:
-            logging.debug("File is shorter than max_line_length.")
-        last_lines = handle.readlines()
-        if len(last_lines) < 2:
-            logging.warning("Could not get more than one line. "
-                            "Line integrity is not guaranteed.")
-        return last_lines[-1]
-
 
 def init() -> None:
     """Call this on first import. Don't call it again later.
