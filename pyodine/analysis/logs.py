@@ -58,7 +58,13 @@ def get_nth_line(file_name: str, line_no: int) -> str:
 
 def parse_qty_log(file_name: str) -> pd.Series:
     """Parse a pyodine log file into a Pandas object."""
-    data = pd.read_table(
-        file_name, header=None, index_col=0, names=['time', 'value'],
-        squeeze=True, parse_dates=True)  # type: pd.Series
+    try:
+        data = pd.read_table(
+            file_name, header=None, index_col=0, names=['time', 'value'],
+            squeeze=True, parse_dates=True)  # type: pd.Series
+    except IndexError:
+        # Names like above can only be assigned only if it the quantity is a
+        # scalar value.
+        data = pd.read_table(file_name, header=None, index_col=0, squeeze=True,
+                             parse_dates=True)
     return data
